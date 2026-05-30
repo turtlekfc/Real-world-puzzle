@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐚 解謎活動 — 管理者後台</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Fredoka+One&display=swap');
+:root{
+  --primary:#1a6fa3;--primary-dark:#0d4f7a;--primary-light:#2a9fd6;--primary-pale:#e0f2fb;
+  --sand:#f5c87a;--coral:#f07050;--green:#3db87a;--green-pale:#eaf7ee;
+  --yellow:#f5c842;--purple:#7c5cbf;--red:#e05050;
+  --bg:#f0f6fa;--text:#1a3a5c;--text-light:#5a8aaa;--border:#cde7f5;
+  --radius:14px;--shadow:0 2px 16px rgba(26,111,163,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text)}
+
+/* LOGIN */
+#loginPage{min-height:100vh;background:linear-gradient(160deg,var(--primary-dark) 0%,var(--primary) 60%,var(--primary-light) 100%);display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{background:white;border-radius:24px;padding:40px 32px;max-width:400px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.25);text-align:center}
+.login-card h1{font-family:'Fredoka One',cursive;font-size:28px;color:var(--primary);margin-bottom:4px}
+.login-card p{font-size:13px;color:var(--text-light);margin-bottom:32px}
+.login-logo{font-size:64px;margin-bottom:16px}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px;background:white;border:2px solid #e0e0e0;border-radius:12px;font-size:15px;font-weight:600;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all 0.2s;color:#333}
+.btn-google:hover{background:#f8f8f8;border-color:#ccc;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.btn-google img{width:22px;height:22px}
+.login-err{color:var(--coral);font-size:13px;margin-top:12px;min-height:20px;line-height:1.5}
+.login-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text-light);font-size:12px}
+.login-divider::before,.login-divider::after{content:'';flex:1;border-top:1px solid #eee}
+
+/* LAYOUT */
+#adminPage{display:none;min-height:100vh}
+.sidebar{width:230px;background:var(--primary-dark);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:10}
+.sidebar-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1);text-align:center}
+.sidebar-logo h2{font-family:'Fredoka One',cursive;font-size:17px;color:white;line-height:1.4}
+.sidebar-logo span{font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px}
+.user-info{padding:10px 14px;background:rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;overflow:hidden}
+.user-avatar img{width:100%;height:100%;object-fit:cover}
+.user-detail{flex:1;min-width:0}
+.user-name{font-size:12px;color:white;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role{font-size:10px;color:rgba(255,255,255,0.5)}
+.role-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:4px}
+.role-super{background:rgba(245,200,66,0.3);color:#f5c842}
+.role-host{background:rgba(42,159,214,0.3);color:#7dd4f8}
+.role-staff{background:rgba(61,184,122,0.3);color:#6ee89a}
+.activity-status{margin:8px 12px;padding:5px 12px;border-radius:8px;font-size:11px;text-align:center;font-weight:600}
+.activity-status.open{background:rgba(61,184,122,0.2);color:#6ee89a;border:1px solid rgba(61,184,122,0.3)}
+.activity-status.closed{background:rgba(240,112,80,0.2);color:#f09070;border:1px solid rgba(240,112,80,0.3)}
+.activity-status.paused{background:rgba(245,200,66,0.2);color:#f5c842;border:1px solid rgba(245,200,66,0.3)}
+.nav-group-label{padding:10px 20px 4px;font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:1px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;color:rgba(255,255,255,0.6);cursor:pointer;font-size:13px;transition:all 0.15s;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:white}
+.nav-item.active{background:rgba(255,255,255,0.12);color:white;border-left-color:var(--sand)}
+.nav-item.disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
+.nav-icon{font-size:16px;flex-shrink:0}
+.sidebar-bottom{margin-top:auto;padding:12px;border-top:1px solid rgba(255,255,255,0.08)}
+
+/* MAIN */
+.main{margin-left:230px;padding:22px 28px;min-height:100vh}
+.page-header{margin-bottom:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.page-header-left h1{font-size:20px;font-weight:700}
+.page-header-left p{font-size:12px;color:var(--text-light);margin-top:3px}
+.tab-content{display:none}.tab-content.active{display:block}
+
+/* COMMON */
+.field,.form-group{margin-bottom:14px}
+.field label,.form-group label{display:block;font-size:12px;font-weight:500;color:var(--text-light);margin-bottom:5px}
+input[type="text"],input[type="password"],input[type="number"],input[type="email"],input[type="color"],select,textarea{width:100%;padding:10px 13px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:'Noto Sans TC',sans-serif;color:var(--text);outline:none;transition:border-color 0.2s;resize:vertical;background:white}
+input:focus,select:focus,textarea:focus{border-color:var(--primary-light)}
+input[type="color"]{padding:4px;height:38px;cursor:pointer}
+.btn{padding:9px 16px;border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(0.97)}
+.btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+.btn-primary{background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;box-shadow:0 3px 10px rgba(26,111,163,0.25)}
+.btn-danger{background:var(--coral);color:white}
+.btn-success{background:var(--green);color:white}
+.btn-ghost{background:var(--primary-pale);color:var(--primary)}
+.btn-warn{background:var(--yellow);color:#7a5a00}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-block{width:100%;justify-content:center}
+.card{background:white;border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow);margin-bottom:14px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap}
+.card-title{font-size:14px;font-weight:700}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.divider{border:none;border-top:1px solid #eee;margin:14px 0}
+.hidden{display:none!important}
+.flex{display:flex}.items-center{align-items:center}.gap-8{gap:8px}.gap-12{gap:12px}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}
+.text-sm{font-size:12px}.text-muted{color:var(--text-light)}
+.gps-hint{font-size:11px;color:var(--text-light);margin-top:5px;line-height:1.6}
+.spinner{width:18px;height:18px;border:3px solid var(--primary-pale);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a3a5c;color:white;padding:9px 20px;border-radius:20px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);animation:fadeUp 0.3s ease;white-space:nowrap}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}}
+
+/* MONITOR */
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+.team-card{background:white;border-radius:12px;padding:14px;box-shadow:var(--shadow);border-top:4px solid var(--primary)}
+.team-card .t-name{font-size:13px;font-weight:700;margin-bottom:3px}
+.team-card .t-status{font-size:11px;color:var(--text-light);margin-bottom:9px}
+.team-card .t-status.playing{color:var(--green);font-weight:600}
+.team-card .t-status.finished{color:var(--primary);font-weight:600}
+.progress-track{background:#eee;border-radius:99px;height:7px;margin-bottom:5px;overflow:hidden}
+.progress-fill{height:100%;border-radius:99px;background:var(--primary-light);transition:width 0.5s}
+.t-detail{display:flex;justify-content:space-between;font-size:10px;color:var(--text-light)}
+.activity-control{display:flex;gap:8px;align-items:center;padding:12px 16px;background:white;border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px;flex-wrap:wrap}
+.status-dot{width:9px;height:9px;border-radius:50%;background:#ccc;flex-shrink:0}
+.status-dot.open{background:var(--green);animation:pulse 1.5s infinite}
+.status-dot.paused{background:var(--yellow)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;margin-bottom:14px}
+.stat-card{background:white;border-radius:12px;padding:14px;box-shadow:var(--shadow);text-align:center}
+.stat-val{font-size:26px;font-weight:700;color:var(--primary)}
+.stat-lbl{font-size:11px;color:var(--text-light);margin-top:3px}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--primary-pale);color:var(--primary);font-weight:600;padding:9px 11px;text-align:left;white-space:nowrap}
+td{padding:9px 11px;border-bottom:1px solid #f0f5f9;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fcff}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-playing{background:var(--green-pale);color:#1a7a40}
+.badge-finished{background:var(--primary-pale);color:var(--primary)}
+.badge-waiting{background:#f5f5f5;color:#999}
+
+/* STAGES */
+.stage-list{display:flex;flex-direction:column;gap:10px}
+.stage-item{background:white;border-radius:12px;padding:15px 18px;box-shadow:var(--shadow);border-left:4px solid var(--primary-light)}
+.stage-item-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.stage-num{width:28px;height:28px;border-radius:50%;background:var(--primary-pale);color:var(--primary);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stage-name{font-size:14px;font-weight:700;flex:1}
+.stage-meta{display:flex;gap:12px;font-size:11px;color:var(--text-light);flex-wrap:wrap}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-box{background:white;border-radius:18px;padding:24px;width:100%;max-width:580px;box-shadow:0 16px 48px rgba(0,0,0,0.3);margin:auto}
+.modal-box h2{font-size:17px;font-weight:700;margin-bottom:18px}
+.option-inputs{display:flex;flex-direction:column;gap:7px}
+.option-input-row{display:flex;align-items:center;gap:8px}
+.opt-badge{width:26px;height:26px;border-radius:50%;background:var(--primary-pale);color:var(--primary);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hint-inputs{display:flex;flex-direction:column;gap:6px}
+.hint-row{display:flex;align-items:center;gap:8px}
+.hint-num{font-size:11px;color:var(--text-light);width:40px;flex-shrink:0}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.img-upload-area{border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:background 0.2s}
+.img-upload-area:hover{background:var(--primary-pale)}
+
+/* PHOTOS */
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;transition:transform 0.2s}
+.photo-thumb:hover img{transform:scale(1.05)}
+.photo-info-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:white;font-size:9px;padding:3px 5px}
+
+/* SETTINGS */
+.settings-section-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--primary-pale)}
+.team-settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.team-setting-card{background:white;border-radius:12px;padding:14px;box-shadow:var(--shadow);border-left:4px solid var(--primary-light)}
+
+/* THEME */
+.theme-swatches{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all 0.2s}
+.swatch.active,.swatch:hover{border-color:var(--text);transform:scale(1.1)}
+
+/* USERS (帳號管理) */
+.user-list{display:flex;flex-direction:column;gap:10px}
+.user-item{background:white;border-radius:12px;padding:14px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px}
+.user-item-avatar{width:40px;height:40px;border-radius:50%;background:var(--primary-pale);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden}
+.user-item-avatar img{width:100%;height:100%;object-fit:cover}
+.user-item-info{flex:1;min-width:0}
+.user-item-name{font-size:14px;font-weight:700}
+.user-item-email{font-size:12px;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-item-actions{display:flex;gap:6px;flex-shrink:0}
+.role-select{padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:'Noto Sans TC',sans-serif;color:var(--text);outline:none;background:white;width:auto}
+.role-tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.role-tag.super{background:rgba(245,200,66,0.2);color:#b08000}
+.role-tag.host{background:rgba(42,159,214,0.2);color:var(--primary)}
+.role-tag.staff{background:rgba(61,184,122,0.2);color:#1a7a40}
+.add-user-form{background:var(--primary-pale);border-radius:12px;padding:16px;margin-bottom:14px}
+.add-user-form h3{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px}
+
+/* TIMEOUT */
+.timeout-bar{background:#fff3cd;border-bottom:1px solid #ffc107;padding:7px 16px;font-size:12px;color:#856404;display:none;align-items:center;gap:10px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage">
+  <div class="login-card">
+    <div class="login-logo">🐚</div>
+    <h1 id="loginTitle">管理者後台</h1>
+    <p id="loginSubtitle">實境解謎活動管理系統</p>
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"/>
+      使用 Google 帳號登入
+    </button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="adminPage">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <h2 id="sidebarTitle">🐚 解謎後台</h2>
+      <span>ADMIN PANEL</span>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar">👤</div>
+      <div class="user-detail">
+        <div class="user-name" id="userName">載入中...</div>
+        <div class="user-role" id="userRoleLabel">--</div>
+      </div>
+    </div>
+    <div class="activity-status closed" id="activityStatusBadge">活動未開始</div>
+
+    <div class="nav-group-label">監控</div>
+    <div class="nav-item active" onclick="showTab('monitor')" id="nav-monitor"><span class="nav-icon">📊</span>即時監控</div>
+    <div class="nav-item" onclick="showTab('map')" id="nav-map"><span class="nav-icon">🗺️</span>即時地圖</div>
+
+    <div class="nav-group-label">管理</div>
+    <div class="nav-item" onclick="showTab('stages')" id="nav-stages"><span class="nav-icon">📋</span>關卡管理</div>
+    <div class="nav-item" onclick="showTab('photos')" id="nav-photos"><span class="nav-icon">📷</span>照片審核</div>
+
+    <div class="nav-group-label">設定</div>
+    <div class="nav-item" onclick="showTab('settings')" id="nav-settings"><span class="nav-icon">⚙️</span>活動設定</div>
+    <div class="nav-item" onclick="showTab('theme')" id="nav-theme"><span class="nav-icon">🎨</span>主題換膚</div>
+    <div class="nav-item" onclick="showTab('users')" id="nav-users"><span class="nav-icon">👥</span>帳號管理</div>
+    <div class="nav-item" onclick="showTab('export')" id="nav-export"><span class="nav-icon">📤</span>匯出紀錄</div>
+
+    <div class="sidebar-bottom">
+      <button class="btn btn-ghost btn-sm btn-block" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="timeout-bar" id="timeoutBar">
+      ⚠️ 登入已超過 2 小時，請重新登入
+      <button onclick="doLogout()" class="btn btn-warn btn-sm">立即登出</button>
+    </div>
+
+    <!-- 監控 -->
+    <div id="tab-monitor" class="tab-content active">
+      <div class="page-header">
+        <div class="page-header-left"><h1>📊 即時監控</h1><p>即時追蹤各隊伍闖關進度</p></div>
+        <div class="flex gap-8">
+          <button class="btn btn-success btn-sm" onclick="setActivityStatus('open')">▶ 開始</button>
+          <button class="btn btn-warn btn-sm" onclick="setActivityStatus('paused')">⏸ 暫停</button>
+          <button class="btn btn-danger btn-sm" onclick="setActivityStatus('closed')">⏹ 結束</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSessions()">🔄</button>
+        </div>
+      </div>
+      <div class="activity-control">
+        <div class="status-dot" id="monitorStatusDot"></div>
+        <span id="monitorStatusText" style="font-size:13px;font-weight:600">活動未開始</span>
+      </div>
+      <div class="team-grid" id="teamGrid"></div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">🏆 排行榜</div></div>
+        <table><thead><tr><th>名次</th><th>隊伍</th><th>狀態</th><th>進度</th><th>總時間</th></tr></thead>
+        <tbody id="rankBody"><tr><td colspan="5" style="text-align:center;color:#999">等待隊伍登入...</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- 地圖 -->
+    <div id="tab-map" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>🗺️ 即時地圖</h1><p>各隊伍位置與GPS紀錄</p></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadGPSLog()">🔄 重新整理</button>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">📍 GPS 定位紀錄（每隊最新10筆）</div>
+        <div id="gpsLogContainer"><div class="text-muted text-sm">載入中...</div></div>
+      </div>
+    </div>
+
+    <!-- 關卡 -->
+    <div id="tab-stages" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>📋 關卡管理</h1><p>新增、編輯、刪除解謎關卡</p></div>
+        <button class="btn btn-primary" onclick="openStageModal()">＋ 新增關卡</button>
+      </div>
+      <div class="stage-list" id="stageList"><div class="text-muted text-sm">載入中...</div></div>
+    </div>
+
+    <!-- 照片 -->
+    <div id="tab-photos" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>📷 照片審核</h1><p>各隊伍現場上傳照片</p></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadPhotos()">🔄</button>
+      </div>
+      <div class="card">
+        <div class="flex gap-8" style="margin-bottom:12px;flex-wrap:wrap">
+          <select id="photoFilterTeam" onchange="loadPhotos()" style="width:auto">
+            <option value="">全部隊伍</option>
+          </select>
+        </div>
+        <div id="photoContainer"><div class="text-muted text-sm">載入中...</div></div>
+      </div>
+    </div>
+
+    <!-- 活動設定 -->
+    <div id="tab-settings" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>⚙️ 活動設定</h1><p>活動名稱、隊伍、遊戲規則</p></div>
+        <button class="btn btn-primary" onclick="saveSettings()">💾 儲存設定</button>
+      </div>
+      <div class="card">
+        <div class="settings-section-title">🎯 活動資訊</div>
+        <div class="form-row">
+          <div class="form-group"><label>活動名稱</label><input type="text" id="settingActivityName" placeholder="新屋海螺館實境解謎"/></div>
+          <div class="form-group"><label>副標題</label><input type="text" id="settingSubtitle" placeholder="SHELL ADVENTURE"/></div>
+        </div>
+        <div class="form-group"><label>歡迎訊息</label><textarea id="settingWelcome" rows="2" placeholder="活動說明..."></textarea></div>
+        <div class="form-group"><label>完成頁面訊息</label><textarea id="settingFinishMsg" rows="2" placeholder="恭喜完成！感謝參與..."></textarea></div>
+      </div>
+      <div class="card">
+        <div class="settings-section-title">👥 隊伍設定</div>
+        <div class="form-group flex gap-8 items-center" style="margin-bottom:10px">
+          <label style="margin:0;white-space:nowrap">隊伍數量</label>
+          <select id="settingTeamCount" onchange="renderTeamSettings()" style="width:auto">
+            <option value="2">2 隊</option><option value="3">3 隊</option>
+            <option value="4" selected>4 隊</option><option value="5">5 隊</option><option value="6">6 隊</option>
+          </select>
+        </div>
+        <div class="team-settings-grid" id="teamSettingsGrid"></div>
+      </div>
+      <div class="card">
+        <div class="settings-section-title">🎮 遊戲規則</div>
+        <div class="form-row-3">
+          <div class="form-group"><label>答錯幾次顯示提示</label>
+            <select id="settingHintAfter">
+              <option value="0">不顯示</option><option value="1">1次</option>
+              <option value="2" selected>2次</option><option value="3">3次</option><option value="5">5次</option>
+            </select>
+          </div>
+          <div class="form-group"><label>路線模式</label>
+            <select id="settingRouteMode">
+              <option value="random">隨機（每隊不同）</option>
+              <option value="fixed">固定（所有隊相同）</option>
+            </select>
+          </div>
+          <div class="form-group"><label>GPS失敗處理</label>
+            <select id="settingGpsFail">
+              <option value="block">阻擋（需聯絡人員）</option>
+              <option value="allow">允許跳過</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主題 -->
+    <div id="tab-theme" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>🎨 主題換膚</h1><p>選擇活動配色主題</p></div>
+        <button class="btn btn-primary" onclick="saveTheme()">💾 套用</button>
+      </div>
+      <div class="card">
+        <div class="settings-section-title">預設主題</div>
+        <div class="theme-swatches" id="themeSwatches"></div>
+        <div style="margin-top:16px">
+          <div id="themePreview" style="padding:16px;border-radius:12px;background:linear-gradient(135deg,#1a6fa3,#2a9fd6);color:white;text-align:center;font-size:14px;font-weight:700">主題預覽</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="settings-section-title">自訂顏色</div>
+        <div class="form-row">
+          <div class="form-group"><label>主色</label><input type="color" id="customColor1" value="#1a6fa3" onchange="previewCustomTheme()"/></div>
+          <div class="form-group"><label>深色</label><input type="color" id="customColor2" value="#0d4f7a" onchange="previewCustomTheme()"/></div>
+          <div class="form-group"><label>淺色</label><input type="color" id="customColor3" value="#2a9fd6" onchange="previewCustomTheme()"/></div>
+        </div>
+        <button class="btn btn-ghost" onclick="applyCustomTheme()">套用自訂顏色</button>
+      </div>
+    </div>
+
+    <!-- 帳號管理 -->
+    <div id="tab-users" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>👥 帳號管理</h1><p>管理所有可登入後台的人員</p></div>
+      </div>
+
+      <!-- 新增人員 -->
+      <div class="add-user-form" id="addUserForm">
+        <h3>➕ 新增人員</h3>
+        <div class="form-row">
+          <div class="form-group"><label>姓名</label><input type="text" id="newUserName" placeholder="工作人員姓名"/></div>
+          <div class="form-group"><label>Gmail 帳號</label><input type="email" id="newUserEmail" placeholder="example@gmail.com"/></div>
+        </div>
+        <div class="form-group"><label>權限角色</label>
+          <select id="newUserRole">
+            <option value="staff">👷 工作人員（只能監控）</option>
+            <option value="host">🎯 活動主帳號（可管理關卡）</option>
+            <option value="super" id="superOption" class="hidden">👑 超級管理者</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="addUser()">➕ 新增人員</button>
+      </div>
+
+      <!-- 人員清單 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">所有人員清單</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadUsers()">🔄 重新整理</button>
+        </div>
+        <div class="user-list" id="userList"><div class="text-muted text-sm">載入中...</div></div>
+      </div>
+
+      <!-- 權限說明 -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">📋 權限說明</div>
+        <table>
+          <thead><tr><th>功能</th><th>👑 超級管理者</th><th>🎯 活動主帳號</th><th>👷 工作人員</th></tr></thead>
+          <tbody>
+            <tr><td>帳號管理</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>活動設定</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>關卡管理</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>主題換膚</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>開始/暫停活動</td><td>✅</td><td>✅</td><td>✅</td></tr>
+            <tr><td>即時監控</td><td>✅</td><td>✅</td><td>✅</td></tr>
+            <tr><td>照片審核</td><td>✅</td><td>✅</td><td>✅</td></tr>
+            <tr><td>匯出紀錄</td><td>✅</td><td>✅</td><td>❌</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 匯出 -->
+    <div id="tab-export" class="tab-content">
+      <div class="page-header"><div class="page-header-left"><h1>📤 匯出紀錄</h1><p>下載活動完整資料</p></div></div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val" id="statTeams">0</div><div class="stat-lbl">參與隊伍</div></div>
+        <div class="stat-card"><div class="stat-val" id="statFinished">0</div><div class="stat-lbl">完成隊伍</div></div>
+        <div class="stat-card"><div class="stat-val" id="statStages">0</div><div class="stat-lbl">關卡數</div></div>
+        <div class="stat-card"><div class="stat-val" id="statPhotos">0</div><div class="stat-lbl">照片數</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px">匯出選項</div>
+        <div class="flex gap-8" style="flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="exportCSV()">📊 匯出 CSV</button>
+          <button class="btn btn-ghost" onclick="exportGPSLog()">📍 匯出 GPS 紀錄</button>
+          <button class="btn btn-ghost" onclick="exportJSON()">🗂️ 匯出 JSON</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">成績總覽</div>
+        <table><thead><tr><th>隊伍</th><th>狀態</th><th>完成關數</th><th>總時間</th><th>答題次數</th></tr></thead>
+        <tbody id="exportTableBody"><tr><td colspan="5" style="text-align:center;color:#999">尚無資料</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stage Modal -->
+<div class="modal-overlay hidden" id="stageModal">
+  <div class="modal-box">
+    <h2 id="modalTitle">新增關卡</h2>
+    <div class="form-row">
+      <div class="form-group"><label>關卡順序</label><input type="number" id="fOrder" min="1" value="1"/></div>
+      <div class="form-group"><label>關卡標題</label><input type="text" id="fTitle" placeholder="題目文字"/></div>
+    </div>
+    <div class="form-group"><label>說明文字</label><textarea id="fDesc" rows="2" placeholder="補充說明..."></textarea></div>
+    <div class="form-group">
+      <label>關卡圖片（可選）</label>
+      <div class="img-upload-area" onclick="document.getElementById('fImgInput').click()">
+        <div id="imgPlaceholder" class="text-muted text-sm">📷 點擊上傳圖片</div>
+        <img id="imgPreviewModal" class="hidden" alt="預覽" style="max-height:110px;border-radius:7px"/>
+        <input type="file" id="fImgInput" accept="image/*" onchange="handleModalImg()" style="display:none"/>
+      </div>
+    </div>
+    <hr class="divider"/>
+    <div class="form-group">
+      <label>📍 GPS 座標（留空則不驗證）</label>
+      <div class="form-row">
+        <input type="number" id="fLat" step="0.000001" placeholder="緯度 25.0320"/>
+        <input type="number" id="fLng" step="0.000001" placeholder="經度 121.5654"/>
+      </div>
+      <div class="gps-hint">Google Maps 長按目標地點 → 複製座標</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>誤差範圍（公尺）</label><input type="number" id="fRadius" value="80"/></div>
+      <div class="form-group"><label>地點提示</label><input type="text" id="fLocationHint" placeholder="前往海螺館正門口"/></div>
+    </div>
+    <hr class="divider"/>
+    <div class="form-group">
+      <label>選擇題選項</label>
+      <div class="option-inputs">
+        <div class="option-input-row"><div class="opt-badge">A</div><input type="text" id="fOpt0" placeholder="選項 A"/></div>
+        <div class="option-input-row"><div class="opt-badge">B</div><input type="text" id="fOpt1" placeholder="選項 B"/></div>
+        <div class="option-input-row"><div class="opt-badge">C</div><input type="text" id="fOpt2" placeholder="選項 C"/></div>
+        <div class="option-input-row"><div class="opt-badge">D</div><input type="text" id="fOpt3" placeholder="選項 D（可留空）"/></div>
+      </div>
+    </div>
+    <div class="form-group"><label>✅ 正確答案</label>
+      <select id="fAnswer"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>
+    </div>
+    <hr class="divider"/>
+    <div class="form-group">
+      <label>💡 答錯提示（最多3個，依次解鎖）</label>
+      <div class="hint-inputs">
+        <div class="hint-row"><span class="hint-num">提示 1</span><input type="text" id="fHint1" placeholder="第一個提示"/></div>
+        <div class="hint-row"><span class="hint-num">提示 2</span><input type="text" id="fHint2" placeholder="第二個提示"/></div>
+        <div class="hint-row"><span class="hint-num">提示 3</span><input type="text" id="fHint3" placeholder="最後提示"/></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeStageModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveStage()" id="saveStageBtn">💾 儲存關卡</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, get, set, push, remove, onValue, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA51pVs3QZJ3p6eIeVpMVOGqFlNXExEjKo",
+  authDomain: "real-world-puzzle-d5efc.firebaseapp.com",
+  databaseURL: "https://real-world-puzzle-d5efc-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "real-world-puzzle-d5efc",
+  storageBucket: "real-world-puzzle-d5efc.firebasestorage.app",
+  messagingSenderId: "25902212869",
+  appId: "1:25902212869:web:8955631b9c9395233a796c"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+const storage = getStorage(fbApp);
+const auth = getAuth(fbApp);
+const provider = new GoogleAuthProvider();
+
+// 超級管理者 Gmail
+const SUPER_ADMIN_EMAIL = "turtlekfc@gmail.com";
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── State ──
+let currentUser = null;
+let currentRole = null;
+let editingStageKey = null;
+let modalImgFile = null;
+let modalImgUrl = null;
+let sessions = {};
+let stagesData = {};
+let settingsData = {};
+let loginTime = null;
+let timeoutTimer = null;
+
+const THEMES = [
+  {name:'海洋藍',c1:'#1a6fa3',c2:'#0d4f7a',c3:'#2a9fd6'},
+  {name:'珊瑚紅',c1:'#c0392b',c2:'#922b21',c3:'#e74c3c'},
+  {name:'翠綠',c1:'#1a7a40',c2:'#0f5630',c3:'#27ae60'},
+  {name:'紫羅蘭',c1:'#7c5cbf',c2:'#5b3f9e',c3:'#9b59b6'},
+  {name:'橙金',c1:'#c0782a',c2:'#8e5a1e',c3:'#e67e22'},
+  {name:'深灰',c1:'#2c3e50',c2:'#1a252f',c3:'#34495e'},
+];
+
+// ── 全域函數 ──
+window.signInWithGoogle = signInWithGoogle;
+window.doLogout = doLogout;
+window.showTab = showTab;
+window.openStageModal = openStageModal;
+window.closeStageModal = closeStageModal;
+window.saveStage = saveStage;
+window.deleteStage = deleteStage;
+window.editStage = editStage;
+window.handleModalImg = handleModalImg;
+window.loadSessions = loadSessions;
+window.loadPhotos = loadPhotos;
+window.loadUsers = loadUsers;
+window.addUser = addUser;
+window.removeUser = removeUser;
+window.updateUserRole = updateUserRole;
+window.exportCSV = exportCSV;
+window.exportJSON = exportJSON;
+window.exportGPSLog = exportGPSLog;
+window.saveSettings = saveSettings;
+window.saveTheme = saveTheme;
+window.applyCustomTheme = applyCustomTheme;
+window.previewCustomTheme = previewCustomTheme;
+window.selectTheme = selectTheme;
+window.setActivityStatus = setActivityStatus;
+window.loadGPSLog = loadGPSLog;
+window.renderTeamSettings = renderTeamSettings;
+
+function toast(msg, dur=2800) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), dur);
+}
+
+// ── 監聽登入狀態 ──
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    const role = await getUserRole(user);
+    if (!role) {
+      await signOut(auth);
+      document.getElementById('loginErr').textContent = '⛔ 您的帳號沒有後台存取權限，請聯絡管理者。';
+      return;
+    }
+    currentUser = user;
+    currentRole = role;
+    proceedToAdmin();
+  } else {
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('adminPage').style.display = 'none';
+  }
+});
+
+async function getUserRole(user) {
+  // 超級管理者
+  if (user.email === SUPER_ADMIN_EMAIL) return 'super';
+  // 從 Firebase 讀取白名單
+  try {
+    const snap = await get(ref(db, `config/users/${user.uid}`));
+    if (snap.exists()) return snap.val().role || null;
+  } catch(e) { console.error(e); }
+  return null;
+}
+
+async function signInWithGoogle() {
+  document.getElementById('loginErr').textContent = '';
+  try {
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged 會自動處理
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') {
+      document.getElementById('loginErr').textContent = '登入失敗：' + e.message;
+    }
+  }
+}
+
+async function proceedToAdmin() {
+  loginTime = Date.now();
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('adminPage').style.display = 'block';
+
+  // 更新 UI 用戶資訊
+  document.getElementById('userName').textContent = currentUser.displayName || currentUser.email;
+  const roleLabels = {super:'👑 超級管理者', host:'🎯 活動主帳號', staff:'👷 工作人員'};
+  document.getElementById('userRoleLabel').textContent = roleLabels[currentRole] || currentRole;
+  if (currentUser.photoURL) {
+    const av = document.getElementById('userAvatar');
+    av.innerHTML = `<img src="${currentUser.photoURL}" alt="avatar"/>`;
+  }
+
+  // 超級管理者寫入自己資料
+  if (currentRole === 'super') {
+    set(ref(db, `config/users/${currentUser.uid}`), {
+      email: currentUser.email,
+      name: currentUser.displayName || currentUser.email,
+      role: 'super',
+      photoURL: currentUser.photoURL || '',
+      lastLogin: serverTimestamp()
+    });
+  }
+
+  // 套用權限
+  applyRolePermissions(currentRole);
+  // 逾時警告
+  timeoutTimer = setInterval(() => {
+    if (Date.now() - loginTime > 2*60*60*1000)
+      document.getElementById('timeoutBar').style.display = 'flex';
+  }, 60000);
+
+  await initAdmin();
+}
+
+function applyRolePermissions(role) {
+  const restricted = ['nav-stages','nav-settings','nav-theme','nav-export'];
+  const superOnly = ['nav-users'];
+
+  if (role === 'staff') {
+    restricted.forEach(id => document.getElementById(id)?.classList.add('disabled'));
+    superOnly.forEach(id => document.getElementById(id)?.classList.add('disabled'));
+  } else if (role === 'host') {
+    superOnly.forEach(id => document.getElementById(id)?.classList.add('disabled'));
+  }
+  // super 全部開放
+  if (role === 'super') {
+    document.getElementById('superOption')?.classList.remove('hidden');
+  }
+}
+
+async function doLogout() {
+  clearInterval(timeoutTimer);
+  await signOut(auth);
+  currentUser = null; currentRole = null;
+  document.getElementById('timeoutBar').style.display = 'none';
+}
+
+function showTab(name) {
+  // 權限檢查
+  const hostOnly = ['stages','settings','theme','export'];
+  const superOnly = ['users'];
+  if (hostOnly.includes(name) && currentRole === 'staff') { toast('⛔ 您沒有此功能的權限'); return; }
+  if (superOnly.includes(name) && currentRole !== 'super') { toast('⛔ 此功能僅限超級管理者'); return; }
+
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if (name==='stages') loadStages();
+  if (name==='photos') loadPhotos();
+  if (name==='export') loadExport();
+  if (name==='map') loadGPSLog();
+  if (name==='settings') loadSettings();
+  if (name==='theme') initTheme();
+  if (name==='users') loadUsers();
+}
+
+async function initAdmin() {
+  await loadSettings();
+  applyThemeFromSettings();
+  loadSessions();
+  loadStages();
+  onValue(ref(db,'sessions'), snap => { sessions = snap.val()||{}; renderMonitor(); });
+  onValue(ref(db,'config/activityStatus'), snap => { updateActivityStatusUI(snap.val()||'closed'); });
+}
+
+// ── 活動開關 ──
+async function setActivityStatus(status) {
+  if (currentRole === 'staff' && status !== 'open' && status !== 'paused') { toast('⛔ 沒有權限'); return; }
+  await set(ref(db,'config/activityStatus'), status);
+  toast(status==='open'?'✅ 活動已開始！':status==='paused'?'⏸ 活動已暫停':'⏹ 活動已結束');
+}
+
+function updateActivityStatusUI(status) {
+  const badge = document.getElementById('activityStatusBadge');
+  const dot = document.getElementById('monitorStatusDot');
+  const txt = document.getElementById('monitorStatusText');
+  badge.className = 'activity-status '+status;
+  badge.textContent = status==='open'?'🟢 活動進行中':status==='paused'?'🟡 暫停中':'⭕ 未開始';
+  dot.className = 'status-dot '+status;
+  txt.textContent = status==='open'?'活動進行中':status==='paused'?'活動已暫停':'活動未開始';
+}
+
+// ── 帳號管理 ──
+async function loadUsers() {
+  const list = document.getElementById('userList');
+  list.innerHTML = '<div class="spinner"></div>';
+  try {
+    const snap = await get(ref(db,'config/users'));
+    const users = snap.val() || {};
+    if (!Object.keys(users).length) { list.innerHTML = '<div class="text-muted text-sm">尚無人員</div>'; return; }
+    list.innerHTML = '';
+    const roleLabels = {super:'👑 超級管理者', host:'🎯 活動主帳號', staff:'👷 工作人員'};
+    const roleClass = {super:'super', host:'host', staff:'staff'};
+    Object.entries(users).forEach(([uid, u]) => {
+      const item = document.createElement('div');
+      item.className = 'user-item';
+      const isSelf = currentUser && uid === currentUser.uid;
+      const isSuper = u.role === 'super';
+      item.innerHTML = `
+        <div class="user-item-avatar">${u.photoURL ? `<img src="${u.photoURL}" alt=""/>` : '👤'}</div>
+        <div class="user-item-info">
+          <div class="user-item-name"></div>
+          <div class="user-item-email"></div>
+        </div>
+        <div class="user-item-actions">
+          <span class="role-tag ${roleClass[u.role]||'staff'}"></span>
+          ${!isSelf && !isSuper && currentRole==='super' ? `
+            <select class="role-select" onchange="updateUserRole('${uid}',this.value)">
+              <option value="staff" ${u.role==='staff'?'selected':''}>👷 工作人員</option>
+              <option value="host" ${u.role==='host'?'selected':''}>🎯 活動主帳號</option>
+            </select>
+            <button class="btn btn-danger btn-sm" onclick="removeUser('${uid}')">移除</button>
+          ` : ''}
+        </div>`;
+      item.querySelector('.user-item-name').textContent = u.name || u.email;
+      item.querySelector('.user-item-email').textContent = u.email || '';
+      item.querySelector('.role-tag').textContent = roleLabels[u.role] || u.role;
+      list.appendChild(item);
+    });
+  } catch(e) { list.innerHTML = '<div class="text-muted text-sm">載入失敗</div>'; console.error(e); }
+}
+
+async function addUser() {
+  const name = document.getElementById('newUserName').value.trim();
+  const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
+  const role = document.getElementById('newUserRole').value;
+  if (!name || !email) { toast('請填入姓名和 Gmail'); return; }
+  if (!email.includes('@')) { toast('請輸入正確的 Gmail 格式'); return; }
+  if (email === SUPER_ADMIN_EMAIL) { toast('⛔ 不可修改超級管理者'); return; }
+
+  // 用 email hash 作為暫時 key（實際登入時會用 UID 更新）
+  const emailHash = await sha256(email);
+  const userData = { email, name, role, photoURL: '', addedBy: currentUser.email, addedAt: serverTimestamp(), pending: true };
+  await set(ref(db, `config/users/${emailHash}`), userData);
+  // 同時存 email 白名單方便查找
+  await set(ref(db, `config/emailWhitelist/${emailHash}`), { email, role, name });
+  document.getElementById('newUserName').value = '';
+  document.getElementById('newUserEmail').value = '';
+  toast('✅ 人員已新增！對方用 Google 登入後即可使用');
+  loadUsers();
+}
+
+async function removeUser(uid) {
+  if (!confirm('確定要移除此人員嗎？')) return;
+  await remove(ref(db, `config/users/${uid}`));
+  toast('🗑️ 人員已移除');
+  loadUsers();
+}
+
+async function updateUserRole(uid, role) {
+  await set(ref(db, `config/users/${uid}/role`), role);
+  toast('✅ 權限已更新');
+}
+
+// ── 設定 ──
+async function loadSettings() {
+  const snap = await get(ref(db,'config/settings'));
+  settingsData = snap.val() || {};
+  if (settingsData.activityName) {
+    document.getElementById('settingActivityName').value = settingsData.activityName;
+    document.getElementById('sidebarTitle').textContent = '🐚 ' + settingsData.activityName;
+    document.getElementById('loginTitle').textContent = '🐚 ' + settingsData.activityName;
+  }
+  if (settingsData.subtitle) document.getElementById('settingSubtitle').value = settingsData.subtitle;
+  if (settingsData.welcome) document.getElementById('settingWelcome').value = settingsData.welcome;
+  if (settingsData.finishMsg) document.getElementById('settingFinishMsg').value = settingsData.finishMsg;
+  if (settingsData.teamCount) document.getElementById('settingTeamCount').value = settingsData.teamCount;
+  if (settingsData.hintAfter != null) document.getElementById('settingHintAfter').value = settingsData.hintAfter;
+  if (settingsData.routeMode) document.getElementById('settingRouteMode').value = settingsData.routeMode;
+  if (settingsData.gpsFail) document.getElementById('settingGpsFail').value = settingsData.gpsFail;
+  renderTeamSettings();
+}
+
+function renderTeamSettings() {
+  const count = parseInt(document.getElementById('settingTeamCount').value) || 4;
+  const teams = settingsData.teams || {};
+  const defaultEmojis = ['🌊','🐠','⭐','🐢','🦈','🐙'];
+  const defaultNames = ['海浪隊','熱帶魚隊','海星隊','海龜隊','鯊魚隊','章魚隊'];
+  const defaultColors = ['#2a9fd6','#f07050','#f5c842','#3db87a','#7c5cbf','#e67e22'];
+  const grid = document.getElementById('teamSettingsGrid');
+  grid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const key = `team${i+1}`;
+    const t = teams[key] || {};
+    const card = document.createElement('div');
+    card.className = 'team-setting-card';
+    card.style.borderLeftColor = t.color || defaultColors[i];
+    card.setAttribute('data-team', key);
+    card.innerHTML = `<label>隊伍 ${i+1} 名稱</label>
+      <input type="text" id="tName${key}" placeholder="${defaultEmojis[i]} ${defaultNames[i]}"/>
+      <div class="form-row" style="margin-top:8px">
+        <div><label>密碼</label><input type="text" id="tPass${key}" placeholder="隊伍密碼"/></div>
+        <div><label>顏色</label><input type="color" id="tColor${key}" value="${t.color||defaultColors[i]}" onchange="document.querySelector('[data-team=${key}]').style.borderLeftColor=this.value"/></div>
+      </div>`;
+    grid.appendChild(card);
+    document.getElementById(`tName${key}`).value = t.name || `${defaultEmojis[i]} ${defaultNames[i]}`;
+    document.getElementById(`tPass${key}`).value = t.password || '';
+    document.getElementById(`tColor${key}`).value = t.color || defaultColors[i];
+  }
+}
+
+async function saveSettings() {
+  const count = parseInt(document.getElementById('settingTeamCount').value) || 4;
+  const teams = {};
+  for (let i = 0; i < count; i++) {
+    const key = `team${i+1}`;
+    teams[key] = {
+      name: document.getElementById(`tName${key}`).value.trim() || `隊伍${i+1}`,
+      password: document.getElementById(`tPass${key}`).value.trim() || '1234',
+      color: document.getElementById(`tColor${key}`).value,
+    };
+  }
+  const settings = {
+    activityName: document.getElementById('settingActivityName').value.trim() || '實境解謎',
+    subtitle: document.getElementById('settingSubtitle').value.trim(),
+    welcome: document.getElementById('settingWelcome').value.trim(),
+    finishMsg: document.getElementById('settingFinishMsg').value.trim(),
+    teamCount: count, teams,
+    hintAfter: parseInt(document.getElementById('settingHintAfter').value) || 2,
+    routeMode: document.getElementById('settingRouteMode').value,
+    gpsFail: document.getElementById('settingGpsFail').value,
+  };
+  await set(ref(db,'config/settings'), settings);
+  settingsData = settings;
+  document.getElementById('sidebarTitle').textContent = '🐚 ' + settings.activityName;
+  toast('✅ 設定已儲存！');
+}
+
+// ── 主題 ──
+function initTheme() {
+  const grid = document.getElementById('themeSwatches');
+  grid.innerHTML = '';
+  THEMES.forEach((t,i) => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (settingsData.themeIndex===i?' active':'');
+    sw.style.background = `linear-gradient(135deg,${t.c1},${t.c3})`;
+    sw.title = t.name;
+    sw.onclick = () => selectTheme(i);
+    grid.appendChild(sw);
+  });
+}
+
+function selectTheme(i) {
+  document.querySelectorAll('.swatch').forEach((s,j)=>s.classList.toggle('active',j===i));
+  settingsData._pendingTheme = i;
+  const t = THEMES[i];
+  document.getElementById('themePreview').style.background = `linear-gradient(135deg,${t.c1},${t.c3})`;
+  document.getElementById('themePreview').textContent = t.name + ' 主題預覽';
+}
+
+async function saveTheme() {
+  const i = settingsData._pendingTheme ?? settingsData.themeIndex ?? 0;
+  const t = THEMES[i];
+  await set(ref(db,'config/settings/theme'), {primary:t.c1, dark:t.c2, light:t.c3, index:i});
+  applyTheme(t.c1, t.c2, t.c3);
+  toast('✅ 主題已套用！');
+}
+
+function previewCustomTheme() {
+  const c1=document.getElementById('customColor1').value;
+  const c3=document.getElementById('customColor3').value;
+  document.getElementById('themePreview').style.background=`linear-gradient(135deg,${c1},${c3})`;
+}
+
+async function applyCustomTheme() {
+  const c1=document.getElementById('customColor1').value;
+  const c2=document.getElementById('customColor2').value;
+  const c3=document.getElementById('customColor3').value;
+  await set(ref(db,'config/settings/theme'),{primary:c1,dark:c2,light:c3,index:-1});
+  applyTheme(c1,c2,c3);
+  toast('✅ 自訂主題已套用！');
+}
+
+function applyTheme(c1,c2,c3) {
+  const r = document.documentElement.style;
+  r.setProperty('--primary',c1); r.setProperty('--primary-dark',c2); r.setProperty('--primary-light',c3);
+}
+
+async function applyThemeFromSettings() {
+  const snap = await get(ref(db,'config/settings/theme'));
+  if (snap.exists()) { const t=snap.val(); applyTheme(t.primary,t.dark,t.light); }
+}
+
+// ── 監控 ──
+function loadSessions() {
+  get(ref(db,'sessions')).then(snap => { sessions=snap.val()||{}; renderMonitor(); });
+}
+
+function renderMonitor() {
+  const teamsConfig = settingsData.teams || {};
+  const teamCount = settingsData.teamCount || 4;
+  const latestByTeam = {};
+  Object.values(sessions).forEach(s => {
+    if (!latestByTeam[s.teamKey]||s.startTime>latestByTeam[s.teamKey].startTime) latestByTeam[s.teamKey]=s;
+  });
+  const grid = document.getElementById('teamGrid');
+  grid.innerHTML = '';
+  for (let i=0; i<teamCount; i++) {
+    const key = `team${i+1}`;
+    const cfg = teamsConfig[key] || {};
+    const sess = latestByTeam[key];
+    let statusCls='', statusTxt='等待開始', prog=0, progTxt='0/? 關', timeTxt='--:--';
+    if (sess) {
+      const cur=(sess.currentStage||0)+1, tot=sess.totalStages||1;
+      prog = Math.min(100, Math.round((sess.currentStage||0)/tot*100));
+      progTxt = `${cur}/${tot} 關`;
+      const sec=sess.totalSec||0;
+      timeTxt = `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+      if (sess.status==='finished') {statusCls='finished'; statusTxt='✅ 完成'; prog=100;}
+      else {statusCls='playing'; statusTxt='🏃 闖關中';}
+    }
+    const card = document.createElement('div');
+    card.className = 'team-card';
+    card.style.borderTopColor = cfg.color || 'var(--primary-light)';
+    card.innerHTML = `<div class="t-name"></div><div class="t-status ${statusCls}"></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${prog}%;background:${cfg.color||'var(--primary-light)'}"></div></div>
+      <div class="t-detail"><span></span><span></span></div>`;
+    card.querySelector('.t-name').textContent = cfg.name || `隊伍${i+1}`;
+    card.querySelector('.t-status').textContent = statusTxt;
+    const spans = card.querySelectorAll('.t-detail span');
+    spans[0].textContent = progTxt; spans[1].textContent = timeTxt;
+    grid.appendChild(card);
+  }
+  const rows = Object.values(sessions).sort((a,b) => {
+    if (a.status==='finished'&&b.status!=='finished') return -1;
+    if (b.status==='finished'&&a.status!=='finished') return 1;
+    if (a.status==='finished'&&b.status==='finished') return (a.totalSec||999)-(b.totalSec||999);
+    return (b.currentStage||0)-(a.currentStage||0);
+  });
+  const tbody = document.getElementById('rankBody');
+  tbody.innerHTML = '';
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:#999">等待登入...</td></tr>`; return; }
+  rows.forEach((s,i) => {
+    const badge = s.status==='finished'?`<span class="badge badge-finished">✅完成</span>`:s.status==='playing'?`<span class="badge badge-playing">🏃進行中</span>`:`<span class="badge badge-waiting">⏳等待</span>`;
+    const tot=s.totalStages||'?', cur=s.status==='finished'?tot:(s.currentStage||0)+1;
+    const sec=s.totalSec||0, tstr=sec?`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`:'--';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><b>${i+1}</b></td><td></td><td>${badge}</td><td></td><td></td>`;
+    tr.cells[1].textContent = s.teamName||s.teamKey;
+    tr.cells[3].textContent = `${cur}/${tot}`;
+    tr.cells[4].textContent = tstr;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── GPS Log ──
+async function loadGPSLog() {
+  const container = document.getElementById('gpsLogContainer');
+  container.innerHTML = '<div class="spinner"></div>';
+  const snap = await get(ref(db,'sessions'));
+  const sess = snap.val() || {};
+  const teamsConfig = settingsData.teams || {};
+  const latestByTeam = {};
+  Object.values(sess).forEach(s => {
+    if (!latestByTeam[s.teamKey]||s.startTime>latestByTeam[s.teamKey].startTime) latestByTeam[s.teamKey]=s;
+  });
+  if (!Object.keys(latestByTeam).length) { container.innerHTML='<div class="text-muted text-sm">尚無GPS資料</div>'; return; }
+  container.innerHTML = '';
+  Object.entries(latestByTeam).forEach(([key,s]) => {
+    const cfg = teamsConfig[key] || {};
+    const logs = s.gpsLogs || {};
+    const sorted = Object.values(logs).sort((a,b)=>b.ts-a.ts).slice(0,10);
+    if (!sorted.length) return;
+    const section = document.createElement('div');
+    section.style.marginBottom = '16px';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:13px;font-weight:700;margin-bottom:8px;color:var(--primary)';
+    title.textContent = cfg.name || key;
+    section.appendChild(title);
+    const table = document.createElement('table');
+    table.innerHTML = `<thead><tr><th>時間</th><th>緯度</th><th>經度</th><th>距目標</th><th>結果</th></tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
+    sorted.forEach(log => {
+      const t = new Date(log.ts).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${t}</td><td>${log.lat?.toFixed(5)||'-'}</td><td>${log.lng?.toFixed(5)||'-'}</td><td>${log.dist!=null?Math.round(log.dist)+'m':'-'}</td><td>${log.passed?'<span style="color:var(--green)">✅通過</span>':'<span style="color:var(--coral)">❌未通過</span>'}</td>`;
+      tbody.appendChild(tr);
+    });
+    section.appendChild(table);
+    container.appendChild(section);
+  });
+}
+
+// ── 關卡 ──
+async function loadStages() {
+  const snap = await get(ref(db,'stages'));
+  stagesData = snap.val() || {};
+  renderStageList();
+}
+
+function renderStageList() {
+  const list = document.getElementById('stageList');
+  const entries = Object.entries(stagesData).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
+  if (!entries.length) { list.innerHTML=`<div class="text-muted text-sm">尚無關卡，點右上角新增！</div>`; return; }
+  list.innerHTML = '';
+  entries.forEach(([key,s],i) => {
+    const gpsTag = (s.lat&&s.lng)?'<span style="color:var(--green)">📍GPS</span>':'<span style="color:#ccc">📍無GPS</span>';
+    const hintCount = [s.hints?.h1,s.hints?.h2,s.hints?.h3].filter(Boolean).length;
+    const item = document.createElement('div');
+    item.className = 'stage-item';
+    item.innerHTML = `<div class="stage-item-header">
+      <div class="stage-num">${s.order||i+1}</div>
+      <div class="stage-name"></div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-ghost btn-sm" onclick="editStage('${key}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStage('${key}')">🗑️</button>
+      </div></div>
+      <div class="stage-meta">${gpsTag}
+        <span>📝 ${(s.options||[]).length}選項</span>
+        <span>✅ 答案：${['A','B','C','D'][s.answerIndex]||'?'}</span>
+        ${hintCount?`<span>💡 ${hintCount}提示</span>`:''}
+      </div>`;
+    item.querySelector('.stage-name').textContent = s.title||'（未命名）';
+    list.appendChild(item);
+  });
+}
+
+function openStageModal() {
+  editingStageKey=null; modalImgFile=null; modalImgUrl=null;
+  document.getElementById('modalTitle').textContent = '新增關卡';
+  document.getElementById('fOrder').value = Object.keys(stagesData).length+1;
+  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fHint3'].forEach(id=>document.getElementById(id).value='');
+  ['fLat','fLng'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fRadius').value = '80';
+  ['fOpt0','fOpt1','fOpt2','fOpt3'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fAnswer').value = '0';
+  document.getElementById('imgPreviewModal').classList.add('hidden');
+  document.getElementById('imgPlaceholder').classList.remove('hidden');
+  document.getElementById('stageModal').classList.remove('hidden');
+}
+
+function editStage(key) {
+  const s = stagesData[key];
+  editingStageKey=key; modalImgFile=null; modalImgUrl=s.imageUrl||null;
+  document.getElementById('modalTitle').textContent = '編輯關卡';
+  document.getElementById('fOrder').value = s.order||1;
+  document.getElementById('fTitle').value = s.title||'';
+  document.getElementById('fDesc').value = s.description||'';
+  document.getElementById('fLat').value = s.lat||'';
+  document.getElementById('fLng').value = s.lng||'';
+  document.getElementById('fRadius').value = s.radius||80;
+  document.getElementById('fLocationHint').value = s.locationHint||'';
+  (s.options||[]).forEach((opt,i)=>document.getElementById(`fOpt${i}`).value=opt);
+  document.getElementById('fAnswer').value = s.answerIndex||0;
+  document.getElementById('fHint1').value = s.hints?.h1||'';
+  document.getElementById('fHint2').value = s.hints?.h2||'';
+  document.getElementById('fHint3').value = s.hints?.h3||'';
+  if (s.imageUrl) {
+    const img = document.getElementById('imgPreviewModal');
+    img.src=s.imageUrl; img.classList.remove('hidden');
+    document.getElementById('imgPlaceholder').classList.add('hidden');
+  } else {
+    document.getElementById('imgPreviewModal').classList.add('hidden');
+    document.getElementById('imgPlaceholder').classList.remove('hidden');
+  }
+  document.getElementById('stageModal').classList.remove('hidden');
+}
+
+function closeStageModal() { document.getElementById('stageModal').classList.add('hidden'); editingStageKey=null; }
+
+function handleModalImg() {
+  const file = document.getElementById('fImgInput').files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('請上傳圖片'); return; }
+  if (file.size>5*1024*1024) { alert('圖片請在5MB以內'); return; }
+  modalImgFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('imgPreviewModal');
+    img.src=e.target.result; img.classList.remove('hidden');
+    document.getElementById('imgPlaceholder').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveStage() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) { toast('請輸入關卡標題！'); return; }
+  const opts = ['fOpt0','fOpt1','fOpt2','fOpt3'].map(id=>document.getElementById(id).value.trim()).filter(v=>v);
+  if (opts.length<2) { toast('請至少填入兩個選項！'); return; }
+  const btn = document.getElementById('saveStageBtn');
+  btn.disabled=true; btn.textContent='儲存中...';
+  try {
+    let imageUrl = modalImgUrl||'';
+    if (modalImgFile) {
+      const path = `stage-images/${Date.now()}_${modalImgFile.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      const snap = await uploadBytes(sRef(storage,path), modalImgFile);
+      imageUrl = await getDownloadURL(snap.ref);
+    }
+    const answerIndex = parseInt(document.getElementById('fAnswer').value)||0;
+    const stageKey = editingStageKey || ('s_'+Date.now());
+    const data = {
+      order: parseInt(document.getElementById('fOrder').value)||1,
+      title, description: document.getElementById('fDesc').value.trim(),
+      imageUrl, lat: parseFloat(document.getElementById('fLat').value)||null,
+      lng: parseFloat(document.getElementById('fLng').value)||null,
+      radius: parseInt(document.getElementById('fRadius').value)||80,
+      locationHint: document.getElementById('fLocationHint').value.trim(),
+      options: opts, answerIndex,
+      answerHash: await sha256(`${stageKey}_${answerIndex}`),
+      hints: { h1:document.getElementById('fHint1').value.trim(), h2:document.getElementById('fHint2').value.trim(), h3:document.getElementById('fHint3').value.trim() },
+      updatedAt: serverTimestamp(),
+    };
+    if (editingStageKey) {
+      await set(ref(db,`stages/${editingStageKey}`), data);
+      toast('✅ 關卡已更新！');
+    } else {
+      const r = push(ref(db,'stages'));
+      data.answerHash = await sha256(`${r.key}_${answerIndex}`);
+      await set(r, data);
+      toast('✅ 關卡已新增！');
+    }
+    closeStageModal(); loadStages();
+  } catch(e) { toast('❌ 儲存失敗：'+e.message); console.error(e); }
+  finally { btn.disabled=false; btn.textContent='💾 儲存關卡'; }
+}
+
+async function deleteStage(key) {
+  if (!confirm('確定要刪除？')) return;
+  await remove(ref(db,`stages/${key}`));
+  toast('🗑️ 關卡已刪除'); loadStages();
+}
+
+// ── 照片 ──
+async function loadPhotos() {
+  const container = document.getElementById('photoContainer');
+  container.innerHTML = '<div class="spinner"></div>';
+  const snap = await get(ref(db,'sessions'));
+  const sess = snap.val() || {};
+  const filterTeam = document.getElementById('photoFilterTeam').value;
+  const teamsConfig = settingsData.teams || {};
+  const teamSel = document.getElementById('photoFilterTeam');
+  const cur = teamSel.value;
+  teamSel.innerHTML = '<option value="">全部隊伍</option>';
+  Object.entries(teamsConfig).forEach(([k,t]) => {
+    const opt = document.createElement('option');
+    opt.value=k; opt.textContent=t.name||k;
+    if (k===cur) opt.selected=true;
+    teamSel.appendChild(opt);
+  });
+  let photos = [];
+  Object.values(sess).forEach(s => {
+    if (filterTeam&&s.teamKey!==filterTeam) return;
+    Object.entries(s.stageLogs||{}).forEach(([idx,log]) => {
+      if (log.photoUrl) photos.push({url:log.photoUrl, team:s.teamName||s.teamKey, stage:parseInt(idx)+1});
+    });
+  });
+  if (!photos.length) { container.innerHTML='<div class="text-muted text-sm">尚無照片</div>'; return; }
+  const grid = document.createElement('div'); grid.className='photo-grid';
+  photos.forEach(p => {
+    const div = document.createElement('div'); div.className='photo-thumb';
+    const img = document.createElement('img'); img.alt='照片';
+    img.src=p.url; img.onclick=()=>window.open(p.url,'_blank');
+    const bar = document.createElement('div'); bar.className='photo-info-bar';
+    bar.textContent=`${p.team}·第${p.stage}關`;
+    div.appendChild(img); div.appendChild(bar); grid.appendChild(div);
+  });
+  container.innerHTML=''; container.appendChild(grid);
+}
+
+// ── 匯出 ──
+async function loadExport() {
+  const snap = await get(ref(db,'sessions')); sessions=snap.val()||{};
+  const stSnap = await get(ref(db,'stages')); stagesData=stSnap.val()||{};
+  let numPhotos=0;
+  Object.values(sessions).forEach(s=>Object.values(s.stageLogs||{}).forEach(l=>{if(l.photoUrl)numPhotos++;}));
+  document.getElementById('statTeams').textContent = Object.keys(sessions).length;
+  document.getElementById('statFinished').textContent = Object.values(sessions).filter(s=>s.status==='finished').length;
+  document.getElementById('statStages').textContent = Object.keys(stagesData).length;
+  document.getElementById('statPhotos').textContent = numPhotos;
+  const tbody = document.getElementById('exportTableBody');
+  tbody.innerHTML = '';
+  const rows = Object.values(sessions).sort((a,b)=>(b.currentStage||0)-(a.currentStage||0));
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:#999">尚無資料</td></tr>`; return; }
+  rows.forEach(s => {
+    const tot=s.totalStages||'?', cur=s.status==='finished'?tot:s.currentStage||0;
+    const sec=s.totalSec||0, tstr=sec?`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`:'--';
+    const badge=s.status==='finished'?`<span class="badge badge-finished">完成</span>`:`<span class="badge badge-playing">進行中</span>`;
+    let att=0; Object.values(s.stageLogs||{}).forEach(l=>{att+=(l.attempts||0);});
+    const tr = document.createElement('tr');
+    tr.innerHTML=`<td></td><td>${badge}</td><td></td><td></td><td></td>`;
+    tr.cells[0].textContent=s.teamName||s.teamKey;
+    tr.cells[2].textContent=`${cur}/${tot}`;
+    tr.cells[3].textContent=tstr;
+    tr.cells[4].textContent=att;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportCSV() {
+  const rows = Object.values(sessions);
+  if (!rows.length) { toast('尚無資料'); return; }
+  let csv = '隊伍名稱,狀態,完成關數,總關數,總時間(秒),總時間,答題次數\n';
+  rows.forEach(s => {
+    const tot=s.totalStages||0, cur=s.status==='finished'?tot:s.currentStage||0;
+    const sec=s.totalSec||0, tstr=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+    let att=0; Object.values(s.stageLogs||{}).forEach(l=>{att+=(l.attempts||0);});
+    const esc=v=>`"${String(v).replace(/"/g,'""')}"`;
+    csv+=`${esc(s.teamName||s.teamKey)},${s.status==='finished'?'完成':'進行中'},${cur},${tot},${sec},${esc(tstr)},${att}\n`;
+  });
+  downloadFile('解謎成績.csv', csv, 'text/csv;charset=utf-8;');
+  toast('✅ CSV已下載');
+}
+
+function exportGPSLog() {
+  let csv = '隊伍,時間,緯度,經度,距目標(m),結果,關卡\n';
+  Object.values(sessions).forEach(s => {
+    Object.values(s.gpsLogs||{}).sort((a,b)=>a.ts-b.ts).forEach(log => {
+      const t = new Date(log.ts).toLocaleString('zh-TW');
+      const esc=v=>`"${String(v||'').replace(/"/g,'""')}"`;
+      csv+=`${esc(s.teamName||s.teamKey)},${esc(t)},${log.lat||''},${log.lng||''},${log.dist!=null?Math.round(log.dist):''},${log.passed?'通過':'未通過'},${log.stageIdx!=null?log.stageIdx+1:''}\n`;
+    });
+  });
+  downloadFile('GPS紀錄.csv', csv, 'text/csv;charset=utf-8;');
+  toast('✅ GPS紀錄已下載');
+}
+
+function exportJSON() {
+  const safeStages={};
+  Object.entries(stagesData).forEach(([k,v])=>{const{answerIndex,...safe}=v;safeStages[k]=safe;});
+  downloadFile('解謎紀錄.json', JSON.stringify({exportedAt:new Date().toISOString(),sessions,stages:safeStages},null,2), 'application/json');
+  toast('✅ JSON已下載');
+}
+
+function downloadFile(name, content, type) {
+  const blob = new Blob(['\uFEFF'+content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=name; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
