@@ -26,7 +26,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 #adminPage{display:none;min-height:100vh}
 .sidebar{width:230px;background:var(--primary-dark);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:10;overflow-y:auto}
 .sidebar-logo{padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,0.1);text-align:center}
-.sidebar-logo h2{font-family:'Fredoka One',cursive;font-size:16px;color:white;line-height:1.4}
+.sidebar-logo h2{font-family:'Fredoka One',cursive;font-size:17px;color:white;line-height:1.4}
 .sidebar-logo span{font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px}
 .user-info{padding:10px 14px;background:rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px}
 .user-avatar{width:30px;height:30px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;overflow:hidden}
@@ -38,7 +38,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .activity-status.closed{background:rgba(240,112,80,0.2);color:#f09070;border:1px solid rgba(240,112,80,0.3)}
 .activity-status.paused{background:rgba(245,200,66,0.2);color:#f5c842;border:1px solid rgba(245,200,66,0.3)}
 .nav-group-label{padding:8px 18px 3px;font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:1px;text-transform:uppercase}
-.nav-item{display:flex;align-items:center;gap:8px;padding:9px 18px;color:rgba(255,255,255,0.6);cursor:pointer;font-size:12px;transition:all 0.15s;border-left:3px solid transparent}
+.nav-item{display:flex;align-items:center;gap:8px;padding:9px 18px;color:rgba(255,255,255,0.6);cursor:pointer;font-size:13px;transition:all 0.15s;border-left:3px solid transparent}
 .nav-item:hover{background:rgba(255,255,255,0.07);color:white}
 .nav-item.active{background:rgba(255,255,255,0.12);color:white;border-left-color:var(--sand)}
 .nav-item.disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
@@ -47,15 +47,15 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .sidebar-bottom{margin-top:auto;padding:10px;border-top:1px solid rgba(255,255,255,0.08)}
 .main{margin-left:230px;padding:20px 26px;min-height:100vh}
 .page-header{margin-bottom:14px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.page-header-left h1{font-size:19px;font-weight:700}
+.page-header-left h1{font-size:21px;font-weight:700}
 .page-header-left p{font-size:12px;color:var(--text-light);margin-top:3px}
 .tab-content{display:none}.tab-content.active{display:block}
 .form-group{margin-bottom:13px}
 .form-group label{display:block;font-size:12px;font-weight:500;color:var(--text-light);margin-bottom:4px}
-input[type="text"],input[type="number"],input[type="email"],input[type="password"],input[type="datetime-local"],input[type="color"],select,textarea{width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-family:'Noto Sans TC',sans-serif;color:var(--text);outline:none;transition:border-color 0.2s;resize:vertical;background:white}
+input[type="text"],input[type="number"],input[type="email"],input[type="password"],input[type="datetime-local"],input[type="color"],select,textarea{width:100%;padding:10px 13px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:'Noto Sans TC',sans-serif;color:var(--text);outline:none;transition:border-color 0.2s;resize:vertical;background:white}
 input:focus,select:focus,textarea:focus{border-color:var(--primary-light)}
 input[type="color"]{padding:4px;height:36px;cursor:pointer}
-.btn{padding:8px 14px;border:none;border-radius:10px;font-size:12px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:5px}
+.btn{padding:9px 16px;border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:5px}
 .btn:active{transform:scale(0.97)}
 .btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
 .btn-primary{background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;box-shadow:0 3px 10px rgba(26,111,163,0.25)}
@@ -69,7 +69,7 @@ input[type="color"]{padding:4px;height:36px;cursor:pointer}
 .btn-block{width:100%;justify-content:center}
 .card{background:white;border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);margin-bottom:13px}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap}
-.card-title{font-size:14px;font-weight:700}
+.card-title{font-size:15px;font-weight:700}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .form-row-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
@@ -119,9 +119,9 @@ input[type="color"]{padding:4px;height:36px;cursor:pointer}
 .stat-val{font-size:24px;font-weight:700;color:var(--primary)}
 .stat-lbl{font-size:11px;color:var(--text-light);margin-top:2px}
 /* TABLE */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:var(--primary-pale);color:var(--primary);font-weight:600;padding:8px 10px;text-align:left}
-td{padding:8px 10px;border-bottom:1px solid #f0f5f9;color:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--primary-pale);color:var(--primary);font-weight:600;padding:9px 12px;text-align:left}
+td{padding:9px 12px;border-bottom:1px solid #f0f5f9;color:var(--text)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#f8fcff}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
@@ -187,6 +187,7 @@ tr:hover td{background:#f8fcff}
 .role-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
 .role-tag.super{background:rgba(245,200,66,0.2);color:#b08000}
 .role-tag.host{background:rgba(42,159,214,0.2);color:var(--primary)}
+.role-tag.stagemaster{background:rgba(240,112,80,0.2);color:#c04030}
 .role-tag.staff{background:rgba(61,184,122,0.2);color:#1a7a40}
 .add-user-form{background:var(--primary-pale);border-radius:12px;padding:14px;margin-bottom:12px}
 .add-user-form h3{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
@@ -231,6 +232,47 @@ tr:hover td{background:#f8fcff}
 .toggle-slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.3s}
 input:checked+.toggle-slider{background:var(--primary)}
 input:checked+.toggle-slider:before{transform:translateX(18px)}
+
+/* ── RWD 手機版 ── */
+@media (max-width: 768px){
+  .sidebar{
+    width:100%;height:auto;position:fixed;top:0;left:0;right:0;bottom:auto;
+    flex-direction:row;flex-wrap:nowrap;overflow-x:auto;z-index:20;
+    padding-bottom:0;
+  }
+  .sidebar-logo{display:none}
+  .user-info{min-width:120px;padding:6px 8px}
+  .user-name{font-size:10px}
+  .activity-status{display:none}
+  .nav-group-label{display:none}
+  .nav-item{
+    flex-direction:column;gap:2px;padding:7px 10px;
+    font-size:9px;border-left:none;border-bottom:3px solid transparent;
+    flex-shrink:0;min-width:54px;text-align:center;
+  }
+  .nav-item.active{border-bottom-color:var(--sand);border-left:none;background:rgba(255,255,255,0.12)}
+  .nav-icon{font-size:18px}
+  .nav-badge{margin-left:0;margin-top:2px}
+  .sidebar-bottom{display:none}
+  .main{margin-left:0;margin-top:92px;padding:14px 12px}
+  .form-row,.form-row-3,.form-row-4{grid-template-columns:1fr}
+  .team-settings-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .team-grid{grid-template-columns:1fr 1fr}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .card{padding:14px 14px}
+  table{font-size:11px}
+  th,td{padding:6px 7px}
+  .modal-box{padding:16px;margin:0}
+  .modal-overlay{padding:8px}
+  .help-req-header{flex-wrap:wrap}
+  .timeout-bar{margin-top:0}
+}
+@media (max-width: 480px){
+  .team-grid{grid-template-columns:1fr}
+  .nav-item{padding:6px 7px;min-width:46px}
+  .nav-icon{font-size:16px}
+}
 </style>
 </head>
 <body>
@@ -264,6 +306,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       </div>
     </div>
     <div class="activity-status closed" id="activityStatusBadge">活動未開始</div>
+    <div id="roleInfoBar" style="margin:4px 10px;padding:4px 10px;border-radius:7px;font-size:10px;text-align:center;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)">載入中...</div>
     <div class="nav-group-label">監控</div>
     <div class="nav-item active" onclick="showTab('monitor')" id="nav-monitor"><span class="nav-icon">📊</span>即時監控</div>
     <div class="nav-item" onclick="showTab('help')" id="nav-help"><span class="nav-icon">🆘</span>求救管理<span class="nav-badge hidden" id="helpBadge">0</span></div>
@@ -630,6 +673,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <div class="form-group"><label>權限角色</label>
           <select id="newUserRole">
             <option value="staff">👷 工作人員（監控+求救）</option>
+            <option value="stagemaster">🔑 關主（確認玩家過關）</option>
             <option value="host">🎯 活動主帳號（管理關卡+設定）</option>
           </select>
         </div>
@@ -638,6 +682,40 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div class="card">
         <div class="card-header"><div class="card-title">人員清單</div><button class="btn btn-ghost btn-sm" onclick="loadUsers()">🔄</button></div>
         <div class="user-list" id="userList"><div class="text-muted text-sm">載入中...</div></div>
+      </div>
+      <!-- 權限說明表格 -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">📋 角色與權限說明</div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>功能</th>
+            <th>👑 超級管理者</th>
+            <th>🎯 活動主帳號</th>
+            <th>🔑 關主</th>
+            <th>👷 工作人員</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>帳號管理</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>活動設定/LOGO/Banner</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>故事與規則編輯</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>分數設定</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>關卡管理（新增/編輯）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>主題換膚</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>匯出紀錄</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>開始/暫停活動</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+            <tr><td>即時監控（排行/進度）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+            <tr><td>求救管理（回覆）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+            <tr><td>照片審核/刪除</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+            <tr><td>廣播訊息</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+            <tr><td>GPS紀錄查看</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div style="margin-top:14px;padding:12px;background:var(--primary-pale);border-radius:10px;font-size:12px;color:var(--primary);line-height:1.7">
+          <b>🔑 關主說明：</b>現場關主使用手機登入後台，在「求救管理」中即時回覆求救，並可查看各隊伍進度。
+          如果是「關主確認關卡」，由玩家輸入密碼過關（不需要關主在後台按確認）。
+        </div>
       </div>
     </div>
 
@@ -1005,7 +1083,7 @@ async function proceedToAdmin(){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('adminPage').style.display='block';
   document.getElementById('userName').textContent=currentUser.displayName||currentUser.email;
-  const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',staff:'👷 工作人員'};
+  const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 關主',staff:'👷 工作人員'};
   document.getElementById('userRoleLabel').textContent=roleLabels[currentRole]||currentRole;
   if(currentUser.photoURL)document.getElementById('userAvatar').innerHTML=`<img src="${currentUser.photoURL}" alt=""/>`;
   if(currentRole==='super')set(ref(db,`config/users/${currentUser.uid}`),{email:currentUser.email,name:currentUser.displayName||currentUser.email,role:'super',photoURL:currentUser.photoURL||'',lastLogin:serverTimestamp()});
@@ -1015,10 +1093,33 @@ async function proceedToAdmin(){
 }
 
 function applyRolePermissions(role){
-  const hostOnly=['nav-stages','nav-settings','nav-story','nav-scoring','nav-ranking','nav-theme','nav-export','nav-users','nav-stats'];
+  // 各角色可用功能定義
+  const allManage=['nav-stages','nav-settings','nav-story','nav-scoring','nav-ranking','nav-theme','nav-export','nav-stats'];
   const superOnly=['nav-users'];
-  if(role==='staff'){hostOnly.forEach(id=>document.getElementById(id)?.classList.add('disabled'));}
-  else if(role==='host'){superOnly.forEach(id=>document.getElementById(id)?.classList.add('disabled'));}
+
+  if(role==='staff'){
+    // 工作人員：只能監控、求救、GPS、照片、廣播
+    allManage.forEach(id=>document.getElementById(id)?.classList.add('disabled'));
+    superOnly.forEach(id=>document.getElementById(id)?.classList.add('disabled'));
+  } else if(role==='stagemaster'){
+    // 關主：只能監控、求救、GPS、照片、廣播（跟工作人員相同）
+    allManage.forEach(id=>document.getElementById(id)?.classList.add('disabled'));
+    superOnly.forEach(id=>document.getElementById(id)?.classList.add('disabled'));
+  } else if(role==='host'){
+    // 活動主帳號：除帳號管理外全部可用
+    superOnly.forEach(id=>document.getElementById(id)?.classList.add('disabled'));
+  }
+  // super：全部可用
+
+  // 更新角色提示列
+  const roleDesc={
+    super:'👑 超級管理者・全部功能',
+    host:'🎯 活動主帳號・管理+監控',
+    stagemaster:'🔑 關主・監控+求救+確認過關',
+    staff:'👷 工作人員・監控+求救'
+  };
+  const bar=document.getElementById('roleInfoBar');
+  if(bar)bar.textContent=roleDesc[role]||role;
 }
 
 async function doLogout(){clearInterval(timeoutTimer);await signOut(auth);currentUser=null;currentRole=null;document.getElementById('timeoutBar').style.display='none';}
@@ -1026,7 +1127,8 @@ async function doLogout(){clearInterval(timeoutTimer);await signOut(auth);curren
 function showTab(name){
   const hostOnly=['stages','settings','story','scoring','ranking','theme','export','stats'];
   const superOnly=['users'];
-  if(hostOnly.includes(name)&&currentRole==='staff'){toast('⛔ 您沒有此功能的權限');return;}
+  // staff 和 stagemaster 都不能用管理功能
+  if(hostOnly.includes(name)&&(currentRole==='staff'||currentRole==='stagemaster')){toast('⛔ 您沒有此功能的權限');return;}
   if(superOnly.includes(name)&&currentRole!=='super'){toast('⛔ 此功能僅限超級管理者');return;}
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1647,8 +1749,8 @@ async function loadUsers(){
     const snap=await get(ref(db,'config/users'));const users=snap.val()||{};
     if(!Object.keys(users).length){list.innerHTML='<div class="text-muted text-sm">尚無人員</div>';return;}
     list.innerHTML='';
-    const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',staff:'👷 工作人員'};
-    const roleClass={super:'super',host:'host',staff:'staff'};
+    const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 關主',staff:'👷 工作人員'};
+    const roleClass={super:'super',host:'host',stagemaster:'stagemaster',staff:'staff'};
     Object.entries(users).forEach(([uid,u])=>{
       const isSelf=currentUser&&uid===currentUser.uid;const isSuper=u.role==='super';
       const item=document.createElement('div');item.className='user-item';
@@ -1658,7 +1760,11 @@ async function loadUsers(){
       item.innerHTML=`<div class="user-item-avatar">${safePhotoURL?`<img src="${safePhotoURL}" alt="" referrerpolicy="no-referrer"/>`:'👤'}</div>
         <div class="user-item-info"><div class="user-item-name"></div><div class="user-item-email"></div></div>
         <div class="user-item-actions"><span class="role-tag ${roleClass[u.role]||'staff'}"></span>
-        ${!isSelf&&!isSuper&&currentRole==='super'?`<select class="role-select" onchange="updateUserRole('${uid}',this.value)"><option value="staff" ${u.role==='staff'?'selected':''}>👷</option><option value="host" ${u.role==='host'?'selected':''}>🎯</option></select><button class="btn btn-danger btn-sm" onclick="removeUser('${uid}')">移除</button>`:''}
+        ${!isSelf&&!isSuper&&currentRole==='super'?`<select class="role-select" onchange="updateUserRole('${uid}',this.value)">
+          <option value="staff" ${u.role==='staff'?'selected':''}>👷 工作人員</option>
+          <option value="stagemaster" ${u.role==='stagemaster'?'selected':''}>🔑 關主</option>
+          <option value="host" ${u.role==='host'?'selected':''}>🎯 主帳號</option>
+        </select><button class="btn btn-danger btn-sm" onclick="removeUser('${uid}')">移除</button>`:''}
         </div>`;
       // 使用者提供的資料一律textContent
       item.querySelector('.user-item-name').textContent=(u.name||u.email||'').substring(0,50);

@@ -416,6 +416,8 @@ import { getDatabase, ref, get, set, push, onValue, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { getAuth, signInAnonymously }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA51pVs3QZJ3p6eIeVpMVOGqFlNXExEjKo",
@@ -429,6 +431,11 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const db = getDatabase(fbApp);
 const storage = getStorage(fbApp);
+const auth = getAuth(fbApp);
+
+// ── 匿名登入（讓 Firebase Rules 允許讀取）──
+// 玩家不需要 Google 帳號，用匿名 auth 即可通過 Rules
+signInAnonymously(auth).catch(e=>console.warn('匿名登入失敗:',e));
 
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
