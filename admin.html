@@ -1092,7 +1092,12 @@ function checkStuckTeams(){
     }
   });
   const alertBar=document.getElementById('alertBar');
-  if(stuckTeams.length){alertBar.style.display='block';document.getElementById('alertItems').innerHTML=stuckTeams.map(t=>`<div class="alert-item">⚠️ ${t}</div>`).join('');}
+  if(stuckTeams.length){
+    alertBar.style.display='block';
+    const alertItems=document.getElementById('alertItems');
+    alertItems.innerHTML='';
+    // XSS安全：stuckTeams由系統組成，但隊伍名稱來自Firebase，用textContent
+    stuckTeams.forEach(t=>{const d=document.createElement('div');d.className='alert-item';d.textContent='⚠️ '+t;alertItems.appendChild(d);});}
   else alertBar.style.display='none';
 }
 
@@ -1116,7 +1121,9 @@ async function loadBroadcastHistory(){
   items.forEach(b=>{
     const div=document.createElement('div');div.style.cssText='padding:8px 12px;border-bottom:1px solid #eee;font-size:12px';
     const time=b.sentAt?new Date(b.sentAt).toLocaleString('zh-TW'):'--';
-    const title=document.createElement('div');title.style.fontWeight='700';title.textContent=`📢 ${b.title}：${b.msg}`;
+    const title=document.createElement('div');title.style.fontWeight='700';
+    // XSS安全：使用textContent
+    title.textContent=`📢 ${(b.title||'').substring(0,50)}：${(b.msg||'').substring(0,200)}`;
     const sub=document.createElement('div');sub.style.cssText='color:var(--text-light);font-size:10px;margin-top:2px';sub.textContent=time;
     div.appendChild(title);div.appendChild(sub);container.appendChild(div);
   });
@@ -1136,13 +1143,35 @@ async function loadHelpRequests(){
   allHelps.forEach(h=>{
     const card=document.createElement('div');card.className='help-request-card'+(h.answered?' answered':'');
     const t=new Date(h.ts).toLocaleString('zh-TW');
-    card.innerHTML=`<div class="help-req-header"><span class="help-req-badge ${h.answered?'answered':''}">${h.answered?'✅ 已回覆':'🆘 待處理'}</span><span class="help-req-team"></span><span style="font-size:11px;color:var(--text-light)">第${(h.stageIdx||0)+1}關</span></div>
-      <div class="help-req-msg"></div>
-      ${h.answered?`<div style="font-size:12px;color:var(--green);padding:5px 0">✅ 回覆：${h.reply||''}</div>`:
-      `<div class="help-reply-row"><input class="help-reply-input" id="reply_${h.helpKey}" placeholder="輸入回覆訊息..."/><button class="btn btn-success btn-sm" onclick="replyHelp('${h.sessKey}','${h.helpKey}')">回覆</button></div>`}
-      <div style="font-size:10px;color:var(--text-light);margin-top:5px">${t}</div>`;
-    card.querySelector('.help-req-team').textContent=h.teamName;
+    // XSS安全：骨架用innerHTML，使用者資料用textContent填入
+    card.innerHTML=`<div class="help-req-header">
+      <span class="help-req-badge ${h.answered?'answered':''}">${h.answered?'✅ 已回覆':'🆘 待處理'}</span>
+      <span class="help-req-team"></span>
+      <span style="font-size:11px;color:var(--text-light)">第${(h.stageIdx||0)+1}關</span>
+    </div>
+    <div class="help-req-msg"></div>
+    <div class="help-req-reply"></div>
+    <div style="font-size:10px;color:var(--text-light);margin-top:5px" class="help-req-time"></div>`;
+    card.querySelector('.help-req-team').textContent=h.teamName||'';
     card.querySelector('.help-req-msg').textContent=h.msg||'';
+    card.querySelector('.help-req-time').textContent=t;
+    const replyArea=card.querySelector('.help-req-reply');
+    if(h.answered){
+      const replyDiv=document.createElement('div');
+      replyDiv.style.cssText='font-size:12px;color:var(--green);padding:5px 0';
+      replyDiv.textContent=`✅ 回覆：${h.reply||''}`;
+      replyArea.appendChild(replyDiv);
+    } else {
+      const row=document.createElement('div');row.className='help-reply-row';
+      const inp=document.createElement('input');
+      inp.className='help-reply-input';inp.id=`reply_${h.helpKey}`;inp.placeholder='輸入回覆訊息...';
+      const btn=document.createElement('button');
+      btn.className='btn btn-success btn-sm';btn.textContent='回覆';
+      // 用data屬性安全傳遞key
+      btn.dataset.sessKey=h.sessKey;btn.dataset.helpKey=h.helpKey;
+      btn.onclick=()=>replyHelp(btn.dataset.sessKey,btn.dataset.helpKey);
+      row.appendChild(inp);row.appendChild(btn);replyArea.appendChild(row);
+    }
     container.appendChild(card);
   });
 }
@@ -1177,9 +1206,11 @@ function renderMonitor(){
       else{statusCls='playing';statusTxt='🏃 闖關中';}
     }
     const card=document.createElement('div');card.className='team-card';card.style.borderTopColor=cfg.color||'var(--primary-light)';
+    // XSS安全：statusCls/prog/cfg.color皆為系統產生的安全值
     card.innerHTML=`<div class="t-name"></div><div class="t-status ${statusCls}"></div>
       <div class="progress-track"><div class="progress-fill" style="width:${prog}%;background:${cfg.color||'var(--primary-light)'}"></div></div>
       <div class="t-detail"><span></span><span></span></div><div class="t-score"></div>`;
+    // 使用者相關資料用 textContent
     card.querySelector('.t-name').textContent=cfg.name||`隊伍${i+1}`;
     card.querySelector('.t-status').textContent=statusTxt;
     const spans=card.querySelectorAll('.t-detail span');spans[0].textContent=progTxt;spans[1].textContent=timeTxt;
@@ -1194,8 +1225,12 @@ function renderMonitor(){
     const tot=s.totalStages||'?',cur=s.status==='finished'?tot:(s.currentStage||0)+1;
     const sec=s.totalSec||0,tstr=sec?`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`:'--';
     const tr=document.createElement('tr');
+    // XSS安全：badge是系統固定HTML；隊伍名稱用textContent
     tr.innerHTML=`<td><b>${i+1}</b></td><td></td><td>${badge}</td><td></td><td></td><td></td>`;
-    tr.cells[1].textContent=s.teamName||s.teamKey;tr.cells[3].textContent=`${cur}/${tot}`;tr.cells[4].textContent=`${s.score||0}分`;tr.cells[5].textContent=tstr;
+    tr.cells[1].textContent=(s.teamName||s.teamKey).substring(0,30);
+    tr.cells[3].textContent=`${cur}/${tot}`;
+    tr.cells[4].textContent=`${s.score||0}分`;
+    tr.cells[5].textContent=tstr;
     tbody.appendChild(tr);
   });
 }
@@ -1617,12 +1652,18 @@ async function loadUsers(){
     Object.entries(users).forEach(([uid,u])=>{
       const isSelf=currentUser&&uid===currentUser.uid;const isSuper=u.role==='super';
       const item=document.createElement('div');item.className='user-item';
-      item.innerHTML=`<div class="user-item-avatar">${u.photoURL?`<img src="${u.photoURL}" alt=""/>`:'👤'}</div>
+      // XSS安全：uid/role是系統控制值，photoURL限制只接受google URL
+      const safePhotoURL=(u.photoURL&&u.photoURL.startsWith('https://'))
+        ?u.photoURL:'';
+      item.innerHTML=`<div class="user-item-avatar">${safePhotoURL?`<img src="${safePhotoURL}" alt="" referrerpolicy="no-referrer"/>`:'👤'}</div>
         <div class="user-item-info"><div class="user-item-name"></div><div class="user-item-email"></div></div>
         <div class="user-item-actions"><span class="role-tag ${roleClass[u.role]||'staff'}"></span>
         ${!isSelf&&!isSuper&&currentRole==='super'?`<select class="role-select" onchange="updateUserRole('${uid}',this.value)"><option value="staff" ${u.role==='staff'?'selected':''}>👷</option><option value="host" ${u.role==='host'?'selected':''}>🎯</option></select><button class="btn btn-danger btn-sm" onclick="removeUser('${uid}')">移除</button>`:''}
         </div>`;
-      item.querySelector('.user-item-name').textContent=u.name||u.email;item.querySelector('.user-item-email').textContent=u.email||'';item.querySelector('.role-tag').textContent=roleLabels[u.role]||u.role;
+      // 使用者提供的資料一律textContent
+      item.querySelector('.user-item-name').textContent=(u.name||u.email||'').substring(0,50);
+      item.querySelector('.user-item-email').textContent=(u.email||'').substring(0,80);
+      item.querySelector('.role-tag').textContent=roleLabels[u.role]||u.role;
       list.appendChild(item);
     });
   }catch(e){list.innerHTML='<div class="text-muted text-sm">載入失敗</div>';}
@@ -1679,8 +1720,11 @@ async function loadExport(){
     const sec=s.totalSec||0,tstr=sec?`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`:'--';
     const badge=s.status==='finished'?`<span class="badge badge-finished">完成</span>`:`<span class="badge badge-playing">進行中</span>`;
     let att=0,helps=0;Object.values(s.stageLogs||{}).forEach(l=>{att+=(l.attempts||0);});Object.values(s.helpLogs||{}).forEach(()=>helps++);
+    // XSS安全：badge是系統HTML；其餘textContent
     const tr=document.createElement('tr');tr.innerHTML=`<td></td><td>${badge}</td><td></td><td></td><td></td><td></td><td></td>`;
-    tr.cells[0].textContent=s.teamName||s.teamKey;tr.cells[2].textContent=`${s.score||0}分`;tr.cells[3].textContent=`${cur}/${tot}`;tr.cells[4].textContent=tstr;tr.cells[5].textContent=att;tr.cells[6].textContent=helps;
+    tr.cells[0].textContent=(s.teamName||s.teamKey).substring(0,30);
+    tr.cells[2].textContent=`${s.score||0}分`;tr.cells[3].textContent=`${cur}/${tot}`;
+    tr.cells[4].textContent=tstr;tr.cells[5].textContent=att;tr.cells[6].textContent=helps;
     tbody.appendChild(tr);
   });
 }

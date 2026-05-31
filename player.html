@@ -1005,7 +1005,14 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
       if(pass){
         statusEl.className='photo-verify-status pass';
         const reasonMatch=text.match(/原因：(.+)/);
-        statusEl.innerHTML=`✅ 照片驗證通過！<br><small style="opacity:0.8">${reasonMatch?reasonMatch[1].trim():''}</small>`;
+        // XSS安全：AI回傳文字不確定，用textContent
+        statusEl.textContent='✅ 照片驗證通過！';
+        if(reasonMatch&&reasonMatch[1]){
+          const small=document.createElement('div');
+          small.style.cssText='font-size:11px;opacity:0.8;margin-top:3px';
+          small.textContent=reasonMatch[1].trim().substring(0,100);
+          statusEl.appendChild(small);
+        }
         state.photoFailCount=0;
         document.getElementById('skipPhotoArea').classList.add('hidden');
       } else {
