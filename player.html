@@ -8,86 +8,130 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Fredoka+One&display=swap');
 :root{
   --primary:#1a6fa3;--primary-dark:#0d4f7a;--primary-light:#2a9fd6;--primary-pale:#e0f2fb;
-  --sand:#f5c87a;--sand-dark:#e0a030;--coral:#f07050;--green:#3db87a;
-  --text:#1a3a5c;--text-light:#5a8aaa;--bg:#d4eaf5;--radius:16px;
+  --sand:#f5c87a;--sand-dark:#e0a030;--coral:#f07050;--green:#3db87a;--green-pale:#eaf7ee;
+  --yellow:#f5c842;--text:#1a3a5c;--text-light:#5a8aaa;--bg:#d4eaf5;--radius:16px;
   --shadow:0 4px 20px rgba(26,111,163,0.15);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);min-height:100vh;color:var(--text);overflow-x:hidden}
 .screen{display:none;min-height:100vh;flex-direction:column}.screen.active{display:flex}
 
-/* LOGIN */
-#loginScreen{background:linear-gradient(160deg,var(--primary-dark) 0%,var(--primary) 60%,var(--primary-light) 100%);align-items:center;justify-content:center;padding:24px}
-.login-box{background:rgba(255,255,255,0.96);border-radius:28px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 12px 48px rgba(0,0,0,0.25)}
-.login-logo{text-align:center;margin-bottom:20px}
-.login-logo svg{width:90px;height:72px}
-.login-logo h1{font-family:'Fredoka One',cursive;font-size:22px;color:var(--primary);line-height:1.3;margin-top:8px}
-.login-logo p{font-size:11px;color:var(--text-light);letter-spacing:2px;margin-top:3px}
-.login-welcome{font-size:13px;color:var(--text-light);text-align:center;margin-bottom:16px;line-height:1.6;background:var(--primary-pale);border-radius:10px;padding:10px 14px}
-.field-label{font-size:12px;color:var(--text-light);font-weight:500;margin-bottom:5px;margin-top:12px}
-select,input[type="password"]{width:100%;padding:11px 13px;border:2px solid #cde7f5;border-radius:12px;font-size:15px;font-family:'Noto Sans TC',sans-serif;color:var(--text);background:#f5fafd;outline:none;transition:border-color 0.2s}
+/* ── LOGIN ── */
+#loginScreen{background:linear-gradient(160deg,var(--primary-dark),var(--primary),var(--primary-light));align-items:center;justify-content:center;padding:20px}
+.login-box{background:rgba(255,255,255,0.96);border-radius:28px;padding:24px 22px;width:100%;max-width:360px;box-shadow:0 12px 48px rgba(0,0,0,0.25)}
+.login-logo{text-align:center;margin-bottom:14px}
+.activity-logo{max-width:120px;max-height:80px;width:auto;height:auto;object-fit:contain;border-radius:10px;display:block;margin:0 auto 8px}
+.default-logo svg{width:80px;height:64px}
+.login-logo h1{font-family:'Fredoka One',cursive;font-size:20px;color:var(--primary);line-height:1.3;margin-top:6px}
+.login-logo .subtitle{font-size:11px;color:var(--text-light);letter-spacing:2px;margin-top:3px}
+.login-welcome{font-size:12px;color:var(--text-light);text-align:center;margin-bottom:12px;line-height:1.6;background:var(--primary-pale);border-radius:10px;padding:9px 13px}
+.field-label{font-size:12px;color:var(--text-light);font-weight:500;margin-bottom:5px;margin-top:10px}
+select,input[type="password"],input[type="text"]{width:100%;padding:11px 13px;border:2px solid #cde7f5;border-radius:12px;font-size:15px;font-family:'Noto Sans TC',sans-serif;color:var(--text);background:#f5fafd;outline:none;transition:border-color 0.2s}
 select:focus,input:focus{border-color:var(--primary-light)}
-.btn-login{width:100%;padding:13px;background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:18px;box-shadow:0 4px 14px rgba(26,111,163,0.3)}
+.btn-login{width:100%;padding:13px;background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:14px;box-shadow:0 4px 14px rgba(26,111,163,0.3)}
 .btn-login:active{transform:scale(0.97)}
+.btn-login:disabled{opacity:0.6;cursor:not-allowed;transform:none}
 .error-msg{color:var(--coral);font-size:12px;margin-top:7px;text-align:center;min-height:16px}
+.loading-hint{font-size:12px;color:var(--text-light);text-align:center;margin-top:6px;min-height:16px}
 
-/* PAUSED */
+/* ── 等待頁面 ── */
+#waitScreen{background:linear-gradient(160deg,var(--primary-dark),var(--primary),var(--primary-light));flex-direction:column}
+.wait-header{background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.15)}
+.wait-header-logo{max-width:50px;max-height:36px;object-fit:contain;border-radius:6px}
+.wait-header-title{color:white;font-size:16px;font-weight:700}
+.wait-header-team{color:rgba(255,255,255,0.7);font-size:12px;margin-top:2px}
+.wait-content{flex:1;overflow-y:auto;padding:16px}
+/* 故事卡片 */
+.story-card{background:rgba(255,255,255,0.95);border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 4px 24px rgba(0,0,0,0.2)}
+.story-title{font-size:17px;font-weight:700;color:var(--primary);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.story-body{font-size:14px;color:var(--text);line-height:1.8;white-space:pre-wrap}
+.story-image{width:100%;border-radius:12px;margin-top:12px;object-fit:cover;max-height:200px}
+/* 規則卡片 */
+.rules-card{background:rgba(255,255,255,0.95);border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 4px 24px rgba(0,0,0,0.2)}
+.rules-title{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:12px}
+.rule-item{display:flex;gap:10px;margin-bottom:8px;font-size:13px;color:var(--text);line-height:1.5}
+.rule-num{width:22px;height:22px;border-radius:50%;background:var(--primary);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+/* 隊伍資訊卡 */
+.team-info-card{background:rgba(255,255,255,0.95);border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 4px 24px rgba(0,0,0,0.2)}
+.team-info-title{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:12px}
+.team-info-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid #eef2f8}
+.team-info-row:last-child{border-bottom:none}
+.team-info-label{color:var(--text-light)}
+.team-info-value{font-weight:600;color:var(--text)}
+/* 等待底部 */
+.wait-footer{padding:16px;background:rgba(0,0,0,0.2);backdrop-filter:blur(10px)}
+.wait-status-bar{background:rgba(255,255,255,0.15);border-radius:12px;padding:12px 16px;margin-bottom:12px;text-align:center}
+.wait-status-text{color:white;font-size:14px;font-weight:600;margin-bottom:4px}
+.wait-status-sub{color:rgba(255,255,255,0.65);font-size:12px}
+.wait-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#6ee89a;animation:pulse 1.5s infinite;margin-right:6px}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+.btn-start-game{width:100%;padding:16px;background:linear-gradient(90deg,var(--green),#5dd490);color:white;border:none;border-radius:16px;font-size:17px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(61,184,122,0.4);animation:glow 2s infinite}
+@keyframes glow{0%,100%{box-shadow:0 4px 20px rgba(61,184,122,0.4)}50%{box-shadow:0 4px 32px rgba(61,184,122,0.7)}}
+.btn-start-game:disabled{opacity:0.5;cursor:not-allowed;animation:none;background:rgba(255,255,255,0.3)}
+
+/* ── PAUSED ── */
 #pausedScreen{background:linear-gradient(160deg,var(--primary-dark),var(--primary));align-items:center;justify-content:center;padding:32px;text-align:center}
 .paused-box{background:rgba(255,255,255,0.95);border-radius:24px;padding:36px 28px;max-width:320px}
 .paused-icon{font-size:56px;margin-bottom:14px}
 .paused-title{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .paused-msg{font-size:14px;color:var(--text-light);line-height:1.6}
 
-/* GAME */
+/* ── GAME ── */
 #gameScreen{background:var(--bg)}
 .game-header{background:linear-gradient(135deg,var(--primary-dark),var(--primary));overflow:hidden}
-.header-art{width:100%;display:block}
-.header-info{padding:8px 14px 10px;display:flex;align-items:center;justify-content:space-between}
-.team-dot{width:8px;height:8px;border-radius:50%;background:#6ee89a}
+.game-banner{width:100%;max-height:120px;object-fit:cover;display:block}
+.header-info{padding:8px 14px 8px;display:flex;align-items:center;justify-content:space-between}
+.team-dot{width:8px;height:8px;border-radius:50%;background:#6ee89a;flex-shrink:0}
 .team-name{color:white;font-weight:700;font-size:14px}
 .stage-label{color:rgba(255,255,255,0.7);font-size:11px}
-.timers{display:flex;gap:7px;padding:0 12px 10px}
-.timer-card{flex:1;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:6px 8px;text-align:center}
+.timers{display:flex;gap:6px;padding:0 12px 8px}
+.timer-card{flex:1;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:5px 7px;text-align:center}
 .timer-card .label{color:rgba(255,255,255,0.65);font-size:9px}
-.timer-card .value{color:white;font-size:17px;font-weight:700;font-family:monospace}
+.timer-card .value{color:white;font-size:16px;font-weight:700;font-family:monospace}
 .timer-card .value.warn{color:#ffd04a}
-.progress-bar{display:flex;align-items:center;gap:5px;padding:8px 12px 12px}
+.score-bar{display:flex;align-items:center;justify-content:space-between;padding:4px 14px 8px}
+.score-val{color:var(--sand);font-size:15px;font-weight:700}
+.score-label{color:rgba(255,255,255,0.6);font-size:10px}
+.progress-bar{display:flex;align-items:center;gap:5px;padding:6px 12px 10px}
 .prog-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,0.25);border:1.5px solid rgba(255,255,255,0.35);transition:all 0.3s}
 .prog-dot.done{background:white;border-color:white}
 .prog-dot.active{background:var(--sand);border-color:var(--sand-dark);width:13px;height:13px}
 .prog-label{color:rgba(255,255,255,0.65);font-size:10px;margin-left:3px}
 .game-content{flex:1;padding:12px;overflow-y:auto}
 .state-card{background:white;border-radius:var(--radius);padding:16px;margin-bottom:10px;box-shadow:var(--shadow)}
-
+/* 位置說明卡 */
+.location-card{background:linear-gradient(135deg,#1a7a40,#27ae60);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.location-card .loc-title{color:rgba(255,255,255,0.8);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.location-card .loc-text{color:white;font-size:14px;font-weight:700;line-height:1.5}
 /* GPS */
 .gps-card{text-align:center;border:2px dashed #b8ddf0}
-.gps-icon{font-size:44px;margin-bottom:6px}
+.gps-icon{font-size:40px;margin-bottom:6px}
 .gps-title{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:5px}
-.gps-desc{font-size:13px;color:var(--text-light);line-height:1.5;margin-bottom:14px}
+.gps-desc{font-size:13px;color:var(--text-light);line-height:1.5;margin-bottom:12px}
 .gps-status{font-size:12px;color:var(--text-light);margin-top:10px;min-height:18px;line-height:1.5}
-.btn-gps{padding:11px 22px;background:var(--green);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;box-shadow:0 3px 10px rgba(61,184,122,0.3)}
+.btn-gps{padding:11px 22px;background:var(--green);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
 .btn-gps:disabled{opacity:0.6;cursor:not-allowed}
-
 /* QUESTION */
 .q-tag{display:inline-block;background:var(--primary-pale);color:var(--primary);font-size:10px;font-weight:700;border-radius:7px;padding:2px 9px;margin-bottom:8px}
 .q-title{font-size:15px;font-weight:700;line-height:1.6;margin-bottom:4px}
-.q-desc{font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:12px}
-.q-image{width:100%;border-radius:10px;margin-bottom:12px;object-fit:cover;max-height:180px}
-
+.q-desc{font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:10px}
+.q-image{width:100%;border-radius:10px;margin-bottom:10px;object-fit:cover;max-height:180px}
 /* HINT */
 .hint-box{background:#fffbe6;border:1.5px solid #f5c842;border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:13px;color:#7a5a00;line-height:1.5}
-.hint-label{font-size:10px;font-weight:700;color:#b08000;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
-
+.hint-label{font-size:10px;font-weight:700;color:#b08000;margin-bottom:4px;text-transform:uppercase}
 /* PHOTO */
 .photo-upload-area{border:2px dashed #90c8e8;border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:background 0.2s;margin-bottom:10px}
 .photo-upload-area:hover{background:#f0f8fd}
 .photo-upload-area .icon{font-size:28px;margin-bottom:5px}
 .photo-upload-area .text{font-size:12px;color:var(--text-light)}
 .photo-preview{width:100%;border-radius:10px;margin-bottom:10px;max-height:180px;object-fit:cover;display:none}
+.photo-verify-status{border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:13px;line-height:1.5;display:none}
+.photo-verify-status.checking{background:#f0f8fd;border:1.5px solid #90c8e8;color:var(--primary)}
+.photo-verify-status.pass{background:var(--green-pale);border:1.5px solid var(--green);color:#1a7a40}
+.photo-verify-status.fail{background:#fff0ee;border:1.5px solid var(--coral);color:#c03020}
 #photoInput{display:none}
-
 /* OPTIONS */
-.options-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+.options-list{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
 .option-btn{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;background:#f5fafd;border:2px solid #c8e4f5;border-radius:12px;cursor:pointer;font-size:13px;color:var(--text);line-height:1.5;transition:all 0.15s;text-align:left;width:100%;font-family:'Noto Sans TC',sans-serif}
 .option-btn:hover{border-color:var(--primary-light);background:#e8f4fc}
 .option-btn.selected{border-color:var(--sand-dark);background:#fff8e6}
@@ -97,69 +141,169 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .option-btn.selected .opt-letter{background:var(--sand);color:white}
 .option-btn.correct .opt-letter{background:var(--green);color:white}
 .option-btn.wrong .opt-letter{background:var(--coral);color:white}
-.btn-submit{width:100%;padding:13px;background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(26,111,163,0.25)}
+.btn-submit{width:100%;padding:12px;background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
 .btn-submit:disabled{opacity:0.5;cursor:not-allowed}
-
+/* 行動列 */
+.action-bar{display:flex;gap:8px;margin-bottom:10px}
+.action-btn{flex:1;padding:9px 6px;border:none;border-radius:12px;font-size:12px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;text-align:center;transition:all 0.15s}
+.action-btn:active{transform:scale(0.96)}
+.btn-help{background:#fff0ee;color:#c03020;border:1.5px solid #f09070}
+.btn-help:disabled{opacity:0.5;cursor:not-allowed}
+.btn-rank{background:var(--primary-pale);color:var(--primary);border:1.5px solid #90c8e8}
+.btn-rank.hidden-rank{display:none}
+.btn-hint{background:#fffbe6;color:#7a5a00;border:1.5px solid #f5c842}
+.btn-hint:disabled{opacity:0.5;cursor:not-allowed}
+/* 跳過照片 */
+.skip-photo-area{text-align:center;margin-bottom:10px;padding:10px;background:#fff0ee;border-radius:10px;border:1px solid #f09070}
+.skip-photo-area .skip-msg{font-size:12px;color:var(--coral);margin-bottom:8px}
+.skip-photo-btns{display:flex;gap:8px;justify-content:center}
+.btn-skip{padding:8px 16px;background:var(--coral);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
+.btn-retake{padding:8px 16px;background:var(--primary-pale);color:var(--primary);border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
 /* FEEDBACK */
-.feedback-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px}
-.feedback-box{background:white;border-radius:22px;padding:28px 22px;text-align:center;max-width:310px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.3)}
-.feedback-icon{font-size:56px;margin-bottom:10px}
+.feedback-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.feedback-box{background:white;border-radius:22px;padding:26px 20px;text-align:center;max-width:310px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.3)}
+.feedback-icon{font-size:52px;margin-bottom:10px}
 .feedback-title{font-size:20px;font-weight:900;margin-bottom:6px}
 .feedback-title.correct{color:var(--green)}.feedback-title.wrong{color:var(--coral)}
-.feedback-msg{font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:18px}
-.btn-next{width:100%;padding:13px;background:linear-gradient(90deg,var(--green),#5dd490);color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
-.btn-retry{width:100%;padding:13px;background:linear-gradient(90deg,var(--coral),#f09070);color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
-
+.feedback-msg{font-size:13px;color:var(--text-light);line-height:1.6;margin-bottom:8px}
+.feedback-score{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:14px}
+.btn-next{width:100%;padding:12px;background:linear-gradient(90deg,var(--green),#5dd490);color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
+.btn-retry{width:100%;padding:12px;background:linear-gradient(90deg,var(--coral),#f09070);color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
+/* 排行 OVERLAY */
+.rank-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.rank-box{background:white;border-radius:22px;padding:22px;max-width:340px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.3);max-height:80vh;overflow-y:auto}
+.rank-box h3{font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;color:var(--primary)}
+.rank-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;margin-bottom:8px;background:#f5fafd}
+.rank-item.me{background:var(--primary-pale);border:1.5px solid var(--primary-light)}
+.rank-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.rank-num.gold{background:#ffd700;color:#7a5a00}
+.rank-num.silver{background:#c0c0c0;color:#444}
+.rank-num.bronze{background:#cd7f32;color:white}
+.rank-num.other{background:#eee;color:#666}
+.rank-info{flex:1}
+.rank-name{font-size:13px;font-weight:700}
+.rank-detail{font-size:11px;color:var(--text-light)}
+.rank-score{font-size:15px;font-weight:700;color:var(--primary)}
+.btn-close-rank{width:100%;padding:10px;background:var(--primary-pale);color:var(--primary);border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:10px}
+/* 求救 OVERLAY */
+.help-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;z-index:100}
+.help-box{background:white;border-radius:22px 22px 0 0;padding:22px;width:100%;max-width:480px;box-shadow:0 -8px 32px rgba(0,0,0,0.2)}
+.help-box h3{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--coral)}
+.help-box .help-subtitle{font-size:12px;color:var(--text-light);margin-bottom:14px}
+.help-textarea{width:100%;padding:10px 13px;border:2px solid #f0c8c0;border-radius:12px;font-size:14px;font-family:'Noto Sans TC',sans-serif;color:var(--text);resize:none;outline:none;margin-bottom:10px}
+.help-cost{font-size:12px;color:var(--coral);margin-bottom:12px;text-align:center}
+.help-btns{display:flex;gap:8px}
+.btn-send-help{flex:1;padding:12px;background:var(--coral);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
+.btn-cancel-help{flex:1;padding:12px;background:#f5f5f5;color:#666;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
+.reply-toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a3a5c;color:white;padding:12px 20px;border-radius:14px;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);max-width:300px;text-align:center;animation:slideDown 0.4s ease}
+@keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-20px)}}
+/* 廣播 */
+.broadcast-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:200;padding:24px}
+.broadcast-box{background:white;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center}
+.broadcast-icon{font-size:48px;margin-bottom:10px}
+.broadcast-title{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:8px}
+.broadcast-msg{font-size:14px;color:var(--text);line-height:1.6;margin-bottom:16px}
+.btn-broadcast-ok{width:100%;padding:11px;background:var(--primary);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
 /* FINISH */
-#finishScreen{background:linear-gradient(160deg,var(--primary-dark),var(--primary),var(--primary-light));align-items:center;justify-content:center;padding:28px;text-align:center}
-.finish-box{background:rgba(255,255,255,0.96);border-radius:28px;padding:32px 24px;max-width:340px;width:100%}
-.finish-icon{font-size:64px;margin-bottom:14px}
-.finish-title{font-family:'Fredoka One',cursive;font-size:26px;color:var(--primary);margin-bottom:6px}
-.finish-team{font-size:14px;color:var(--text-light);margin-bottom:20px}
-.finish-stats{display:flex;gap:10px;margin-bottom:20px}
-.stat-box{flex:1;background:var(--primary-pale);border-radius:10px;padding:12px 6px;text-align:center}
+#finishScreen{background:linear-gradient(160deg,var(--primary-dark),var(--primary),var(--primary-light));align-items:center;justify-content:center;padding:24px;text-align:center}
+.finish-box{background:rgba(255,255,255,0.96);border-radius:28px;padding:28px 22px;max-width:340px;width:100%}
+.finish-icon{font-size:60px;margin-bottom:12px}
+.finish-title{font-family:'Fredoka One',cursive;font-size:24px;color:var(--primary);margin-bottom:6px}
+.finish-team{font-size:14px;color:var(--text-light);margin-bottom:16px}
+.finish-score-big{font-size:48px;font-weight:900;color:var(--primary);margin-bottom:4px}
+.finish-score-label{font-size:12px;color:var(--text-light);margin-bottom:16px}
+.finish-stats{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.stat-box{flex:1;min-width:70px;background:var(--primary-pale);border-radius:10px;padding:10px 6px;text-align:center}
 .stat-label{font-size:10px;color:var(--text-light);margin-bottom:3px}
-.stat-value{font-size:20px;font-weight:700;color:var(--primary)}
+.stat-value{font-size:18px;font-weight:700;color:var(--primary)}
+.finish-rank-section{background:#f8f4ff;border-radius:12px;padding:12px;margin-bottom:12px}
+.finish-rank-title{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .finish-msg{font-size:13px;color:var(--text-light);line-height:1.7}
-
 /* UTILS */
 .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.88);display:flex;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:10px;font-size:13px;color:var(--primary)}
-.spinner{width:38px;height:38px;border:4px solid var(--primary-pale);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite}
+.spinner{width:36px;height:36px;border:4px solid var(--primary-pale);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
 </style>
 </head>
 <body>
 
+<!-- LOGIN -->
 <div id="loginScreen" class="screen active">
   <div class="login-box">
     <div class="login-logo">
-      <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100" height="80" fill="#1a6fa3" rx="12"/>
-        <rect x="25" y="42" width="50" height="32" fill="#e8f4f8" rx="3"/>
-        <polygon points="18,42 50,18 82,42" fill="#2abde0"/>
-        <rect x="30" y="50" width="12" height="10" fill="#b8e4f7" rx="2"/>
-        <rect x="44" y="50" width="12" height="10" fill="#b8e4f7" rx="2"/>
-        <rect x="58" y="50" width="12" height="10" fill="#b8e4f7" rx="2"/>
-        <rect x="43" y="57" width="14" height="17" fill="#7dd4f8" rx="2"/>
-        <ellipse cx="50" cy="20" rx="10" ry="8" fill="#f5c87a" transform="rotate(-20,50,20)"/>
-        <path d="M44,14 Q50,6 57,13 Q62,19 57,23 Q50,27 44,23 Q40,19 44,14" fill="none" stroke="#e08030" stroke-width="1.5" stroke-linecap="round"/>
-        <ellipse cx="46" cy="17" rx="3" ry="2.5" fill="#f0a84a" transform="rotate(-20,46,17)"/>
-        <path d="M57,12 Q64,4 62,3 Q60,2 58,11" fill="#f5c87a"/>
-      </svg>
-      <h1 id="loginTitle">新屋海螺館<br>實境解謎</h1>
-      <p id="loginSubtitle">SHELL ADVENTURE</p>
+      <div id="defaultLogo" class="default-logo">
+        <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="80" fill="#1a6fa3" rx="12"/>
+          <rect x="25" y="42" width="50" height="32" fill="#e8f4f8" rx="3"/>
+          <polygon points="18,42 50,18 82,42" fill="#2abde0"/>
+          <rect x="30" y="50" width="12" height="10" fill="#b8e4f7" rx="2"/>
+          <rect x="44" y="50" width="12" height="10" fill="#b8e4f7" rx="2"/>
+          <rect x="58" y="50" width="12" height="10" fill="#b8e4f7" rx="2"/>
+          <rect x="43" y="57" width="14" height="17" fill="#7dd4f8" rx="2"/>
+          <ellipse cx="50" cy="20" rx="10" ry="8" fill="#f5c87a" transform="rotate(-20,50,20)"/>
+          <path d="M44,14 Q50,6 57,13 Q62,19 57,23 Q50,27 44,23 Q40,19 44,14" fill="none" stroke="#e08030" stroke-width="1.5" stroke-linecap="round"/>
+          <ellipse cx="46" cy="17" rx="3" ry="2.5" fill="#f0a84a" transform="rotate(-20,46,17)"/>
+          <path d="M57,12 Q64,4 62,3 Q60,2 58,11" fill="#f5c87a"/>
+        </svg>
+      </div>
+      <img id="activityLogo" class="activity-logo hidden" alt="LOGO"/>
+      <h1 id="loginTitle">實境解謎</h1>
+      <div class="subtitle" id="loginSubtitle">ADVENTURE</div>
     </div>
     <div class="login-welcome hidden" id="loginWelcome"></div>
+    <div class="loading-hint" id="loadingHint">⏳ 載入活動資訊中...</div>
     <div class="field-label">選擇你的隊伍</div>
-    <select id="teamSelect"><option value="">-- 請選擇隊伍 --</option></select>
+    <select id="teamSelect" disabled><option value="">-- 載入中 --</option></select>
     <div class="field-label">隊伍密碼</div>
     <input type="password" id="teamPassword" placeholder="請輸入密碼"/>
     <div class="error-msg" id="loginError"></div>
-    <button class="btn-login" onclick="doLogin()">🐚 開始闖關！</button>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()" disabled>⏳ 載入中...</button>
   </div>
 </div>
 
+<!-- 等待頁面 -->
+<div id="waitScreen" class="screen">
+  <div class="wait-header">
+    <img id="waitHeaderLogo" class="wait-header-logo hidden" alt="LOGO"/>
+    <div>
+      <div class="wait-header-title" id="waitActivityName">實境解謎</div>
+      <div class="wait-header-team" id="waitTeamName">隊伍名稱</div>
+    </div>
+  </div>
+  <div class="wait-content">
+    <!-- 故事介紹 -->
+    <div class="story-card" id="storyCard">
+      <div class="story-title">📖 <span id="storyTitle">活動故事</span></div>
+      <div class="story-body" id="storyBody">載入中...</div>
+      <img id="storyImage" class="story-image hidden" alt="故事圖片"/>
+    </div>
+    <!-- 活動規則 -->
+    <div class="rules-card" id="rulesCard">
+      <div class="rules-title">📋 活動規則</div>
+      <div id="rulesList"></div>
+    </div>
+    <!-- 隊伍資訊 -->
+    <div class="team-info-card">
+      <div class="team-info-title">👥 隊伍資訊</div>
+      <div class="team-info-row"><span class="team-info-label">隊伍名稱</span><span class="team-info-value" id="infoTeamName">--</span></div>
+      <div class="team-info-row"><span class="team-info-label">關卡數量</span><span class="team-info-value" id="infoStageCount">--</span></div>
+      <div class="team-info-row"><span class="team-info-label">求救次數</span><span class="team-info-value" id="infoHelpTimes">--</span></div>
+      <div class="team-info-row"><span class="team-info-label">活動狀態</span><span class="team-info-value" id="infoStatus">等待開始</span></div>
+    </div>
+  </div>
+  <div class="wait-footer">
+    <div class="wait-status-bar" id="waitStatusBar">
+      <div class="wait-status-text"><span class="wait-pulse"></span><span id="waitStatusText">等待管理者開始活動...</span></div>
+      <div class="wait-status-sub" id="waitStatusSub">管理者按下開始後，下方按鈕將自動解鎖</div>
+    </div>
+    <button class="btn-start-game" id="btnStartGame" onclick="startGame()" disabled>
+      🚀 開始闖關！
+    </button>
+  </div>
+</div>
+
+<!-- PAUSED -->
 <div id="pausedScreen" class="screen">
   <div class="paused-box">
     <div class="paused-icon">⏸</div>
@@ -168,32 +312,10 @@ select:focus,input:focus{border-color:var(--primary-light)}
   </div>
 </div>
 
+<!-- GAME -->
 <div id="gameScreen" class="screen">
   <div class="game-header">
-    <svg id="headerArt" class="header-art" viewBox="0 0 390 72" xmlns="http://www.w3.org/2000/svg">
-      <rect width="390" height="72" fill="#0d4f7a"/>
-      <rect x="130" y="40" width="130" height="30" fill="#e8f4f8" rx="3"/>
-      <polygon points="118,40 195,16 262,40" fill="#2abde0"/>
-      <rect x="140" y="47" width="17" height="12" fill="#b8e4f7" rx="2"/>
-      <rect x="165" y="47" width="17" height="12" fill="#b8e4f7" rx="2"/>
-      <rect x="190" y="47" width="17" height="12" fill="#b8e4f7" rx="2"/>
-      <rect x="166" y="55" width="15" height="15" fill="#7dd4f8" rx="2"/>
-      <rect x="133" y="43" width="124" height="6" fill="#1a9dd0" rx="1.5"/>
-      <text id="headerBuildingText" x="195" y="48" text-anchor="middle" font-size="4.5" fill="white" font-weight="700" font-family="sans-serif">新屋海螺館</text>
-      <ellipse cx="195" cy="20" rx="13" ry="10" fill="#f5c87a" transform="rotate(-20,195,20)"/>
-      <path d="M188,13 Q195,5 202,12 Q208,18 202,23 Q195,28 188,23 Q184,18 188,13" fill="none" stroke="#e08030" stroke-width="1.5" stroke-linecap="round"/>
-      <ellipse cx="191" cy="17" rx="4" ry="3" fill="#f0a84a" transform="rotate(-20,191,17)"/>
-      <path d="M202,11 Q210,3 208,2 Q206,1 204,10" fill="#f5c87a"/>
-      <ellipse cx="55" cy="52" rx="10" ry="7" fill="#f7a350"/>
-      <polygon points="65,52 72,46 72,58" fill="#f7a350"/>
-      <circle cx="51" cy="50" r="1.5" fill="white"/><circle cx="51" cy="50" r="0.8" fill="#222"/>
-      <ellipse cx="330" cy="54" rx="8" ry="5.5" fill="#7dd4f8"/>
-      <polygon points="338,54 344,50 344,58" fill="#7dd4f8"/>
-      <circle cx="327" cy="52" r="1.2" fill="white"/><circle cx="327" cy="52" r="0.6" fill="#222"/>
-      <path d="M28,72 Q24,60 30,50 Q36,42 32,34" fill="none" stroke="#3db87a" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M360,72 Q364,60 358,50 Q352,42 356,34" fill="none" stroke="#3db87a" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M0,62 Q48,56 97,62 Q146,68 195,62 Q244,56 292,62 Q341,68 390,62 L390,72 L0,72 Z" fill="#1a90c8" opacity="0.5"/>
-    </svg>
+    <img id="gameBanner" class="game-banner hidden" alt="Banner"/>
     <div class="header-info">
       <div style="display:flex;align-items:center;gap:7px">
         <div class="team-dot" id="teamDot"></div>
@@ -210,26 +332,40 @@ select:focus,input:focus{border-color:var(--primary-light)}
     <div class="timers">
       <div class="timer-card"><div class="label">⏱ 本關</div><div class="value warn" id="stageTimer">00:00</div></div>
       <div class="timer-card"><div class="label">🕐 總計</div><div class="value" id="totalTimer">00:00</div></div>
+      <div class="timer-card"><div class="label">⏰ 剩餘</div><div class="value" id="countdownTimer">--:--</div></div>
+    </div>
+    <div class="score-bar">
+      <div><div class="score-label">目前分數</div><div class="score-val" id="currentScore">0 分</div></div>
+      <div style="text-align:right"><div class="score-label">排名</div><div class="score-val" id="currentRank">--</div></div>
     </div>
     <div class="progress-bar" id="progressBar"></div>
   </div>
   <div class="game-content" id="gameContent"></div>
 </div>
 
+<!-- FINISH -->
 <div id="finishScreen" class="screen">
   <div class="finish-box">
     <div class="finish-icon">🏆</div>
     <div class="finish-title">闖關完成！</div>
     <div class="finish-team" id="finishTeamName"></div>
+    <div class="finish-score-big" id="finishScore">0</div>
+    <div class="finish-score-label">總分</div>
     <div class="finish-stats">
-      <div class="stat-box"><div class="stat-label">關卡數</div><div class="stat-value" id="finishStages">-</div></div>
+      <div class="stat-box"><div class="stat-label">完成關卡</div><div class="stat-value" id="finishStages">-</div></div>
       <div class="stat-box"><div class="stat-label">總時間</div><div class="stat-value" id="finishTime">-</div></div>
       <div class="stat-box"><div class="stat-label">答題次數</div><div class="stat-value" id="finishAttempts">-</div></div>
+      <div class="stat-box"><div class="stat-label">求救次數</div><div class="stat-value" id="finishHelps">-</div></div>
+    </div>
+    <div class="finish-rank-section" id="finishRankSection">
+      <div class="finish-rank-title">🏆 最終排行榜</div>
+      <div id="finishRankList"></div>
     </div>
     <div class="finish-msg" id="finishMsg">🐚 恭喜完成所有挑戰！</div>
   </div>
 </div>
 
+<!-- OVERLAYS -->
 <div class="loading-overlay hidden" id="loadingOverlay">
   <div class="spinner"></div><div id="loadingMsg">載入中...</div>
 </div>
@@ -239,7 +375,38 @@ select:focus,input:focus{border-color:var(--primary-light)}
     <div class="feedback-icon" id="feedbackIcon">🎉</div>
     <div class="feedback-title" id="feedbackTitle"></div>
     <div class="feedback-msg" id="feedbackMsg"></div>
+    <div class="feedback-score" id="feedbackScore"></div>
     <button id="feedbackBtn" onclick="closeFeedback()">繼續</button>
+  </div>
+</div>
+
+<div class="rank-overlay hidden" id="rankOverlay">
+  <div class="rank-box">
+    <h3>🏆 即時排行榜</h3>
+    <div id="rankList"></div>
+    <button class="btn-close-rank" onclick="closeRank()">關閉</button>
+  </div>
+</div>
+
+<div class="help-overlay hidden" id="helpOverlay">
+  <div class="help-box">
+    <h3 id="helpTitle">🆘 向小幫手求救</h3>
+    <div class="help-subtitle" id="helpSubtitle">剩餘次數：<span id="helpRemain">2</span>次</div>
+    <textarea class="help-textarea" id="helpMsg" rows="3" placeholder="說明你遇到的問題..."></textarea>
+    <div class="help-cost" id="helpCost">⚠️ 每次求救扣 30 分</div>
+    <div class="help-btns">
+      <button class="btn-cancel-help" onclick="closeHelp()">取消</button>
+      <button class="btn-send-help" onclick="sendHelp()">送出求救</button>
+    </div>
+  </div>
+</div>
+
+<div class="broadcast-overlay hidden" id="broadcastOverlay">
+  <div class="broadcast-box">
+    <div class="broadcast-icon">📢</div>
+    <div class="broadcast-title" id="broadcastTitle">活動通知</div>
+    <div class="broadcast-msg" id="broadcastMsg"></div>
+    <button class="btn-broadcast-ok" onclick="closeBroadcast()">我知道了</button>
   </div>
 </div>
 
@@ -271,306 +438,612 @@ async function sha256(str) {
 let state = {
   teamKey:null, teamName:null, teamColor:null, stages:[],
   currentIdx:0, stageSeconds:0, totalSeconds:0,
-  gameStartTime:null, timerInterval:null,
+  gameStartTime:null, timerInterval:null, countdownInterval:null,
   selectedOption:null, totalAttempts:0, stageAttempts:0,
   photoFile:null, sessionKey:null, lastCorrect:false,
-  settings:{}, gpsLogCount:0
+  settings:{}, scoring:{}, gpsLogCount:0,
+  score:0, helpUsed:0, hintUsed:0,
+  photoFailCount:0, lastBroadcastId:null,
+  waitingToStart:false
 };
 
-window.doLogin=doLogin; window.checkGPS=checkGPS; window.selectOpt=selectOpt;
+window.doLogin=doLogin; window.startGame=startGame;
+window.checkGPS=checkGPS; window.selectOpt=selectOpt;
 window.submitAns=submitAns; window.closeFeedback=closeFeedback;
 window.triggerPhoto=triggerPhoto; window.handlePhoto=handlePhoto;
+window.handlePhotoOnly=handlePhotoOnly; window.submitPasscode=submitPasscode;
+window.showRank=showRank; window.closeRank=closeRank;
+window.showHelp=showHelp; window.closeHelp=closeHelp; window.sendHelp=sendHelp;
+window.closeBroadcast=closeBroadcast; window.useHint=useHint;
+window.skipPhotoVerify=skipPhotoVerify; window.retakePhoto=retakePhoto;
 
 function showLoading(msg='載入中...'){document.getElementById('loadingMsg').textContent=msg;document.getElementById('loadingOverlay').classList.remove('hidden')}
 function hideLoading(){document.getElementById('loadingOverlay').classList.add('hidden')}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 
-// 載入設定與主題
+function getDefaultScoring(){
+  return{baseScore:100,timeBonus:50,wrongPenalty:10,hintPenalty:5,helpPenalty:30,skipPhotoPenalty:20,completionBonus:200,rankBonus:[100,70,50,30]};
+}
+
+// ── 初始化登入頁 ──
 async function initLogin() {
+  const hintEl=document.getElementById('loadingHint');
+  const loginBtn=document.getElementById('loginBtn');
+  const teamSel=document.getElementById('teamSelect');
   try {
-    const [cfgSnap, themeSnap] = await Promise.all([
+    const [cfgSnap,themeSnap]=await Promise.all([
       get(ref(db,'config/settings')),
       get(ref(db,'config/settings/theme'))
     ]);
-    const cfg = cfgSnap.val() || {};
-    state.settings = cfg;
-    if (themeSnap.exists()) {
-      const t = themeSnap.val();
-      document.documentElement.style.setProperty('--primary', t.primary);
-      document.documentElement.style.setProperty('--primary-dark', t.dark);
-      document.documentElement.style.setProperty('--primary-light', t.light);
+    const cfg=cfgSnap.exists()?cfgSnap.val():{};
+    state.settings=cfg;
+    state.scoring=cfg.scoring||getDefaultScoring();
+    if(themeSnap.exists()){const t=themeSnap.val();document.documentElement.style.setProperty('--primary',t.primary);document.documentElement.style.setProperty('--primary-dark',t.dark);document.documentElement.style.setProperty('--primary-light',t.light);}
+    if(cfg.activityName){document.getElementById('loginTitle').textContent=cfg.activityName;document.title=cfg.activityName;}
+    if(cfg.subtitle)document.getElementById('loginSubtitle').textContent=cfg.subtitle;
+    if(cfg.welcome){const w=document.getElementById('loginWelcome');w.textContent=cfg.welcome;w.classList.remove('hidden');}
+    if(cfg.logoUrl){const img=document.getElementById('activityLogo');img.src=cfg.logoUrl;img.onload=()=>{img.classList.remove('hidden');document.getElementById('defaultLogo').classList.add('hidden');};}
+    const teams=cfg.teams||{};
+    const count=parseInt(cfg.teamCount)||4;
+    teamSel.innerHTML='<option value="">-- 請選擇隊伍 --</option>';
+    for(let i=0;i<count;i++){
+      const key=`team${i+1}`;const t=teams[key];
+      const opt=document.createElement('option');opt.value=key;opt.textContent=(t&&t.name)?t.name:`隊伍 ${i+1}`;teamSel.appendChild(opt);
     }
-    if (cfg.activityName) {
-      document.getElementById('loginTitle').textContent = cfg.activityName;
-      document.title = cfg.activityName;
-    }
-    if (cfg.subtitle) document.getElementById('loginSubtitle').textContent = cfg.subtitle;
-    if (cfg.welcome) {
-      const w = document.getElementById('loginWelcome');
-      w.textContent = cfg.welcome; w.classList.remove('hidden');
-    }
-    const sel = document.getElementById('teamSelect');
-    const teams = cfg.teams || {};
-    const count = cfg.teamCount || 4;
-    for (let i=0; i<count; i++) {
-      const key = `team${i+1}`;
-      const t = teams[key] || {};
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = t.name || `隊伍${i+1}`;
-      sel.appendChild(opt);
-    }
-  } catch(e) { console.warn('設定載入失敗', e); }
+    teamSel.disabled=false;loginBtn.disabled=false;loginBtn.textContent='🐚 開始登入！';hintEl.textContent='';
+  } catch(e) {
+    hintEl.textContent='⚠️ 載入失敗，3秒後重試...';setTimeout(initLogin,3000);
+  }
 }
 initLogin();
 
-// 監聽活動狀態
-onValue(ref(db,'config/activityStatus'), snap => {
-  const status = snap.val() || 'closed';
-  if (status === 'paused' && state.sessionKey) {
-    clearInterval(state.timerInterval);
-    showScreen('pausedScreen');
-  } else if (status === 'open' && state.sessionKey) {
-    if (!document.getElementById('gameScreen').classList.contains('active')) {
-      showScreen('gameScreen');
-      state.timerInterval = setInterval(tickTimer, 1000);
+// ── 監聽活動狀態 ──
+onValue(ref(db,'config/activityStatus'),snap=>{
+  const status=snap.val()||'closed';
+  // 等待頁面：更新按鈕狀態
+  if(state.waitingToStart){
+    const btn=document.getElementById('btnStartGame');
+    const statusText=document.getElementById('waitStatusText');
+    const statusSub=document.getElementById('waitStatusSub');
+    const infoStatus=document.getElementById('infoStatus');
+    if(status==='open'){
+      btn.disabled=false;
+      statusText.textContent='✅ 活動已開始！可以出發了！';
+      statusSub.textContent='點下方按鈕開始闖關';
+      if(infoStatus)infoStatus.textContent='✅ 進行中';
+    } else if(status==='paused'){
+      btn.disabled=true;
+      statusText.textContent='⏸ 活動暫停中...';
+      statusSub.textContent='請等待工作人員通知';
+      if(infoStatus)infoStatus.textContent='⏸ 暫停中';
+    } else {
+      btn.disabled=true;
+      statusText.textContent='⏳ 等待管理者開始活動...';
+      statusSub.textContent='管理者按下開始後，下方按鈕將自動解鎖';
+      if(infoStatus)infoStatus.textContent='⏳ 等待開始';
     }
+  }
+  // 遊戲中：暫停/繼續
+  if(state.sessionKey&&!state.waitingToStart){
+    if(status==='paused'){clearInterval(state.timerInterval);showScreen('pausedScreen');}
+    else if(status==='open'&&!document.getElementById('gameScreen').classList.contains('active')){showScreen('gameScreen');state.timerInterval=setInterval(tickTimer,1000);}
   }
 });
 
+// 廣播
+onValue(ref(db,'config/broadcast'),snap=>{
+  if(!snap.exists()||!state.sessionKey)return;
+  const bc=snap.val();
+  if(!bc||!bc.msg)return;
+  if(bc.id===state.lastBroadcastId)return;
+  state.lastBroadcastId=bc.id;
+  document.getElementById('broadcastMsg').textContent=bc.msg;
+  document.getElementById('broadcastTitle').textContent=bc.title||'活動通知';
+  document.getElementById('broadcastOverlay').classList.remove('hidden');
+});
+
+// ── 登入 ──
 async function doLogin() {
-  const teamKey = document.getElementById('teamSelect').value;
-  const pass = document.getElementById('teamPassword').value.trim();
-  const errEl = document.getElementById('loginError');
-  errEl.textContent = '';
-  if (!teamKey) { errEl.textContent = '請選擇隊伍！'; return; }
-  if (!pass) { errEl.textContent = '請輸入密碼！'; return; }
+  const teamKey=document.getElementById('teamSelect').value;
+  const pass=document.getElementById('teamPassword').value.trim();
+  const errEl=document.getElementById('loginError');
+  errEl.textContent='';
+  if(!teamKey){errEl.textContent='請選擇隊伍！';return;}
+  if(!pass){errEl.textContent='請輸入密碼！';return;}
   showLoading('驗證中...');
   try {
-    // 檢查活動狀態
-    const statusSnap = await get(ref(db,'config/activityStatus'));
-    if ((statusSnap.val()||'closed') === 'closed') {
-      hideLoading(); errEl.textContent = '活動尚未開始，請等待工作人員通知！'; return;
-    }
-    // 驗證密碼
-    const cfg = state.settings;
-    const teamCfg = (cfg.teams||{})[teamKey] || {};
-    if (pass !== (teamCfg.password||'1234')) {
-      hideLoading(); errEl.textContent = '密碼錯誤！'; return;
-    }
-    // 讀取關卡（不含答案）
-    const snap = await get(ref(db,'stages'));
-    if (!snap.exists()) { hideLoading(); errEl.textContent = '尚未建立關卡，請聯絡管理者！'; return; }
-    let arr = Object.entries(snap.val()).map(([k,v]) => {
-      const {answerIndex,...safe} = v;
-      return {key:k, answerHash:v.answerHash||'', ...safe};
-    });
+    const cfg=state.settings;
+    const teamCfg=(cfg.teams||{})[teamKey]||{};
+    if(pass!==(teamCfg.password||'1234')){hideLoading();errEl.textContent='密碼錯誤！';return;}
+    // 讀取關卡
+    const snap=await get(ref(db,'stages'));
+    if(!snap.exists()){hideLoading();errEl.textContent='尚未建立關卡！';return;}
+    let arr=Object.entries(snap.val()).map(([k,v])=>{const{answerIndex,...safe}=v;return{key:k,answerHash:v.answerHash||'',...safe};});
     arr.sort((a,b)=>(a.order||0)-(b.order||0));
-    const routeMode = cfg.routeMode || 'random';
-    state.stages = routeMode==='random' ? shuffleForTeam(arr,teamKey) : arr;
-    state.teamKey = teamKey;
-    state.teamName = teamCfg.name || `隊伍${teamKey.replace('team','')}`;
-    state.teamColor = teamCfg.color || '#6ee89a';
-    state.settings = cfg;
-    state.currentIdx=0; state.totalAttempts=0; state.stageAttempts=0;
-    state.gameStartTime=Date.now(); state.gpsLogCount=0;
+    state.stages=(cfg.routeMode==='random')?shuffleForTeam(arr,teamKey):arr;
+    state.teamKey=teamKey;state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;state.teamColor=teamCfg.color||'#6ee89a';
+    state.scoring=cfg.scoring||getDefaultScoring();
+    state.waitingToStart=true;
+    hideLoading();
+    // 進入等待頁面
+    showWaitScreen(cfg,teamCfg);
+  } catch(e) {hideLoading();document.getElementById('loginError').textContent='載入失敗！';console.error(e);}
+}
 
-    const sessRef = push(ref(db,'sessions'));
-    state.sessionKey = sessRef.key;
-    await set(sessRef, {
-      teamKey, teamName:state.teamName,
-      startTime:serverTimestamp(), currentStage:0,
-      totalStages:state.stages.length,
-      stageOrder:state.stages.map(s=>s.key),
-      status:'playing', stageLogs:{}, gpsLogs:{}
+function showWaitScreen(cfg,teamCfg){
+  // 填入等待頁面資料
+  const actName=cfg.activityName||'實境解謎';
+  document.getElementById('waitActivityName').textContent=actName;
+  document.getElementById('waitTeamName').textContent=state.teamName;
+  document.getElementById('infoTeamName').textContent=state.teamName;
+  document.getElementById('infoStageCount').textContent=`${state.stages.length} 關`;
+  document.getElementById('infoHelpTimes').textContent=`${cfg.helpMaxTimes??2} 次`;
+  // LOGO
+  if(cfg.logoUrl){const img=document.getElementById('waitHeaderLogo');img.src=cfg.logoUrl;img.classList.remove('hidden');}
+  // 故事
+  const storyTitle=cfg.storyTitle||'活動故事';
+  const storyBody=cfg.storyBody||'活動故事載入中...';
+  document.getElementById('storyTitle').textContent=storyTitle;
+  document.getElementById('storyBody').textContent=storyBody;
+  if(cfg.storyImageUrl){const img=document.getElementById('storyImage');img.src=cfg.storyImageUrl;img.classList.remove('hidden');}
+  // 規則
+  const rules=cfg.rules||['準時抵達各關卡地點','每關需拍照記錄','遵守活動規則，不可作弊','有問題可使用求救功能'];
+  const rulesList=document.getElementById('rulesList');
+  rulesList.innerHTML='';
+  rules.forEach((rule,i)=>{
+    const div=document.createElement('div');div.className='rule-item';
+    div.innerHTML=`<div class="rule-num">${i+1}</div>`;
+    const span=document.createElement('span');span.textContent=rule;
+    div.appendChild(span);rulesList.appendChild(div);
+  });
+  showScreen('waitScreen');
+}
+
+// ── 開始闖關 ──
+async function startGame(){
+  showLoading('建立隊伍紀錄...');
+  try{
+    state.currentIdx=0;state.totalAttempts=0;state.stageAttempts=0;
+    state.score=0;state.helpUsed=0;state.hintUsed=0;
+    state.gameStartTime=Date.now();state.gpsLogCount=0;state.photoFailCount=0;
+    state.waitingToStart=false;
+    const sessRef=push(ref(db,'sessions'));
+    state.sessionKey=sessRef.key;
+    await set(sessRef,{
+      teamKey:state.teamKey,teamName:state.teamName,
+      startTime:serverTimestamp(),currentStage:0,
+      totalStages:state.stages.length,stageOrder:state.stages.map(s=>s.key),
+      status:'playing',stageLogs:{},gpsLogs:{},score:0,helpLogs:{}
     });
     hideLoading();
     showScreen('gameScreen');
-    document.getElementById('teamDot').style.background = state.teamColor;
-    document.getElementById('displayTeamName').textContent = state.teamName;
-    if (cfg.activityName) {
-      const el = document.getElementById('headerBuildingText');
-      if (el) el.textContent = cfg.activityName.substring(0,6);
-    }
+    document.getElementById('teamDot').style.background=state.teamColor;
+    document.getElementById('displayTeamName').textContent=state.teamName;
+    const cfg=state.settings;
+    if(cfg.bannerUrl){const b=document.getElementById('gameBanner');b.src=cfg.bannerUrl;b.classList.remove('hidden');}
+    startCountdown(cfg.activityEndTime);
+    listenForHelpReplies();
     renderStage();
-  } catch(e) {
-    hideLoading(); errEl.textContent = '載入失敗，請確認網路連線！'; console.error(e);
-  }
+  }catch(e){hideLoading();console.error(e);}
 }
 
-function shuffleForTeam(arr, teamKey) {
+function shuffleForTeam(arr,teamKey){
   const seeds={team1:17,team2:31,team3:53,team4:71,team5:89,team6:97};
-  const seed=seeds[teamKey]||17;
-  const a=[...arr];
+  const seed=seeds[teamKey]||17;const a=[...arr];
   for(let i=a.length-1;i>0;i--){const j=(seed*(i+7)*13)%(i+1);[a[i],a[j]]=[a[j],a[i]];}
   return a;
 }
 
-function updateProgress() {
-  const total=state.stages.length, cur=state.currentIdx;
+function startCountdown(endTimeMs){
+  if(!endTimeMs){document.getElementById('countdownTimer').textContent='無限制';return;}
+  clearInterval(state.countdownInterval);
+  state.countdownInterval=setInterval(()=>{
+    const remain=endTimeMs-Date.now();
+    if(remain<=0){document.getElementById('countdownTimer').textContent='時間到！';clearInterval(state.countdownInterval);showFinish();return;}
+    const m=Math.floor(remain/60000),s=Math.floor((remain%60000)/1000);
+    document.getElementById('countdownTimer').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  },1000);
+}
+
+function updateProgress(){
+  const total=state.stages.length,cur=state.currentIdx;
   let html='';
-  for(let i=0;i<total;i++){
-    let cls='prog-dot';
-    if(i<cur)cls+=' done'; else if(i===cur)cls+=' active';
-    html+=`<div class="${cls}"></div>`;
-  }
+  for(let i=0;i<total;i++){let cls='prog-dot';if(i<cur)cls+=' done';else if(i===cur)cls+=' active';html+=`<div class="${cls}"></div>`;}
   html+=`<span class="prog-label">第${cur+1}/${total}關</span>`;
   document.getElementById('progressBar').innerHTML=html;
   document.getElementById('displayStageLabel').textContent=`第 ${cur+1} 關`;
   document.getElementById('displayProgress').textContent=`${cur+1}/${total}`;
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
 }
 
-function renderStage() {
-  state.selectedOption=null; state.photoFile=null;
-  state.stageAttempts=0; state.lastCorrect=false;
+function renderStage(){
+  state.selectedOption=null;state.photoFile=null;state.stageAttempts=0;state.lastCorrect=false;state.photoFailCount=0;state.hintUsed=0;
   updateProgress();
-  const stage = state.stages[state.currentIdx];
-  if (!stage) { showFinish(); return; }
-  clearInterval(state.timerInterval);
-  state.stageSeconds=0;
+  const stage=state.stages[state.currentIdx];
+  if(!stage){showFinish();return;}
+  clearInterval(state.timerInterval);state.stageSeconds=0;
   state.timerInterval=setInterval(tickTimer,1000);
   set(ref(db,`sessions/${state.sessionKey}/currentStage`),state.currentIdx);
-  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageName`),stage.title||'');
 
-  const hasGPS = !!(stage.lat&&stage.lng);
-  const letters = ['A','B','C','D'];
-  const content = document.getElementById('gameContent');
-  content.innerHTML = `
+  const stageType=stage.stageType||'quiz';
+  const hasGPS=!!(stage.lat&&stage.lng);
+  const hasLocation=!!(stage.locationHint);
+  const letters=['A','B','C','D'];
+  const sc=state.scoring;
+  const cfg=state.settings;
+  const maxHelp=cfg.helpMaxTimes??2;
+  const helpRemain=Math.max(0,maxHelp-state.helpUsed);
+  const maxHintPerStage=2;
+  const showRankBtn=cfg.showRanking!==false;
+
+  // 各類型的題目卡 HTML
+  let questionCardInner='';
+
+  if(stageType==='quiz'){
+    questionCardInner=`
+      <div class="q-tag">📝 解謎題目</div>
+      <div id="stageImgWrap"></div>
+      <div class="q-title" id="stageTitle"></div>
+      <div class="q-desc" id="stageDesc"></div>
+      <div id="hintArea"></div>
+      ${stage.requirePhoto?`
+      <div onclick="triggerPhoto()" class="photo-upload-area" id="photoArea">
+        <div class="icon">📷</div>
+        <div class="text">📌 此關需拍照上傳（點此拍照）</div>
+      </div>
+      <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
+      <div class="photo-verify-status" id="photoVerifyStatus"></div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto()"/>
+      `:''}
+      <div class="action-bar">
+        <button class="action-btn btn-help" id="helpBtn" onclick="showHelp()" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
+        <button class="action-btn btn-rank ${showRankBtn?'':'hidden-rank'}" onclick="showRank()">🏆 排行</button>
+        <button class="action-btn btn-hint" id="hintBtn" onclick="useHint()" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
+      </div>
+      <div class="options-list" id="optionsList">
+        ${(stage.options||[]).map((opt,i)=>`<button class="option-btn" id="opt${i}" onclick="selectOpt(${i})"><div class="opt-letter">${letters[i]}</div><div id="optText${i}"></div></button>`).join('')}
+      </div>
+      <button class="btn-submit" id="submitBtn" onclick="submitAns()" disabled>確認答案 🐚</button>`;
+
+  } else if(stageType==='photo'){
+    questionCardInner=`
+      <div class="q-tag" style="background:#f0e8ff;color:#7c5cbf">📷 照片關卡</div>
+      <div id="stageImgWrap"></div>
+      <div class="q-title" id="stageTitle"></div>
+      <div class="q-desc" id="stageDesc"></div>
+      <div id="hintArea"></div>
+      <div style="background:#f0e8ff;border:1.5px solid #c0a0f0;border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:12px;color:#7c5cbf;line-height:1.6">
+        📷 請拍攝符合任務要求的照片，AI 會自動辨識是否通過
+      </div>
+      <div onclick="triggerPhoto()" class="photo-upload-area" id="photoArea" style="border-color:#c0a0f0">
+        <div class="icon">📷</div>
+        <div class="text">點擊拍照，AI 辨識通過後即可過關</div>
+      </div>
+      <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
+      <div class="photo-verify-status" id="photoVerifyStatus"></div>
+      <div class="skip-photo-area hidden" id="skipPhotoArea">
+        <div class="skip-msg">已失敗 3 次，是否跳過照片驗證？（扣 ${sc.skipPhotoPenalty||20} 分）</div>
+        <div class="skip-photo-btns">
+          <button class="btn-skip" onclick="skipPhotoVerify()">跳過（扣分）</button>
+          <button class="btn-retake" onclick="retakePhoto()">繼續嘗試</button>
+        </div>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhotoOnly()"/>
+      <div class="action-bar">
+        <button class="action-btn btn-help" id="helpBtn" onclick="showHelp()" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
+        <button class="action-btn btn-rank ${showRankBtn?'':'hidden-rank'}" onclick="showRank()">🏆 排行</button>
+        <button class="action-btn btn-hint" id="hintBtn" onclick="useHint()" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
+      </div>`;
+
+  } else if(stageType==='password'){
+    questionCardInner=`
+      <div class="q-tag" style="background:#fff8e6;color:#b08000">🔑 關主確認關卡</div>
+      <div id="stageImgWrap"></div>
+      <div class="q-title" id="stageTitle"></div>
+      <div class="q-desc" id="stageDesc"></div>
+      <div id="hintArea"></div>
+      <div style="background:#fff8e6;border:1.5px solid #f5c842;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#7a5a00;line-height:1.6">
+        🔑 完成關主交辦的任務後，向關主取得本關密碼，輸入下方欄位即可過關。
+      </div>
+      ${stage.requirePhoto?`
+      <div onclick="triggerPhoto()" class="photo-upload-area" id="photoArea">
+        <div class="icon">📷</div><div class="text">📌 需上傳現場照片</div>
+      </div>
+      <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto()"/>
+      `:''}
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;color:var(--text-light);font-weight:500;display:block;margin-bottom:5px">輸入關主告知的密碼</label>
+        <input type="text" id="passcodeInput" placeholder="請輸入密碼..." style="width:100%;padding:12px 14px;border:2px solid #f5c842;border-radius:12px;font-size:16px;font-family:'Noto Sans TC',sans-serif;outline:none;letter-spacing:2px;text-align:center"/>
+        <div id="passcodeError" style="color:var(--coral);font-size:12px;margin-top:5px;min-height:16px;text-align:center"></div>
+      </div>
+      <div class="action-bar">
+        <button class="action-btn btn-help" id="helpBtn" onclick="showHelp()" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
+        <button class="action-btn btn-rank ${showRankBtn?'':'hidden-rank'}" onclick="showRank()">🏆 排行</button>
+        <button class="action-btn btn-hint" id="hintBtn" onclick="useHint()" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
+      </div>
+      <button class="btn-submit" id="submitBtn" onclick="submitPasscode()">🔑 確認密碼</button>`;
+  }
+
+  const content=document.getElementById('gameContent');
+  content.innerHTML=`
+    ${hasLocation?`<div class="location-card"><div class="loc-title">📍 前往地點</div><div class="loc-text" id="locText"></div></div>`:''}
     ${hasGPS?`<div class="state-card gps-card" id="gpsCard">
       <div class="gps-icon">📍</div>
-      <div class="gps-title">前往指定地點</div>
+      <div class="gps-title">抵達後驗證位置</div>
       <div class="gps-desc" id="gpsHint"></div>
       <button class="btn-gps" id="gpsBtn" onclick="checkGPS()">📡 驗證我的位置</button>
       <div class="gps-status" id="gpsStatus"></div>
     </div>`:''}
     <div class="state-card" id="questionCard" ${hasGPS?'style="display:none"':''}>
-      <div class="q-tag">📋 解謎題目</div>
-      <div id="stageImgWrap"></div>
-      <div class="q-title" id="stageTitle"></div>
-      <div class="q-desc" id="stageDesc"></div>
-      <div id="hintArea"></div>
-      <div onclick="triggerPhoto()" class="photo-upload-area" id="photoArea">
-        <div class="icon">📷</div>
-        <div class="text">點擊拍照上傳現場照片</div>
-      </div>
-      <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
-      <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto()"/>
-      <div class="options-list" id="optionsList">
-        ${(stage.options||[]).map((opt,i)=>`
-        <button class="option-btn" id="opt${i}" onclick="selectOpt(${i})">
-          <div class="opt-letter">${letters[i]}</div>
-          <div id="optText${i}"></div>
-        </button>`).join('')}
-      </div>
-      <button class="btn-submit" id="submitBtn" onclick="submitAns()" disabled>確認答案 🐚</button>
+      ${questionCardInner}
     </div>`;
 
-  if (hasGPS) document.getElementById('gpsHint').textContent = stage.locationHint||'請前往指定地點，按下按鈕驗證位置。';
-  document.getElementById('stageTitle').textContent = stage.title||'';
-  document.getElementById('stageDesc').textContent = stage.description||'';
-  (stage.options||[]).forEach((opt,i)=>{
-    const el=document.getElementById('optText'+i);
-    if(el) el.textContent=opt;
-  });
-  if (stage.imageUrl) {
-    const img=document.createElement('img');
-    img.className='q-image'; img.alt='關卡圖片'; img.src=stage.imageUrl;
-    document.getElementById('stageImgWrap').appendChild(img);
-  }
+  // 填入文字內容
+  if(hasLocation)document.getElementById('locText').textContent=stage.locationHint;
+  if(hasGPS)document.getElementById('gpsHint').textContent=stage.locationHint||'請前往指定地點，按下按鈕驗證位置。';
+  const titleEl=document.getElementById('stageTitle');if(titleEl)titleEl.textContent=stage.title||'';
+  const descEl=document.getElementById('stageDesc');if(descEl)descEl.textContent=stage.description||'';
+  if(stageType==='quiz')(stage.options||[]).forEach((opt,i)=>{const el=document.getElementById('optText'+i);if(el)el.textContent=opt;});
+  if(stage.imageUrl){const img=document.createElement('img');img.className='q-image';img.alt='關卡圖片';img.src=stage.imageUrl;const wrap=document.getElementById('stageImgWrap');if(wrap)wrap.appendChild(img);}
 }
 
-function checkGPS() {
-  const stage = state.stages[state.currentIdx];
-  const statusEl = document.getElementById('gpsStatus');
-  const btn = document.getElementById('gpsBtn');
-  btn.disabled=true;
-  statusEl.textContent='📡 正在取得GPS位置，請稍候...';
-  if (!navigator.geolocation) {
-    const gpsFail = state.settings.gpsFail||'block';
-    if (gpsFail==='allow') { statusEl.textContent='⚠️ 不支援GPS，直接進入'; setTimeout(arriveAtStage,800); }
-    else { statusEl.textContent='⚠️ 此裝置不支援GPS，請聯絡工作人員'; btn.disabled=false; }
+function checkGPS(){
+  const stage=state.stages[state.currentIdx];
+  const statusEl=document.getElementById('gpsStatus');
+  const btn=document.getElementById('gpsBtn');
+  btn.disabled=true;statusEl.textContent='📡 正在取得GPS位置...';
+  if(!navigator.geolocation){
+    if((state.settings.gpsFail||'block')==='allow'){statusEl.textContent='⚠️ 不支援GPS，直接進入';setTimeout(arriveAtStage,800);}
+    else{statusEl.textContent='⚠️ 不支援GPS，請聯絡工作人員';btn.disabled=false;}
     return;
   }
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      const dist = calcDist(pos.coords.latitude,pos.coords.longitude,stage.lat,stage.lng);
-      const passed = dist <= (stage.radius||100);
+    pos=>{
+      const dist=calcDist(pos.coords.latitude,pos.coords.longitude,stage.lat,stage.lng);
+      const passed=dist<=(stage.radius||100);
       recordGPSLog(pos.coords.latitude,pos.coords.longitude,dist,passed,state.currentIdx);
-      if (passed) { statusEl.textContent='✅ 位置驗證成功！'; setTimeout(arriveAtStage,800); }
-      else { statusEl.textContent=`⚠️ 距離目標還有約 ${Math.round(dist)} 公尺，請再靠近！`; btn.disabled=false; }
+      if(passed){statusEl.textContent='✅ 位置驗證成功！';setTimeout(arriveAtStage,800);}
+      else{statusEl.textContent=`⚠️ 距離目標還有約 ${Math.round(dist)} 公尺，請再靠近！`;btn.disabled=false;}
     },
-    err => {
+    err=>{
       const msgs={1:'⚠️ 請允許位置權限後重試',2:'⚠️ GPS訊號不佳，請到空曠處',3:'⚠️ 定位逾時，請重試'};
-      statusEl.textContent = msgs[err.code]||'⚠️ 定位失敗，請重試';
+      statusEl.textContent=msgs[err.code]||'⚠️ 定位失敗';
       recordGPSLog(null,null,null,false,state.currentIdx);
-      const gpsFail = state.settings.gpsFail||'block';
-      if (gpsFail==='allow') { setTimeout(()=>{ statusEl.textContent+=' (已自動跳過)'; setTimeout(arriveAtStage,1000); },1500); }
+      if((state.settings.gpsFail||'block')==='allow'){setTimeout(()=>{statusEl.textContent+=' (已自動跳過)';setTimeout(arriveAtStage,1000);},1500);}
       else btn.disabled=false;
     },
-    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+    {enableHighAccuracy:true,timeout:15000,maximumAge:0}
   );
 }
-
-function calcDist(lat1,lng1,lat2,lng2){
-  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
+function calcDist(lat1,lng1,lat2,lng2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function arriveAtStage(){
-  const g=document.getElementById('gpsCard');
-  const q=document.getElementById('questionCard');
-  if(g)g.style.display='none';
-  if(q)q.style.display='';
+  const g=document.getElementById('gpsCard'),q=document.getElementById('questionCard');
+  if(g)g.style.display='none';if(q)q.style.display='';
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/arrivedAt`),serverTimestamp());
 }
-
 async function recordGPSLog(lat,lng,dist,passed,stageIdx){
   state.gpsLogCount++;
-  if (state.gpsLogCount>10) {
-    const snap=await get(ref(db,`sessions/${state.sessionKey}/gpsLogs`));
-    const logs=snap.val()||{};
-    const keys=Object.keys(logs).sort((a,b)=>logs[a].ts-logs[b].ts);
-    if (keys.length>=10) set(ref(db,`sessions/${state.sessionKey}/gpsLogs/${keys[0]}`),null);
-  }
-  const logRef=push(ref(db,`sessions/${state.sessionKey}/gpsLogs`));
-  await set(logRef,{lat,lng,dist,passed,stageIdx,ts:Date.now()});
+  if(state.gpsLogCount>10){const snap=await get(ref(db,`sessions/${state.sessionKey}/gpsLogs`));const logs=snap.val()||{};const keys=Object.keys(logs).sort((a,b)=>logs[a].ts-logs[b].ts);if(keys.length>=10)set(ref(db,`sessions/${state.sessionKey}/gpsLogs/${keys[0]}`),null);}
+  push(ref(db,`sessions/${state.sessionKey}/gpsLogs`)).then(r=>set(r,{lat,lng,dist,passed,stageIdx,ts:Date.now()}));
 }
 
-function showHint(){
+function useHint(){
   const stage=state.stages[state.currentIdx];
-  const hintAfter=state.settings.hintAfter??2;
-  if(hintAfter===0||!stage.hints)return;
+  const maxHint=2;
+  if(state.hintUsed>=maxHint)return;
+  const hints=[stage.hints?.h1,stage.hints?.h2].filter(Boolean);
+  const hint=hints[state.hintUsed];
+  if(!hint){alert('此關沒有設定提示');return;}
+  state.hintUsed++;
+  const penalty=state.scoring.hintPenalty||5;
+  state.score=Math.max(0,state.score-penalty);
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
   const hintArea=document.getElementById('hintArea');
-  if(!hintArea)return;
-  const hintNum=Math.min(Math.floor(state.stageAttempts/hintAfter),3);
-  if(hintNum<1)return;
-  const hints=[stage.hints.h1,stage.hints.h2,stage.hints.h3].filter(Boolean);
-  const toShow=hints.slice(0,hintNum);
-  if(!toShow.length)return;
-  hintArea.innerHTML='';
-  toShow.forEach((h,i)=>{
-    const box=document.createElement('div'); box.className='hint-box';
-    const label=document.createElement('div'); label.className='hint-label'; label.textContent=`💡 提示 ${i+1}`;
-    const text=document.createElement('div'); text.textContent=h;
-    box.appendChild(label); box.appendChild(text); hintArea.appendChild(box);
-  });
+  const box=document.createElement('div');box.className='hint-box';
+  const label=document.createElement('div');label.className='hint-label';label.textContent=`💡 提示 ${state.hintUsed}（扣${penalty}分）`;
+  const text=document.createElement('div');text.textContent=hint;
+  box.appendChild(label);box.appendChild(text);hintArea.appendChild(box);
+  const btn=document.getElementById('hintBtn');
+  if(btn){const remain=maxHint-state.hintUsed;btn.textContent=`💡 提示（${remain}次）`;if(remain<=0)btn.disabled=true;}
 }
 
 function triggerPhoto(){document.getElementById('photoInput').click()}
+
+// 標準選擇題：上傳照片後直接預覽（不自動辨識，送答案時才辨識）
 function handlePhoto(){
   const file=document.getElementById('photoInput').files[0];
   if(!file)return;
-  if(!file.type.startsWith('image/')){alert('請上傳圖片檔案');return;}
+  if(!file.type.startsWith('image/')){alert('請上傳圖片');return;}
   if(file.size>10*1024*1024){alert('圖片請在10MB以內');return;}
   state.photoFile=file;
   const reader=new FileReader();
   reader.onload=e=>{
-    const p=document.getElementById('photoPreview');
-    p.src=e.target.result; p.style.display='block';
-    document.getElementById('photoArea').style.display='none';
+    const p=document.getElementById('photoPreview');if(p){p.src=e.target.result;p.style.display='block';}
+    const area=document.getElementById('photoArea');if(area)area.style.display='none';
   };
   reader.readAsDataURL(file);
+}
+
+// 照片關卡：上傳後立即進行 AI 辨識，辨識通過才能過關
+function handlePhotoOnly(){
+  const file=document.getElementById('photoInput').files[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){alert('請上傳圖片');return;}
+  if(file.size>10*1024*1024){alert('圖片請在10MB以內');return;}
+  state.photoFile=file;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const p=document.getElementById('photoPreview');if(p){p.src=e.target.result;p.style.display='block';}
+    const area=document.getElementById('photoArea');if(area)area.style.display='none';
+    const stage=state.stages[state.currentIdx];
+    if(state.settings.geminiKey&&stage.photoDescription){
+      const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
+      if(passed){
+        // 照片關卡：辨識通過直接過關
+        setTimeout(()=>passPhotoStage(),800);
+      }
+    } else {
+      // 沒有設定AI Key → 直接過關
+      setTimeout(()=>passPhotoStage(),500);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// 照片關卡：辨識通過後過關
+async function passPhotoStage(){
+  const stage=state.stages[state.currentIdx];
+  state.stageAttempts=Math.max(1,state.stageAttempts);
+  // 上傳照片
+  if(state.photoFile){
+    const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
+    try{const snap=await uploadBytes(sRef(storage,path),state.photoFile);const url=await getDownloadURL(snap.ref);set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);}catch(e){console.warn(e);}
+  }
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/correct`),true);
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/answeredAt`),serverTimestamp());
+  // 計分
+  const sc=state.scoring;
+  const base=sc.baseScore||100;
+  const timeBonus=Math.max(0,Math.round((sc.timeBonus||50)*(1-state.stageSeconds/300)));
+  const scoreChange=Math.max(0,base+timeBonus);
+  state.score+=scoreChange;
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
+  // 顯示過關
+  state.lastCorrect=true;
+  document.getElementById('feedbackIcon').textContent='🎉';
+  document.getElementById('feedbackTitle').textContent='照片驗證通過！';
+  document.getElementById('feedbackTitle').className='feedback-title correct';
+  document.getElementById('feedbackMsg').textContent='太棒了！照片符合要求，準備前往下一關！';
+  document.getElementById('feedbackScore').textContent=`+${scoreChange}分（基礎${base}+時間${timeBonus}）`;
+  document.getElementById('feedbackBtn').textContent='前往下一關 →';
+  document.getElementById('feedbackBtn').className='btn-next';
+  document.getElementById('feedbackOverlay').classList.remove('hidden');
+}
+
+// 密碼確認關卡
+async function submitPasscode(){
+  const input=document.getElementById('passcodeInput');
+  const errorEl=document.getElementById('passcodeError');
+  if(!input)return;
+  const entered=input.value.trim().toLowerCase();
+  if(!entered){errorEl.textContent='請輸入密碼！';return;}
+  const stage=state.stages[state.currentIdx];
+  const correct=entered===(stage.passcode||'').toLowerCase();
+  state.stageAttempts++;state.totalAttempts++;
+  errorEl.textContent='';
+  if(!correct){
+    state.score=Math.max(0,state.score-(state.scoring.wrongPenalty||10));
+    set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+    document.getElementById('currentScore').textContent=`${state.score} 分`;
+    errorEl.textContent=`❌ 密碼錯誤！已扣 ${state.scoring.wrongPenalty||10} 分，請再試一次`;
+    input.value='';input.focus();
+    return;
+  }
+  // 密碼正確
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/correct`),true);
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/attempts`),state.stageAttempts);
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/answeredAt`),serverTimestamp());
+  if(stage.requirePhoto&&state.photoFile){
+    const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
+    try{const snap=await uploadBytes(sRef(storage,path),state.photoFile);const url=await getDownloadURL(snap.ref);set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);}catch(e){console.warn(e);}
+  }
+  const sc=state.scoring;
+  const base=sc.baseScore||100;
+  const timeBonus=Math.max(0,Math.round((sc.timeBonus||50)*(1-state.stageSeconds/300)));
+  const wrongPenalty=(state.stageAttempts-1)*(sc.wrongPenalty||10);
+  const scoreChange=Math.max(0,base+timeBonus-wrongPenalty);
+  state.score+=scoreChange;
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
+  state.lastCorrect=true;
+  document.getElementById('feedbackIcon').textContent='🔓';
+  document.getElementById('feedbackTitle').textContent='密碼正確！';
+  document.getElementById('feedbackTitle').className='feedback-title correct';
+  document.getElementById('feedbackMsg').textContent='關主確認通過！準備前往下一關！';
+  document.getElementById('feedbackScore').textContent=`+${scoreChange}分`;
+  document.getElementById('feedbackBtn').textContent='前往下一關 →';
+  document.getElementById('feedbackBtn').className='btn-next';
+  document.getElementById('feedbackOverlay').classList.remove('hidden');
+}
+
+// ── AI 照片辨識（含嚴謹度 + 雙KEY自動切換）──
+async function verifyPhotoWithAI(base64Data,description,strictness){
+  const statusEl=document.getElementById('photoVerifyStatus');
+  if(statusEl){statusEl.className='photo-verify-status checking';statusEl.style.display='';statusEl.textContent='🔍 AI 正在分析照片...';}
+
+  const strictnessMap={
+    loose:'只要大致上有出現相關元素即可，標準寬鬆',
+    standard:'主要元素要清楚可見，標準適中',
+    strict:'角度、細節、完整性都要符合要求，標準嚴格'
+  };
+  const stdText=strictnessMap[strictness]||strictnessMap.standard;
+  const prompt=`請分析這張照片，判斷是否符合以下要求：「${description}」。
+判斷標準：${stdText}。
+請用繁體中文回答，格式如下：
+結果：符合 或 不符合
+原因：（一句話說明為什麼）
+建議：（如果不符合，給一個具體改善建議；如果符合，寫「很好！」）`;
+
+  // 嘗試雙KEY
+  const keys=[state.settings.geminiKey,state.settings.geminiKey2].filter(Boolean);
+  let lastError=null;
+  for(const key of keys){
+    try{
+      const imageData=base64Data.split(',')[1];
+      const mimeType=base64Data.split(';')[0].split(':')[1]||'image/jpeg';
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType,data:imageData}},{text:prompt}]}]})
+      });
+      if(res.status===429||res.status===403){lastError=res.status;continue;}// 超限，換KEY
+      const data=await res.json();
+      const text=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      const pass=text.includes('結果：符合');
+      if(pass){
+        statusEl.className='photo-verify-status pass';
+        const reasonMatch=text.match(/原因：(.+)/);
+        statusEl.innerHTML=`✅ 照片驗證通過！<br><small style="opacity:0.8">${reasonMatch?reasonMatch[1].trim():''}</small>`;
+        state.photoFailCount=0;
+        document.getElementById('skipPhotoArea').classList.add('hidden');
+      } else {
+        state.photoFailCount++;
+        statusEl.className='photo-verify-status fail';
+        const reasonMatch=text.match(/原因：(.+)/);
+        const suggestMatch=text.match(/建議：(.+)/);
+        let msg='❌ 照片驗證未通過\n';
+        if(reasonMatch)msg+=`• ${reasonMatch[1].trim()}\n`;
+        if(suggestMatch)msg+=`💡 建議：${suggestMatch[1].trim()}`;
+        statusEl.textContent=msg;
+        if(state.photoFailCount>=3)document.getElementById('skipPhotoArea').classList.remove('hidden');
+      }
+      return pass;// 回傳結果
+    }catch(e){continue;}
+  }
+  // 所有KEY都失敗
+  if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用，請繼續作答';setTimeout(()=>{statusEl.style.display='none';},3000);}
+  return false;
+}
+
+function skipPhotoVerify(){
+  const penalty=state.scoring.skipPhotoPenalty||20;
+  state.score=Math.max(0,state.score-penalty);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
+  document.getElementById('skipPhotoArea').classList.add('hidden');
+  const statusEl=document.getElementById('photoVerifyStatus');
+  statusEl.className='photo-verify-status pass';
+  statusEl.textContent=`⚡ 已跳過照片驗證（扣${penalty}分）`;
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+}
+function retakePhoto(){
+  document.getElementById('skipPhotoArea').classList.add('hidden');
+  document.getElementById('photoVerifyStatus').style.display='none';
+  document.getElementById('photoPreview').style.display='none';
+  document.getElementById('photoArea').style.display='';
+  state.photoFile=null;state.photoFailCount=0;
+  document.getElementById('photoInput').value='';
 }
 
 function selectOpt(idx){
@@ -581,38 +1054,45 @@ function selectOpt(idx){
 
 async function submitAns(){
   if(state.selectedOption===null)return;
-  document.getElementById('submitBtn').disabled=true;
   const stage=state.stages[state.currentIdx];
-  state.stageAttempts++; state.totalAttempts++;
+  if(stage.requirePhoto&&!state.photoFile){alert('此關必須拍照後才能作答！');return;}
+  document.getElementById('submitBtn').disabled=true;
+  state.stageAttempts++;state.totalAttempts++;
   const guessHash=await sha256(`${stage.key}_${state.selectedOption}`);
   const correct=(guessHash===stage.answerHash);
   state.lastCorrect=correct;
 
   if(state.photoFile){
     const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
-    try{
-      const snap=await uploadBytes(sRef(storage,path),state.photoFile);
-      const url=await getDownloadURL(snap.ref);
-      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);
-    }catch(e){console.warn('照片上傳失敗',e);}
+    try{const snap=await uploadBytes(sRef(storage,path),state.photoFile);const url=await getDownloadURL(snap.ref);set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);}catch(e){console.warn(e);}
   }
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/answeredAt`),serverTimestamp());
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/correct`),correct);
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/attempts`),state.stageAttempts);
 
-  document.querySelectorAll('.option-btn').forEach((b,i)=>{
-    b.classList.remove('selected','correct','wrong');
-    if(i===state.selectedOption)b.classList.add(correct?'correct':'wrong');
-  });
-  if(!correct) showHint();
+  document.querySelectorAll('.option-btn').forEach((b,i)=>{b.classList.remove('selected','correct','wrong');if(i===state.selectedOption)b.classList.add(correct?'correct':'wrong');});
+
+  const sc=state.scoring;
+  let scoreChange=0,scoreMsg='';
+  if(correct){
+    const base=sc.baseScore||100;
+    const timeBonus=Math.max(0,Math.round((sc.timeBonus||50)*(1-state.stageSeconds/300)));
+    const wrongPenalty=(state.stageAttempts-1)*(sc.wrongPenalty||10);
+    scoreChange=Math.max(0,base+timeBonus-wrongPenalty);
+    state.score+=scoreChange;
+    scoreMsg=`+${scoreChange}分（基礎${base}+時間${timeBonus}-答錯${(state.stageAttempts-1)*(sc.wrongPenalty||10)}）`;
+  } else {
+    scoreMsg=`答錯扣${sc.wrongPenalty||10}分（已答錯${state.stageAttempts}次）`;
+  }
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
 
   document.getElementById('feedbackIcon').textContent=correct?'🎉':'😅';
   document.getElementById('feedbackTitle').textContent=correct?'答對了！':'再想想看！';
   document.getElementById('feedbackTitle').className='feedback-title '+(correct?'correct':'wrong');
-  document.getElementById('feedbackMsg').textContent=correct?'太棒了！準備前往下一關！':'不對唷，再仔細看看！';
-  const btn=document.getElementById('feedbackBtn');
-  btn.textContent=correct?'前往下一關 →':'再試一次 →';
-  btn.className=correct?'btn-next':'btn-retry';
+  document.getElementById('feedbackMsg').textContent=correct?'太棒了！準備前往下一關！':'不對唷，再仔細看看題目！';
+  document.getElementById('feedbackScore').textContent=scoreMsg;
+  const btn=document.getElementById('feedbackBtn');btn.textContent=correct?'前往下一關 →':'再試一次 →';btn.className=correct?'btn-next':'btn-retry';
   document.getElementById('feedbackOverlay').classList.remove('hidden');
 }
 
@@ -621,7 +1101,7 @@ function closeFeedback(){
   if(state.lastCorrect){
     clearInterval(state.timerInterval);
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageSec`),state.stageSeconds);
-    state.currentIdx++;
+    state.currentIdx++;state.hintUsed=0;
     if(state.currentIdx>=state.stages.length){showFinish();return;}
     renderStage();
   } else {
@@ -631,24 +1111,137 @@ function closeFeedback(){
   }
 }
 
-function showFinish(){
-  clearInterval(state.timerInterval);
+// ── 排行榜（可關閉顯示）──
+async function showRank(){
+  if(state.settings.showRanking===false)return;
+  document.getElementById('rankOverlay').classList.remove('hidden');
+  const snap=await get(ref(db,'sessions'));
+  const sess=snap.val()||{};
+  const cfg=state.settings;
+  const showScore=cfg.showRankingScore!==false;
+  const showTeamName=cfg.showRankingTeamName!==false;
+  const list=document.getElementById('rankList');
+  list.innerHTML='<div style="text-align:center;color:#999;font-size:13px">載入中...</div>';
+  const latestByTeam={};
+  Object.values(sess).forEach(s=>{if(!latestByTeam[s.teamKey]||s.startTime>latestByTeam[s.teamKey].startTime)latestByTeam[s.teamKey]=s;});
+  const rows=Object.values(latestByTeam).sort((a,b)=>(b.score||0)-(a.score||0));
+  if(!rows.length){list.innerHTML='<div style="text-align:center;color:#999;font-size:13px">尚無資料</div>';return;}
+  const numClasses=['gold','silver','bronze','other'];
+  list.innerHTML='';
+  rows.forEach((s,i)=>{
+    const isMe=s.teamKey===state.teamKey;
+    const item=document.createElement('div');item.className='rank-item'+(isMe?' me':'');
+    const numEl=document.createElement('div');numEl.className='rank-num '+(numClasses[i]||'other');numEl.textContent=i+1;
+    const info=document.createElement('div');info.className='rank-info';
+    const name=document.createElement('div');name.className='rank-name';
+    name.textContent=showTeamName?(s.teamName||s.teamKey)+(isMe?' (我)':''):`隊伍${i+1}`+(isMe?' (我)':'');
+    const detail=document.createElement('div');detail.className='rank-detail';
+    detail.textContent=`第${(s.currentStage||0)+1}關・${s.status==='finished'?'已完成':'進行中'}`;
+    info.appendChild(name);info.appendChild(detail);
+    item.appendChild(numEl);item.appendChild(info);
+    if(showScore){const score=document.createElement('div');score.className='rank-score';score.textContent=`${s.score||0}分`;item.appendChild(score);}
+    list.appendChild(item);
+  });
+  // 更新排名
+  const myRank=rows.findIndex(s=>s.teamKey===state.teamKey);
+  if(myRank>=0)document.getElementById('currentRank').textContent=`第${myRank+1}名`;
+}
+function closeRank(){document.getElementById('rankOverlay').classList.add('hidden');}
+
+function showHelp(){
+  const sc=state.scoring;const maxHelp=state.settings.helpMaxTimes??2;
+  const remain=Math.max(0,maxHelp-state.helpUsed);
+  if(remain<=0){alert('求救次數已用完！');return;}
+  const helperName=state.settings.helperName||'活動小幫手';
+  document.getElementById('helpTitle').textContent=`🆘 向${helperName}求救`;
+  document.getElementById('helpRemain').textContent=remain;
+  document.getElementById('helpCost').textContent=`⚠️ 每次求救扣 ${sc.helpPenalty||30} 分`;
+  document.getElementById('helpMsg').value='';
+  document.getElementById('helpOverlay').classList.remove('hidden');
+}
+function closeHelp(){document.getElementById('helpOverlay').classList.add('hidden');}
+async function sendHelp(){
+  const msg=document.getElementById('helpMsg').value.trim();
+  if(!msg){alert('請說明你遇到的問題！');return;}
+  const penalty=state.scoring.helpPenalty||30;
+  state.helpUsed++;state.score=Math.max(0,state.score-penalty);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  const helpRef=push(ref(db,`sessions/${state.sessionKey}/helpLogs`));
+  await set(helpRef,{msg,stageIdx:state.currentIdx,stageName:state.stages[state.currentIdx]?.title||'',ts:Date.now(),answered:false,reply:'',teamName:state.teamName,teamKey:state.teamKey});
+  closeHelp();
+  const remain=Math.max(0,(state.settings.helpMaxTimes??2)-state.helpUsed);
+  const btn=document.getElementById('helpBtn');if(btn){btn.textContent=`🆘 求救（${remain}次）`;if(remain<=0)btn.disabled=true;}
+  const toast=document.createElement('div');toast.className='reply-toast';toast.textContent='✅ 求救已送出！等待小幫手回覆...';document.body.appendChild(toast);setTimeout(()=>toast.remove(),3000);
+}
+
+function listenForHelpReplies(){
+  onValue(ref(db,`sessions/${state.sessionKey}/helpLogs`),snap=>{
+    if(!snap.exists())return;
+    Object.entries(snap.val()).forEach(([key,log])=>{
+      if(log.answered&&log.reply&&!log.notified){
+        const toast=document.createElement('div');toast.className='reply-toast';
+        const helperName=state.settings.helperName||'活動小幫手';
+        toast.textContent=`📩 ${helperName}回覆：${log.reply}`;
+        document.body.appendChild(toast);setTimeout(()=>toast.remove(),8000);
+        set(ref(db,`sessions/${state.sessionKey}/helpLogs/${key}/notified`),true);
+      }
+    });
+  });
+}
+
+function closeBroadcast(){document.getElementById('broadcastOverlay').classList.add('hidden');}
+
+async function showFinish(){
+  clearInterval(state.timerInterval);clearInterval(state.countdownInterval);
   const elapsed=Math.floor((Date.now()-state.gameStartTime)/1000);
   const t=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`;
+  const sc=state.scoring;
+  state.score+=sc.completionBonus||200;
+  const snap=await get(ref(db,'sessions'));
+  const finishedCount=Object.values(snap.val()||{}).filter(s=>s.status==='finished').length;
+  const rankBonus=(sc.rankBonus||[100,70,50,30])[finishedCount]||0;
+  state.score+=rankBonus;
   set(ref(db,`sessions/${state.sessionKey}/status`),'finished');
   set(ref(db,`sessions/${state.sessionKey}/totalSec`),elapsed);
   set(ref(db,`sessions/${state.sessionKey}/finishedAt`),serverTimestamp());
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   document.getElementById('finishTeamName').textContent=state.teamName;
+  document.getElementById('finishScore').textContent=state.score;
   document.getElementById('finishStages').textContent=state.stages.length;
   document.getElementById('finishTime').textContent=t;
   document.getElementById('finishAttempts').textContent=state.totalAttempts;
+  document.getElementById('finishHelps').textContent=state.helpUsed;
   document.getElementById('finishMsg').textContent=state.settings.finishMsg||'🐚 恭喜完成所有挑戰！感謝參與！';
+  // 排行榜顯示控制
+  if(state.settings.showRanking===false){document.getElementById('finishRankSection').style.display='none';}
+  else setTimeout(loadFinishRank,1500);
   showScreen('finishScreen');
 }
 
+async function loadFinishRank(){
+  const snap=await get(ref(db,'sessions'));
+  const sess=snap.val()||{};
+  const cfg=state.settings;
+  const showScore=cfg.showRankingScore!==false;
+  const showTeamName=cfg.showRankingTeamName!==false;
+  const latestByTeam={};
+  Object.values(sess).forEach(s=>{if(!latestByTeam[s.teamKey]||s.startTime>latestByTeam[s.teamKey].startTime)latestByTeam[s.teamKey]=s;});
+  const rows=Object.values(latestByTeam).sort((a,b)=>(b.score||0)-(a.score||0));
+  const medals=['🥇','🥈','🥉','4️⃣'];
+  const container=document.getElementById('finishRankList');container.innerHTML='';
+  rows.forEach((s,i)=>{
+    const div=document.createElement('div');div.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eee;font-size:13px';
+    const medal=document.createElement('span');medal.textContent=medals[i]||`${i+1}.`;
+    const name=document.createElement('span');name.style.flex='1';name.textContent=showTeamName?(s.teamName||s.teamKey)+(s.teamKey===state.teamKey?' ⬅':''):`隊伍${i+1}`+(s.teamKey===state.teamKey?' ⬅':'');
+    div.appendChild(medal);div.appendChild(name);
+    if(showScore){const score=document.createElement('span');score.style.fontWeight='700';score.style.color='var(--primary)';score.textContent=`${s.score||0}分`;div.appendChild(score);}
+    container.appendChild(div);
+  });
+}
+
 function tickTimer(){
-  state.stageSeconds++;
-  state.totalSeconds=Math.floor((Date.now()-state.gameStartTime)/1000);
+  state.stageSeconds++;state.totalSeconds=Math.floor((Date.now()-state.gameStartTime)/1000);
   const ss=state.stageSeconds,ts=state.totalSeconds;
   document.getElementById('stageTimer').textContent=`${String(Math.floor(ss/60)).padStart(2,'0')}:${String(ss%60).padStart(2,'0')}`;
   document.getElementById('totalTimer').textContent=`${String(Math.floor(ts/60)).padStart(2,'0')}:${String(ts%60).padStart(2,'0')}`;
