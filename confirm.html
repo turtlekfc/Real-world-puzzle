@@ -47,19 +47,37 @@ body{font-family:'Noto Sans TC',sans-serif;background:linear-gradient(160deg,#0d
     <div class="title">關主確認頁</div>
     <div class="team-name" id="teamNameEl">--</div>
     <div class="stage-name" id="stageNameEl">第 ? 關</div>
-    <div class="info-box">
-      <div class="info-row"><span class="info-label">隊伍</span><span class="info-value" id="teamNameEl2">--</span></div>
-      <div class="info-row"><span class="info-label">關卡</span><span class="info-value" id="stageNameEl2">--</span></div>
-      <div class="info-row"><span class="info-label">等待時間</span><span class="info-value" id="waitTimeEl">--</span></div>
+
+    <!-- 密碼驗證區（有設定密碼才顯示）-->
+    <div id="passwordGate" class="hidden" style="margin-bottom:16px">
+      <div style="background:#fff8e6;border:1.5px solid #f5c842;border-radius:12px;padding:14px;margin-bottom:12px;font-size:13px;color:#7a5a00;line-height:1.6">
+        🔑 請輸入此關的關主密碼才能確認
+      </div>
+      <input type="password" id="masterPassInput" placeholder="輸入關主密碼..."
+        style="width:100%;padding:12px;border:2px solid #f5c842;border-radius:12px;font-size:15px;font-family:'Noto Sans TC',sans-serif;outline:none;text-align:center;letter-spacing:2px;margin-bottom:8px"/>
+      <div id="passErrMsg" style="color:#c03020;font-size:12px;text-align:center;min-height:16px;margin-bottom:8px"></div>
+      <button onclick="verifyMasterPass()"
+        style="width:100%;padding:12px;background:linear-gradient(90deg,#b08000,#d4a820);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
+        🔓 驗證密碼
+      </button>
     </div>
-    <div class="photo-section" id="photoSection">
-      <div style="font-size:12px;font-weight:600;color:#5a8aaa;margin-bottom:8px;text-align:left">📷 玩家上傳照片</div>
-      <div class="photo-placeholder" id="photoPlaceholder">尚無照片上傳</div>
-      <img id="photoImg" class="hidden" alt="玩家照片"/>
+
+    <!-- 驗證通過後才顯示確認區 -->
+    <div id="actionArea" class="hidden">
+      <div class="info-box">
+        <div class="info-row"><span class="info-label">隊伍</span><span class="info-value" id="teamNameEl2">--</span></div>
+        <div class="info-row"><span class="info-label">關卡</span><span class="info-value" id="stageNameEl2">--</span></div>
+        <div class="info-row"><span class="info-label">等待時間</span><span class="info-value" id="waitTimeEl">--</span></div>
+      </div>
+      <div class="photo-section" id="photoSection">
+        <div style="font-size:12px;font-weight:600;color:#5a8aaa;margin-bottom:8px;text-align:left">📷 玩家上傳照片</div>
+        <div class="photo-placeholder" id="photoPlaceholder">尚無照片上傳</div>
+        <img id="photoImg" class="hidden" alt="玩家照片"/>
+      </div>
+      <div class="warn-box">⚠️ 請確認玩家已完成任務後再按「確認通過」</div>
+      <button class="btn-pass" id="passBtn" onclick="doApprove()">✅ 確認通過</button>
+      <button class="btn-reject" id="rejectBtn" onclick="doReject()">❌ 退回（未完成任務）</button>
     </div>
-    <div class="warn-box">⚠️ 請確認玩家已完成任務後再按「確認通過」</div>
-    <button class="btn-pass" id="passBtn" onclick="doApprove()">✅ 確認通過</button>
-    <button class="btn-reject" id="rejectBtn" onclick="doReject()">❌ 退回（未完成任務）</button>
   </div>
 
   <div id="successView" class="hidden">
@@ -149,14 +167,19 @@ async function init() {
       return;
     }
 
-    // 填入資料
+    // 讀取關卡資料（含密碼設定）
     const stageOrder = sess.stageOrder || [];
     const stageKey = stageOrder[stageIdx];
     const stageSnap = stageKey ? await get(ref(db, `stages/${stageKey}`)) : null;
-    const stageName = stageSnap?.val()?.title || `第${stageIdx+1}關`;
+    const stageData = stageSnap?.val() || {};
+    const stageName = stageData.title || `第${stageIdx+1}關`;
     const waitSince = log.waitSince || Date.now();
     const waitSec = Math.floor((Date.now() - waitSince) / 1000);
     const waitStr = waitSec > 60 ? `${Math.floor(waitSec/60)}分${waitSec%60}秒` : `${waitSec}秒`;
+
+    // 取得此關的關主密碼
+    // confirm 類型用 stageMasterPass，qrcode 類型用 qrMasterPass
+    window._reqPass = stageData.stageMasterPass || stageData.qrMasterPass || '';
 
     // 安全填入（textContent）
     document.getElementById('teamNameEl').textContent = teamName;
@@ -174,10 +197,40 @@ async function init() {
     }
 
     showView('confirmView');
+
+    // 判斷是否需要密碼驗證
+    if(window._reqPass){
+      // 有設定關主密碼 → 顯示密碼輸入，隱藏確認按鈕
+      document.getElementById('passwordGate').classList.remove('hidden');
+      document.getElementById('actionArea').classList.add('hidden');
+      // Enter 鍵觸發驗證
+      document.getElementById('masterPassInput').addEventListener('keydown',e=>{
+        if(e.key==='Enter')verifyMasterPass();
+      });
+    } else {
+      // 沒有設定密碼 → 直接顯示確認按鈕
+      document.getElementById('passwordGate').classList.add('hidden');
+      document.getElementById('actionArea').classList.remove('hidden');
+    }
   } catch(e) {
     showError('載入失敗：' + e.message);
   }
 }
+
+window.verifyMasterPass = function(){
+  const input = document.getElementById('masterPassInput').value.trim();
+  const errEl = document.getElementById('passErrMsg');
+  if(!input){errEl.textContent='請輸入關主密碼';return;}
+  if(input !== window._reqPass){
+    errEl.textContent='❌ 密碼錯誤，請再試一次';
+    document.getElementById('masterPassInput').value='';
+    document.getElementById('masterPassInput').focus();
+    return;
+  }
+  // 密碼正確
+  document.getElementById('passwordGate').classList.add('hidden');
+  document.getElementById('actionArea').classList.remove('hidden');
+};
 
 window.doApprove = async function() {
   const passBtn = document.getElementById('passBtn');

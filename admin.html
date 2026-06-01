@@ -1078,12 +1078,16 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div id="section-qrcode" class="hidden">
       <hr class="divider"/>
       <div style="background:#f0e8ff;border:1.5px solid var(--purple);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#5b3f9e;line-height:1.6">
-        📱 <b>QR Code 掃描說明：</b>玩家手機顯示本關專屬 QR Code，關主用手機掃描後開啟確認頁，按下通過即可。<br>
-        關主只需要手機相機，<b>不需要登入後台</b>。掃描後會開啟確認網頁。
+        📱 <b>QR Code 掃描說明：</b>玩家手機顯示本關專屬 QR Code，關主掃描後需輸入關主密碼才能確認過關，防止任意人掃描作弊。
       </div>
       <div class="form-group">
         <label>📋 任務說明（玩家看到的指示）</label>
         <textarea id="fQRTask" rows="3" placeholder="例：完成關卡任務後，出示手機上的 QR Code 讓關主掃描驗證。"></textarea>
+      </div>
+      <div class="form-group">
+        <label>🔑 此關關主密碼（關主掃描後需輸入此密碼才能確認）</label>
+        <input type="text" id="fQRMasterPass" placeholder="例：關2關主（建議每關不同）"/>
+        <div style="font-size:11px;color:var(--text-light);margin-top:4px">關主掃描 QR Code 後，需輸入此密碼才能按確認過關</div>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="fQRRequirePhoto" style="width:auto;padding:0"/>
@@ -1198,7 +1202,10 @@ async function signInWithStageMasterPass(){
     let foundIdx = 0;
     const sorted = Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
     sorted.forEach(([k,s],i)=>{
-      if(s.stageType==='confirm' && s.stageMasterPass && s.stageMasterPass===pass){
+      // 支援 confirm 和 qrcode 兩種類型的關主密碼
+      const matchConfirm = s.stageType==='confirm' && s.stageMasterPass && s.stageMasterPass===pass;
+      const matchQR = s.stageType==='qrcode' && s.qrMasterPass && s.qrMasterPass===pass;
+      if(matchConfirm||matchQR){
         found = s;
         foundKey = k;
         foundIdx = i;
@@ -1247,13 +1254,18 @@ async function smLoadConfirm(){
     let pending = [];
     Object.entries(sess).forEach(([sessKey,s])=>{
       if(s.status!=='playing')return;
-      // 找此隊當前關卡是否就是這一關
       const curIdx = s.currentStage||0;
       const stageKey = (s.stageOrder||[])[curIdx];
       if(stageKey !== smState.stageKey)return;
       const log = (s.stageLogs||{})[curIdx]||{};
       if(log.waitingConfirm && !log.confirmed){
-        pending.push({sessKey, stageIdx:curIdx, teamName:s.teamName||s.teamKey, photoUrl:log.photoUrl||'', waitSince:log.waitSince||0});
+        pending.push({
+          sessKey, stageIdx:curIdx,
+          teamName:s.teamName||s.teamKey,
+          photoUrl:log.photoUrl||'',
+          waitSince:log.waitSince||0,
+          qrToken:log.qrToken||'',// QR Code token（confirm類型為空）
+        });
       }
     });
 
@@ -1986,7 +1998,7 @@ function openStageModal(){
   editingStageKey=null;modalImgFile=null;modalImgUrl=null;
   document.getElementById('modalTitle').textContent='新增關卡';
   document.getElementById('fOrder').value=Object.keys(stagesData).length+1;
-  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const cReq=document.getElementById('fConfirmRequirePhoto');if(cReq)cReq.checked=false;
   const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=false;
   ['fLat','fLng'].forEach(id=>document.getElementById(id).value='');
@@ -2027,6 +2039,7 @@ function editStage(key){
   } else if(type==='qrcode'){
     const qTask=document.getElementById('fQRTask');if(qTask)qTask.value=s.qrTask||'';
     const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=s.requirePhoto||false;
+    const qPass=document.getElementById('fQRMasterPass');if(qPass)qPass.value=s.qrMasterPass||'';
   }
   if(s.imageUrl){const img=document.getElementById('imgPreviewModal');img.src=s.imageUrl;img.classList.remove('hidden');document.getElementById('imgPlaceholder').classList.add('hidden');}
   else{document.getElementById('imgPreviewModal').classList.add('hidden');document.getElementById('imgPlaceholder').classList.remove('hidden');}
@@ -2173,6 +2186,7 @@ async function saveStage(){
       data.pendingConfirm=false;
     } else if(stageType==='qrcode'){
       data.qrTask=document.getElementById('fQRTask').value.trim();
+      data.qrMasterPass=(document.getElementById('fQRMasterPass')?.value||'').trim();
       data.requirePhoto=document.getElementById('fQRRequirePhoto')?.checked||false;
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
     }
