@@ -586,15 +586,6 @@ async function doLogin() {
   if(!pass){errEl.textContent='請輸入密碼！';return;}
   showLoading('驗證中...');
   try {
-    // ── 檢查1：活動狀態 ──
-    const statusSnap=await get(ref(db,'config/activityStatus'));
-    const actStatus=statusSnap.val()||'closed';
-    if(actStatus==='closed'){
-      hideLoading();
-      errEl.textContent='⏳ 活動尚未開始，請等待工作人員通知！';
-      return;
-    }
-
     const cfg=state.settings;
     const teamCfg=(cfg.teams||{})[teamKey]||{};
     if(pass!==(teamCfg.password||'1234')){hideLoading();errEl.textContent='密碼錯誤！';return;}
