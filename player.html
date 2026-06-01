@@ -436,17 +436,21 @@ const auth = getAuth(fbApp);
 // 玩家不需要 Google 帳號，用匿名 auth 即可通過 Rules
 // 注意：無痕模式可能導致第三方 Cookie 被擋，建議使用一般視窗
 signInAnonymously(auth).then(()=>{
-  // 匿名登入成功，可以讀取 Firebase
+  // 匿名登入成功，initLogin 會繼續載入設定
+  console.log('匿名登入成功');
 }).catch(e=>{
   console.warn('匿名登入失敗:',e);
-  // 如果匿名登入失敗（無痕模式等情況），在頁面顯示提示
   const hintEl=document.getElementById('loadingHint');
   if(hintEl){
-    hintEl.textContent='⚠️ 請使用一般視窗（非無痕）開啟，才能正常使用';
     hintEl.style.color='var(--coral)';
+    if(e.code==='auth/network-request-failed'){
+      hintEl.textContent='⚠️ 網路連線失敗，請確認網路後重新整理';
+    } else {
+      hintEl.textContent='⚠️ 請用 Chrome 或 Safari（一般視窗，非無痕）開啟';
+    }
   }
   const loginBtn=document.getElementById('loginBtn');
-  if(loginBtn)loginBtn.disabled=true;
+  if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='無法連線';}
 });
 
 async function sha256(str) {
@@ -527,14 +531,25 @@ onValue(ref(db,'config/activityStatus'),snap=>{
     const infoStatus=document.getElementById('infoStatus');
     if(status==='open'){
       btn.disabled=false;
+      btn.style.background='';
       statusText.textContent='✅ 活動已開始！可以出發了！';
       statusSub.textContent='點下方按鈕開始闖關';
       if(infoStatus)infoStatus.textContent='✅ 進行中';
     } else if(status==='paused'){
       btn.disabled=true;
       statusText.textContent='⏸ 活動暫停中...';
-      statusSub.textContent='請等待工作人員通知';
+      statusSub.textContent='請等待工作人員通知後繼續';
       if(infoStatus)infoStatus.textContent='⏸ 暫停中';
+    } else if(status==='closed'){
+      btn.disabled=true;
+      btn.style.background='rgba(200,200,200,0.5)';
+      btn.textContent='活動已結束';
+      statusText.textContent='⏹ 活動已結束';
+      statusSub.textContent='感謝你的參與！';
+      if(infoStatus)infoStatus.textContent='⏹ 已結束';
+      // 顯示結束訊息
+      const waitBar=document.getElementById('waitStatusBar');
+      if(waitBar)waitBar.style.background='rgba(240,112,80,0.2)';
     } else {
       btn.disabled=true;
       statusText.textContent='⏳ 等待管理者開始活動...';
@@ -571,9 +586,31 @@ async function doLogin() {
   if(!pass){errEl.textContent='請輸入密碼！';return;}
   showLoading('驗證中...');
   try {
+    // ── 檢查1：活動狀態 ──
+    const statusSnap=await get(ref(db,'config/activityStatus'));
+    const actStatus=statusSnap.val()||'closed';
+    if(actStatus==='closed'){
+      hideLoading();
+      errEl.textContent='⏳ 活動尚未開始，請等待工作人員通知！';
+      return;
+    }
+
     const cfg=state.settings;
     const teamCfg=(cfg.teams||{})[teamKey]||{};
     if(pass!==(teamCfg.password||'1234')){hideLoading();errEl.textContent='密碼錯誤！';return;}
+
+    // ── 檢查2：防止同一隊重複登入 ──
+    const sessSnap=await get(ref(db,'sessions'));
+    if(sessSnap.exists()){
+      const allSess=Object.values(sessSnap.val());
+      const activeSession=allSess.find(s=>s.teamKey===teamKey&&s.status==='playing');
+      if(activeSession){
+        hideLoading();
+        errEl.textContent='⚠️ 此隊伍已經在闖關中！請確認是否重複登入。';
+        return;
+      }
+    }
+
     // 讀取關卡
     const snap=await get(ref(db,'stages'));
     if(!snap.exists()){hideLoading();errEl.textContent='尚未建立關卡！';return;}
@@ -643,7 +680,15 @@ async function startGame(){
     startCountdown(cfg.activityEndTime);
     listenForHelpReplies();
     renderStage();
-  }catch(e){hideLoading();console.error(e);}
+  }catch(e){
+    hideLoading();
+    // 顯示錯誤，讓玩家可以重試
+    const errMsg=document.createElement('div');
+    errMsg.style.cssText='background:var(--coral);color:white;padding:10px 16px;border-radius:12px;font-size:13px;text-align:center;margin:10px 0';
+    errMsg.textContent='⚠️ 連線失敗，請確認網路後重新整理頁面';
+    document.getElementById('wait-footer')?.prepend(errMsg)||document.body.prepend(errMsg);
+    console.error(e);
+  }
 }
 
 function shuffleForTeam(arr,teamKey){
@@ -916,8 +961,13 @@ function checkGPS(){
       const dist=calcDist(pos.coords.latitude,pos.coords.longitude,stage.lat,stage.lng);
       const passed=dist<=(stage.radius||100);
       recordGPSLog(pos.coords.latitude,pos.coords.longitude,dist,passed,state.currentIdx);
-      if(passed){statusEl.textContent='✅ 位置驗證成功！';setTimeout(arriveAtStage,800);}
-      else{statusEl.textContent=`⚠️ 距離目標還有約 ${Math.round(dist)} 公尺，請再靠近！`;btn.disabled=false;}
+      if(passed){
+        statusEl.textContent='✅ 位置驗證成功！';
+        setTimeout(arriveAtStage,800);
+      } else {
+        statusEl.innerHTML=`⚠️ 距離目標還有約 <b>${Math.round(dist)} 公尺</b>，請再靠近！<br><span style="font-size:11px;color:var(--text-light)">如果無法靠近，可使用下方「🆘 求救」按鈕</span>`;
+        btn.disabled=false;
+      }
     },
     err=>{
       const msgs={1:'⚠️ 請允許位置權限後重試',2:'⚠️ GPS訊號不佳，請到空曠處',3:'⚠️ 定位逾時，請重試'};
