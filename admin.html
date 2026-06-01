@@ -588,6 +588,11 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         </div>
         <div class="form-group"><label>歡迎訊息（登入頁）</label><textarea id="settingWelcome" rows="2" placeholder="活動說明..."></textarea></div>
         <div class="form-group"><label>完成頁面訊息</label><textarea id="settingFinishMsg" rows="2" placeholder="恭喜完成！感謝參與..."></textarea></div>
+        <div class="form-group">
+          <label>🔒 關卡圖片浮水印文字（留空則不加）</label>
+          <input type="text" id="settingWatermark" placeholder="例：官方題目 禁止截圖 © 新屋海螺館"/>
+          <div style="font-size:11px;color:var(--text-light);margin-top:4px">上傳關卡圖片時自動疊加在圖片上，防止玩家截圖作弊</div>
+        </div>
         <div class="form-row">
           <div class="form-group"><label>活動結束時間（到時自動結束）</label><input type="datetime-local" id="settingEndTime"/></div>
           <div class="form-group"><label>卡關警報（超過幾分鐘）</label><input type="number" id="settingStuckMinutes" value="10" min="1" max="60"/></div>
@@ -2018,11 +2023,89 @@ function editStage(key){
   document.getElementById('stageModal').classList.remove('hidden');
 }
 function closeStageModal(){document.getElementById('stageModal').classList.add('hidden');editingStageKey=null;}
+// ── Canvas 浮水印處理 ──
+function addWatermarkToImage(base64Data, watermarkText){
+  return new Promise((resolve)=>{
+    if(!watermarkText){resolve(base64Data);return;}
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      canvas.width=img.width;canvas.height=img.height;
+      const ctx=canvas.getContext('2d');
+      // 畫原圖
+      ctx.drawImage(img,0,0);
+      // 計算字體大小（圖片寬度的3.5%，最小16最大48）
+      const fontSize=Math.max(16,Math.min(48,Math.round(img.width*0.035)));
+      ctx.font=`bold ${fontSize}px Arial, sans-serif`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      // 斜角重複浮水印
+      ctx.save();
+      ctx.globalAlpha=0.28;
+      ctx.rotate(-Math.PI/6);// 旋轉-30度
+      const spacing=Math.max(180,img.width*0.35);
+      const vSpacing=Math.max(100,img.height*0.22);
+      for(let x=-img.width;x<img.width*2;x+=spacing){
+        for(let y=-img.height;y<img.height*2;y+=vSpacing){
+          // 白色描邊（讓深色圖也看得清楚）
+          ctx.strokeStyle='rgba(0,0,0,0.4)';
+          ctx.lineWidth=3;
+          ctx.strokeText(watermarkText,x,y);
+          // 白色主文字
+          ctx.fillStyle='rgba(255,255,255,0.85)';
+          ctx.fillText(watermarkText,x,y);
+        }
+      }
+      ctx.restore();
+      // 底部加一條半透明色條
+      ctx.globalAlpha=0.55;
+      ctx.fillStyle='rgba(0,0,0,0.6)';
+      const barH=Math.max(24,fontSize+8);
+      ctx.fillRect(0,img.height-barH,img.width,barH);
+      ctx.globalAlpha=1;
+      ctx.font=`bold ${Math.max(12,fontSize*0.7)}px Arial, sans-serif`;
+      ctx.fillStyle='rgba(255,255,255,0.9)';
+      ctx.textAlign='center';
+      ctx.fillText('🔒 '+watermarkText,img.width/2,img.height-barH/2);
+      resolve(canvas.toDataURL('image/jpeg',0.88));
+    };
+    img.onerror=()=>resolve(base64Data);
+    img.src=base64Data;
+  });
+}
+
+// dataURL 轉 File
+function dataURLtoFile(dataUrl, filename){
+  const arr=dataUrl.split(',');
+  const mime=arr[0].match(/:(.*?);/)[1];
+  const bstr=atob(arr[1]);
+  let n=bstr.length;
+  const u8arr=new Uint8Array(n);
+  while(n--)u8arr[n]=bstr.charCodeAt(n);
+  return new File([u8arr],filename,{type:mime});
+}
+
 function handleModalImg(){
   const file=document.getElementById('fImgInput').files[0];if(!file)return;
   if(!file.type.startsWith('image/')){alert('請上傳圖片');return;}if(file.size>5*1024*1024){alert('5MB以內');return;}
-  modalImgFile=file;const reader=new FileReader();
-  reader.onload=e=>{const img=document.getElementById('imgPreviewModal');img.src=e.target.result;img.classList.remove('hidden');document.getElementById('imgPlaceholder').classList.add('hidden');};
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const watermark=(settingsData.watermark||'').trim();
+    let finalData=e.target.result;
+    if(watermark){
+      // 加浮水印
+      finalData=await addWatermarkToImage(e.target.result,watermark);
+      // 轉換成 File 供上傳用
+      modalImgFile=dataURLtoFile(finalData,'watermarked_'+file.name);
+    } else {
+      modalImgFile=file;
+    }
+    // 預覽
+    const img=document.getElementById('imgPreviewModal');
+    img.src=finalData;img.classList.remove('hidden');
+    document.getElementById('imgPlaceholder').classList.add('hidden');
+    if(watermark)document.getElementById('imgPlaceholder').classList.add('hidden');
+  };
   reader.readAsDataURL(file);
 }
 async function saveStage(){
@@ -2183,6 +2266,7 @@ async function loadSettings(){
   if(s.stuckMinutes!=null)document.getElementById('settingStuckMinutes').value=s.stuckMinutes;
   if(s.geminiKey)document.getElementById('settingGeminiKey').value=s.geminiKey;
   if(s.geminiKey2)document.getElementById('settingGeminiKey2').value=s.geminiKey2;
+  if(s.watermark!=null)document.getElementById('settingWatermark').value=s.watermark||'';
   if(s.activityEndTime){const dt=new Date(s.activityEndTime);const local=new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById('settingEndTime').value=local;}
   if(s.logoUrl){logoUrl=s.logoUrl;const img=document.getElementById('logoPreviewImg');img.src=s.logoUrl;img.classList.remove('hidden');document.getElementById('logoPlaceholder').classList.add('hidden');document.getElementById('removeLogoBtn').style.display='';}
   if(s.bannerUrl){bannerUrl=s.bannerUrl;const img=document.getElementById('bannerPreviewImg');img.src=s.bannerUrl;img.classList.remove('hidden');document.getElementById('bannerPlaceholder').classList.add('hidden');document.getElementById('removeBannerBtn').style.display='';}
@@ -2235,6 +2319,7 @@ async function saveSettings(){
     stuckMinutes:parseInt(document.getElementById('settingStuckMinutes').value)||10,
     geminiKey:document.getElementById('settingGeminiKey').value.trim(),
     geminiKey2:document.getElementById('settingGeminiKey2').value.trim(),
+    watermark:document.getElementById('settingWatermark').value.trim(),
     activityEndTime:endTimeMs,
     // 保留故事、分數、主題設定
     storyTitle:settingsData.storyTitle,storyBody:settingsData.storyBody,storyImageUrl:settingsData.storyImageUrl,
