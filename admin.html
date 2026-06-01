@@ -1227,63 +1227,55 @@ onAuthStateChanged(auth,async user=>{
 });
 
 async function getUserRole(user){
+  // 超級管理者直接通過
   if(user.email===SUPER_ADMIN_EMAIL)return 'super';
   try{
-    // 步驟1：先用 UID 查（最常見情況）
+    // ── 步驟1：用 UID 查（已登入過的用戶，最快）──
     const snap=await get(ref(db,`config/users/${user.uid}`));
-    if(snap.exists()){
-      const d=snap.val();
-      // 如果還有 pending 標記，清除它
-      if(d.pending){
-        try{await set(ref(db,`config/users/${user.uid}/pending`),false);}catch(e){}
-      }
-      return d.role||null;
+    if(snap.exists()&&snap.val().role){
+      return snap.val().role;
     }
 
-    // 步驟2：用 email hash 查（第一次登入的情況）
-    const emailHash=await sha256(user.email);
-    const snap2=await get(ref(db,`config/users/${emailHash}`));
-    if(snap2.exists()){
-      const data=snap2.val();
+    // ── 步驟2：查 emailWhitelist（第一次登入，Rules 允許任何登入者讀取）──
+    // emailWhitelist 結構: { emailHash: { email, role, name } }
+    const emailHash=await sha256(user.email.toLowerCase());
+    const wlSnap=await get(ref(db,`config/emailWhitelist/${emailHash}`));
+    if(wlSnap.exists()){
+      const wl=wlSnap.val();
+      const role=wl.role||'staff';
+      // 嘗試建立正式 UID 紀錄（可能因 Rules 失敗，但登入不受影響）
       const newData={
         email:user.email,
-        name:data.name||user.displayName||user.email,
-        role:data.role||'staff',
+        name:wl.name||user.displayName||user.email,
+        role,
         photoURL:user.photoURL||'',
         uid:user.uid,
         pending:false,
-        addedBy:data.addedBy||'',
-        addedAt:data.addedAt||0,
       };
-      // 嘗試寫入新 UID key
       try{
         await set(ref(db,`config/users/${user.uid}`),newData);
-        // 成功後刪除舊 hash key
-        try{await remove(ref(db,`config/users/${emailHash}`));}catch(e){console.warn('刪除hash key失敗（不影響登入）',e);}
-        return newData.role;
-      }catch(writeErr){
-        // 如果 Rules 不允許寫入，至少回傳 role 讓用戶可以登入
-        // 下次登入時會再次嘗試升級
-        console.warn('升級UID失敗，以hash key登入:',writeErr);
-        return data.role||null;
+        // 升級成功，可以刪除 whitelist（可選）
+      }catch(e){
+        console.warn('建立UID紀錄失敗，但登入成功:',e);
       }
+      return role;
     }
 
-    // 步驟3：用 email 直接搜尋（防呆，處理大小寫不一致）
-    const usersSnap=await get(ref(db,'config/users'));
-    if(usersSnap.exists()){
-      const users=usersSnap.val();
-      for(const [key,u] of Object.entries(users)){
-        if(u.email&&u.email.toLowerCase()===user.email.toLowerCase()){
-          // 找到了，嘗試升級到 UID
-          try{
-            await set(ref(db,`config/users/${user.uid}`),{...u,uid:user.uid,photoURL:user.photoURL||'',pending:false});
-            try{if(key!==user.uid)await remove(ref(db,`config/users/${key}`));}catch(e){}
-          }catch(e){console.warn('升級失敗:',e);}
-          return u.role||null;
-        }
-      }
+    // ── 步驟3：查舊格式 hash key（相容舊資料）──
+    const snap2=await get(ref(db,`config/users/${emailHash}`));
+    if(snap2.exists()){
+      const data=snap2.val();
+      const role=data.role||'staff';
+      try{
+        await set(ref(db,`config/users/${user.uid}`),{
+          email:user.email,name:data.name||user.displayName||user.email,
+          role,photoURL:user.photoURL||'',uid:user.uid,pending:false,
+        });
+        try{await remove(ref(db,`config/users/${emailHash}`));}catch(e){}
+      }catch(e){console.warn('升級舊格式失敗:',e);}
+      return role;
     }
+
   }catch(e){console.error('getUserRole error:',e);}
   return null;
 }
@@ -2129,15 +2121,46 @@ async function loadUsers(){
   }catch(e){list.innerHTML='<div class="text-muted text-sm">載入失敗</div>';}
 }
 async function addUser(){
-  const name=document.getElementById('newUserName').value.trim();const email=document.getElementById('newUserEmail').value.trim().toLowerCase();const role=document.getElementById('newUserRole').value;
-  if(!name||!email){toast('請填入姓名和Gmail');return;}if(!email.includes('@gmail.com')){toast('請輸入Gmail格式');return;}if(email===SUPER_ADMIN_EMAIL){toast('⛔ 不可修改超級管理者');return;}
+  const name=document.getElementById('newUserName').value.trim();
+  const email=document.getElementById('newUserEmail').value.trim().toLowerCase();
+  const role=document.getElementById('newUserRole').value;
+  if(!name||!email){toast('請填入姓名和Email');return;}
+  if(!email.includes('@')){toast('請輸入正確的Email格式');return;}
+  if(email===SUPER_ADMIN_EMAIL){toast('⛔ 不可修改超級管理者');return;}
   const emailHash=await sha256(email);
+  // 同時寫入 emailWhitelist（新登入查詢用）和 config/users（相容）
+  await set(ref(db,`config/emailWhitelist/${emailHash}`),{email,name,role});
   await set(ref(db,`config/users/${emailHash}`),{email,name,role,photoURL:'',addedBy:currentUser.email,addedAt:serverTimestamp(),pending:true});
-  document.getElementById('newUserName').value='';document.getElementById('newUserEmail').value='';
-  toast('✅ 已新增！對方用Google登入後即可使用');loadUsers();
+  document.getElementById('newUserName').value='';
+  document.getElementById('newUserEmail').value='';
+  toast('✅ 已新增！對方用 Chrome 或 Safari 開啟後台登入即可使用');
+  loadUsers();
 }
-async function removeUser(uid){if(!confirm('確定要移除？'))return;await remove(ref(db,`config/users/${uid}`));toast('🗑️ 已移除');loadUsers();}
-async function updateUserRole(uid,role){await set(ref(db,`config/users/${uid}/role`),role);toast('✅ 權限已更新');}
+async function removeUser(uid){
+  if(!confirm('確定要移除此人員嗎？'))return;
+  // 同時刪除 config/users 和 emailWhitelist
+  const snap=await get(ref(db,`config/users/${uid}`));
+  if(snap.exists()){
+    const u=snap.val();
+    if(u.email){
+      const emailHash=await sha256(u.email.toLowerCase());
+      try{await remove(ref(db,`config/emailWhitelist/${emailHash}`));}catch(e){}
+    }
+  }
+  await remove(ref(db,`config/users/${uid}`));
+  toast('🗑️ 已移除');
+  loadUsers();
+}
+async function updateUserRole(uid,role){
+  await set(ref(db,`config/users/${uid}/role`),role);
+  // 同步更新 emailWhitelist
+  const snap=await get(ref(db,`config/users/${uid}`));
+  if(snap.exists()&&snap.val().email){
+    const emailHash=await sha256(snap.val().email.toLowerCase());
+    try{await set(ref(db,`config/emailWhitelist/${emailHash}/role`),role);}catch(e){}
+  }
+  toast('✅ 權限已更新');
+}
 
 // ── 統計 ──
 async function loadStats(){
