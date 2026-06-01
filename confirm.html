@@ -109,6 +109,7 @@ const params = new URLSearchParams(window.location.search);
 const sessKey = params.get('sess');
 const stageIdx = parseInt(params.get('stage') || '0');
 const teamName = params.get('team') || '未知隊伍';
+const urlToken = params.get('token') || '';// QR Code 的一次性 token
 
 function showView(id) {
   ['loadingView','confirmView','successView','rejectView','errorView']
@@ -140,6 +141,11 @@ async function init() {
     }
     if (log.confirmed) {
       showView('successView');
+      return;
+    }
+    // Token 驗證（QR Code 防護：只有持有正確 token 才能確認）
+    if(log.qrToken && urlToken !== log.qrToken){
+      showError('QR Code 已過期或無效，請請隊伍重新顯示 QR Code');
       return;
     }
 

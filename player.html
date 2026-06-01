@@ -442,9 +442,31 @@ const auth = getAuth(fbApp);
 // 玩家不需要 Google 帳號，用匿名 auth 即可通過 Rules
 // 注意：無痕模式可能導致第三方 Cookie 被擋，建議使用一般視窗
 // 匿名登入成功後才載入設定（Rules 需要 auth != null）
-signInAnonymously(auth).then(()=>{
+signInAnonymously(auth).then(async ()=>{
   console.log('匿名登入成功，開始載入設定');
-  initLogin();// ← 登入成功後才執行
+  // ── 嘗試從 sessionStorage 自動恢復登入 ──
+  const saved=sessionStorage.getItem('playerLogin');
+  if(saved){
+    try{
+      const {teamKey,pass}=JSON.parse(saved);
+      if(teamKey&&pass){
+        // 先載入設定
+        await initLogin();
+        // 自動填入並登入
+        const sel=document.getElementById('teamSelect');
+        const pwd=document.getElementById('teamPassword');
+        if(sel&&pwd){
+          sel.value=teamKey;
+          pwd.value=pass;
+          await doLogin();
+          return;// 自動登入成功，不需要繼續
+        }
+      }
+    }catch(e){
+      sessionStorage.removeItem('playerLogin');
+    }
+  }
+  initLogin();
 }).catch(e=>{
   console.warn('匿名登入失敗:',e);
   const hintEl=document.getElementById('loadingHint');
@@ -644,46 +666,77 @@ async function doLogin() {
     const teamCfg=(cfg.teams||{})[teamKey]||{};
     if(pass!==(teamCfg.password||'1234')){hideLoading();errEl.textContent='密碼錯誤！';return;}
 
-    // ── 檢查2：防止同一隊重複登入 ──
-    // 只有 status==='playing' 且不是已登出(left)才阻擋
-    const sessSnap=await get(ref(db,'sessions'));
-    if(sessSnap.exists()){
-      const allSess=Object.values(sessSnap.val());
-      const activeSession=allSess.find(s=>
-        s.teamKey===teamKey &&
-        s.status==='playing' &&
-        s.status!=='left' &&
-        s.status!=='finished'
-      );
-      if(activeSession){
-        // 檢查是否是最近10分鐘內的 session（太舊的可能是意外中斷）
-        const now=Date.now();
-        const sessAge=now-(activeSession.startTime||0);
-        const TEN_MIN=10*60*1000;
-        // 如果 session 建立超過10分鐘且沒有更新，可能是中斷的session，允許重新登入
-        const lastUpdate=activeSession.totalSec?(activeSession.startTime+(activeSession.totalSec*1000)):activeSession.startTime;
-        const idleTime=now-lastUpdate;
-        if(idleTime<TEN_MIN){
-          hideLoading();
-          errEl.textContent='⚠️ 此隊伍已在闖關中！若需重新登入請先按「返回」登出，或請管理者重置此隊。';
-          return;
-        }
-        // 超過10分鐘沒動靜，視為意外中斷，允許重新登入（將舊session標為left）
-        try{await set(ref(db,`sessions/${Object.entries(sessSnap.val()).find(([k,s])=>s===activeSession)?.[0]}/status`),'left');}catch(e){}
-      }
-    }
-
-    // 讀取關卡
+    // ── 讀取關卡資料 ──
     const snap=await get(ref(db,'stages'));
     if(!snap.exists()){hideLoading();errEl.textContent='尚未建立關卡！';return;}
     let arr=Object.entries(snap.val()).map(([k,v])=>{const{answerIndex,...safe}=v;return{key:k,answerHash:v.answerHash||'',...safe};});
     arr.sort((a,b)=>(a.order||0)-(b.order||0));
-    state.stages=(cfg.routeMode==='random')?shuffleForTeam(arr,teamKey):arr;
-    state.teamKey=teamKey;state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;state.teamColor=teamCfg.color||'#6ee89a';
+
+    state.teamKey=teamKey;
+    state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;
+    state.teamColor=teamCfg.color||'#6ee89a';
     state.scoring=cfg.scoring||getDefaultScoring();
+    // 記住登入資訊（重新整理時自動恢復）
+    try{sessionStorage.setItem('playerLogin',JSON.stringify({teamKey,pass}));}catch(e){}
+
+    // ── 檢查是否有進行中的 session（重新整理/返回的情況）──
+    const sessSnap=await get(ref(db,'sessions'));
+    let resumeSession=null;
+    let resumeKey=null;
+    if(sessSnap.exists()){
+      const allSessEntries=Object.entries(sessSnap.val());
+      // 找這一隊最新的進行中 session
+      for(const [k,s] of allSessEntries){
+        if(s.teamKey===teamKey && s.status==='playing'){
+          if(!resumeSession || (s.startTimeMs||0)>(resumeSession.startTimeMs||0)){
+            resumeSession=s; resumeKey=k;
+          }
+        }
+      }
+    }
+
+    if(resumeSession){
+      // ── 恢復進度：直接回到遊戲畫面 ──
+      showLoading('恢復進度中...');
+      // 依照 stageOrder 恢復關卡順序
+      if(resumeSession.stageOrder&&resumeSession.stageOrder.length){
+        const stagesMap=Object.fromEntries(
+          Object.entries(snap.val()).map(([k,v])=>{const{answerIndex,...safe}=v;return[k,{key:k,answerHash:v.answerHash||'',...safe}];})
+        );
+        state.stages=resumeSession.stageOrder.map(k=>stagesMap[k]).filter(Boolean);
+      } else {
+        state.stages=arr;
+      }
+      state.sessionKey=resumeKey;
+      state.currentIdx=resumeSession.currentStage||0;
+      state.score=resumeSession.score||0;
+      state.gameStartTime=Date.now()-(resumeSession.totalSec||0)*1000;
+      state.totalSeconds=resumeSession.totalSec||0;
+      state.waitingToStart=false;
+      hideLoading();
+      // 直接進入遊戲畫面
+      showScreen('gameScreen');
+      const cfg2=state.settings;
+      document.getElementById('teamDot').style.background=state.teamColor;
+      document.getElementById('displayTeamName').textContent=state.teamName;
+      if(cfg2.bannerUrl){const b=document.getElementById('gameBanner');b.src=cfg2.bannerUrl;b.classList.remove('hidden');}
+      startCountdown(cfg2.activityEndTime);
+      listenForHelpReplies();
+      listenSessionForceLogout();
+      renderStage();
+      // 恢復提示
+      const toast=document.createElement('div');toast.className='reply-toast';
+      toast.textContent=`✅ 已恢復進度！目前第 ${state.currentIdx+1} 關`;
+      document.body.appendChild(toast);setTimeout(()=>toast.remove(),3000);
+      return;
+    }
+
+    // ── 全新登入：進入等待頁面 ──
+    // 確認沒有其他裝置同時登入（找 playing session 但不是本次建立的）
+    // → 已上面找過，resumeSession 是 null 代表沒有進行中的 session，安全登入
+    state.stages=arr;
     state.waitingToStart=true;
     hideLoading();
-    // 進入等待頁面
     showWaitScreen(cfg,teamCfg);
   } catch(e) {hideLoading();document.getElementById('loginError').textContent='載入失敗！';console.error(e);}
 }
@@ -999,9 +1052,15 @@ function renderStage(){
   if(confirmTaskEl)confirmTaskEl.textContent=stage.confirmTask||'';
   const qrTaskEl=document.getElementById('qrTaskDesc');
   if(qrTaskEl)qrTaskEl.textContent=stage.qrTask||'';
-  // QR Code 產生
+  // QR Code 產生：進入關卡時立即寫入 waitingConfirm + token
   if(stageType==='qrcode'){
-    setTimeout(()=>generateQRCode(),300);
+    const token=Math.random().toString(36).substring(2,10).toUpperCase();
+    state.qrToken=token;
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/waitingConfirm`),true);
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/waitSince`),Date.now());
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/qrToken`),token);
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageName`),state.stages[state.currentIdx]?.title||'');
+    setTimeout(()=>generateQRCode(token),300);
   }
   // 關主確認：監聽Firebase確認狀態
   if(stageType==='confirm'||stageType==='qrcode'){
@@ -1099,13 +1158,14 @@ async function notifyConfirm(){
 }
 
 // ── QR Code 產生 ──
-function generateQRCode(){
+function generateQRCode(token){
   const container=document.getElementById('qrCodeContainer');
   if(!container)return;
   container.innerHTML='';
-  // QR Code 內容 = 確認頁網址（關主掃描後開啟）
+  // QR Code 內容 = 確認頁網址（含 token 防護，只有持有 token 的關主才能確認）
   const baseUrl=window.location.origin+window.location.pathname.replace('player.html','');
-  const confirmUrl=`${baseUrl}confirm.html?sess=${state.sessionKey}&stage=${state.currentIdx}&team=${encodeURIComponent(state.teamName)}`;
+  const t=token||state.qrToken||'';
+  const confirmUrl=`${baseUrl}confirm.html?sess=${state.sessionKey}&stage=${state.currentIdx}&team=${encodeURIComponent(state.teamName)}&token=${t}`;
   try{
     new QRCode(container,{
       text:confirmUrl,width:160,height:160,
@@ -1309,8 +1369,13 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
     strict:'角度、細節、完整性都要符合要求，標準嚴格'
   };
   const stdText=strictnessMap[strictness]||strictnessMap.standard;
+  // 浮水印偵測：若管理者有設定浮水印，告知AI若看到浮水印文字則判定截圖
+  const watermark=(state.settings.watermark||'').trim();
+  const watermarkRule=watermark
+    ?`\n重要：若照片中出現「${watermark}」的浮水印文字，代表這是截圖而非現場拍攝，必須判定「不符合」，原因填「疑似截圖，請現場拍照」。`
+    :'';
   const prompt=`請分析這張照片，判斷是否符合以下要求：「${description}」。
-判斷標準：${stdText}。
+判斷標準：${stdText}。${watermarkRule}
 請用繁體中文回答，格式如下：
 結果：符合 或 不符合
 原因：（一句話說明為什麼）
@@ -1323,7 +1388,7 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
     try{
       const imageData=base64Data.split(',')[1];
       const mimeType=base64Data.split(';')[0].split(':')[1]||'image/jpeg';
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType,data:imageData}},{text:prompt}]}]})
       });
@@ -1595,6 +1660,8 @@ async function playerLogout(){
   }
   // 等待登入前，先在等待頁面就登出的情況（沒有 session，只有 teamKey）
   // → 不需要做什麼，直接重置狀態即可
+  // 清除記住的登入資訊
+  try{sessionStorage.removeItem('playerLogin');}catch(e){}
   // 重置所有狀態
   const prevTeamKey=state.teamKey;
   state.teamKey=null;
