@@ -128,6 +128,7 @@ const sessKey = params.get('sess');
 const stageIdx = parseInt(params.get('stage') || '0');
 const teamName = params.get('team') || '未知隊伍';
 const urlToken = params.get('token') || '';// QR Code 的一次性 token
+const urlStageKey = params.get('stageKey') || '';// 關卡 key（防止跨關確認）
 
 function showView(id) {
   ['loadingView','confirmView','successView','rejectView','errorView']
@@ -177,8 +178,13 @@ async function init() {
     const waitSec = Math.floor((Date.now() - waitSince) / 1000);
     const waitStr = waitSec > 60 ? `${Math.floor(waitSec/60)}分${waitSec%60}秒` : `${waitSec}秒`;
 
+    // 驗證 stageKey（防止關主用其他關的密碼確認此關）
+    // urlStageKey 是 QR Code 產生時嵌入的，對應玩家當時所在的關卡
+    if(urlStageKey && stageKey && urlStageKey !== stageKey){
+      showError('關卡不符合：此 QR Code 不屬於目前關卡，請重新掃描');
+      return;
+    }
     // 取得此關的關主密碼
-    // confirm 類型用 stageMasterPass，qrcode 類型用 qrMasterPass
     window._reqPass = stageData.stageMasterPass || stageData.qrMasterPass || '';
 
     // 安全填入（textContent）
@@ -222,7 +228,7 @@ window.verifyMasterPass = function(){
   const errEl = document.getElementById('passErrMsg');
   if(!input){errEl.textContent='請輸入關主密碼';return;}
   if(input !== window._reqPass){
-    errEl.textContent='❌ 密碼錯誤，請再試一次';
+    errEl.textContent='❌ 密碼錯誤！請確認是否使用此關的關主密碼';
     document.getElementById('masterPassInput').value='';
     document.getElementById('masterPassInput').focus();
     return;

@@ -361,7 +361,7 @@ select:focus,input:focus{border-color:var(--primary-light)}
       <div class="stat-box"><div class="stat-label">求救次數</div><div class="stat-value" id="finishHelps">-</div></div>
     </div>
     <div class="finish-rank-section" id="finishRankSection">
-      <div class="finish-rank-title">🏆 最終排行榜</div>
+      <div class="finish-rank-title">🏆 目前排行榜</div>
       <div id="finishRankList"></div>
     </div>
     <div class="finish-msg" id="finishMsg">🐚 恭喜完成所有挑戰！</div>
@@ -1165,7 +1165,8 @@ function generateQRCode(token){
   // QR Code 內容 = 確認頁網址（含 token 防護，只有持有 token 的關主才能確認）
   const baseUrl=window.location.origin+window.location.pathname.replace('player.html','');
   const t=token||state.qrToken||'';
-  const confirmUrl=`${baseUrl}confirm.html?sess=${state.sessionKey}&stage=${state.currentIdx}&team=${encodeURIComponent(state.teamName)}&token=${t}`;
+  const stageKey=state.stages[state.currentIdx]?.key||'';
+  const confirmUrl=`${baseUrl}confirm.html?sess=${state.sessionKey}&stage=${state.currentIdx}&team=${encodeURIComponent(state.teamName)}&token=${t}&stageKey=${stageKey}`;
   try{
     new QRCode(container,{
       text:confirmUrl,width:160,height:160,
