@@ -321,8 +321,8 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 </head>
 <body>
 
-<!-- 手機頂部狀態列 -->
-<div class="mobile-top-bar" id="mobileTopBar">
+<!-- 手機頂部狀態列（登入後才顯示）-->
+<div class="mobile-top-bar" id="mobileTopBar" style="display:none">
   <div class="mobile-top-title" id="mobileSidebarTitle">🐚 解謎後台</div>
   <div class="mobile-top-right">
     <div class="mobile-top-status closed" id="mobileStatusBadge">未開始</div>
@@ -330,8 +330,8 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
   </div>
 </div>
 
-<!-- 手機底部導覽列 -->
-<div class="mobile-bottom-nav" id="mobileBottomNav">
+<!-- 手機底部導覽列（登入後才顯示）-->
+<div class="mobile-bottom-nav" id="mobileBottomNav" style="display:none">
   <div class="mobile-nav-scroll">
     <div class="mobile-nav-item active" onclick="showTab('monitor')" id="mnav-monitor">
       <span class="m-icon">📊</span><span class="m-label">監控</span>
@@ -1229,54 +1229,50 @@ onAuthStateChanged(auth,async user=>{
 async function getUserRole(user){
   // 超級管理者直接通過
   if(user.email===SUPER_ADMIN_EMAIL)return 'super';
+
+  const emailLower=user.email.toLowerCase();
+  const emailHash=await sha256(emailLower);
+
+  // ── 查詢順序：先快後慢，任何一層找到就回傳 ──
   try{
-    // ── 步驟1：用 UID 查（已登入過的用戶，最快）──
-    const snap=await get(ref(db,`config/users/${user.uid}`));
-    if(snap.exists()&&snap.val().role){
-      return snap.val().role;
+    // 層1：UID key（已登入過，最快）
+    const s1=await get(ref(db,`config/users/${user.uid}`));
+    if(s1.exists()&&s1.val().role){
+      return s1.val().role;
     }
+  }catch(e){console.warn('層1查詢失敗:',e);}
 
-    // ── 步驟2：查 emailWhitelist（第一次登入，Rules 允許任何登入者讀取）──
-    // emailWhitelist 結構: { emailHash: { email, role, name } }
-    const emailHash=await sha256(user.email.toLowerCase());
-    const wlSnap=await get(ref(db,`config/emailWhitelist/${emailHash}`));
-    if(wlSnap.exists()){
-      const wl=wlSnap.val();
-      const role=wl.role||'staff';
-      // 嘗試建立正式 UID 紀錄（可能因 Rules 失敗，但登入不受影響）
-      const newData={
-        email:user.email,
-        name:wl.name||user.displayName||user.email,
-        role,
-        photoURL:user.photoURL||'',
-        uid:user.uid,
-        pending:false,
-      };
-      try{
-        await set(ref(db,`config/users/${user.uid}`),newData);
-        // 升級成功，可以刪除 whitelist（可選）
-      }catch(e){
-        console.warn('建立UID紀錄失敗，但登入成功:',e);
-      }
-      return role;
+  try{
+    // 層2：emailWhitelist（Rules設為 auth!=null 即可讀，第一次登入用）
+    const s2=await get(ref(db,`config/emailWhitelist/${emailHash}`));
+    if(s2.exists()&&s2.val().role){
+      const wl=s2.val();
+      // 背景升級到 UID key（失敗不影響登入）
+      set(ref(db,`config/users/${user.uid}`),{
+        email:emailLower,name:wl.name||user.displayName||emailLower,
+        role:wl.role,photoURL:user.photoURL||'',uid:user.uid,pending:false,
+      }).catch(()=>{});
+      return wl.role;
     }
+  }catch(e){console.warn('層2查詢失敗:',e);}
 
-    // ── 步驟3：查舊格式 hash key（相容舊資料）──
-    const snap2=await get(ref(db,`config/users/${emailHash}`));
-    if(snap2.exists()){
-      const data=snap2.val();
-      const role=data.role||'staff';
-      try{
-        await set(ref(db,`config/users/${user.uid}`),{
-          email:user.email,name:data.name||user.displayName||user.email,
-          role,photoURL:user.photoURL||'',uid:user.uid,pending:false,
-        });
-        try{await remove(ref(db,`config/users/${emailHash}`));}catch(e){}
-      }catch(e){console.warn('升級舊格式失敗:',e);}
-      return role;
+  try{
+    // 層3：舊 hash key（相容之前新增的人員）
+    const s3=await get(ref(db,`config/users/${emailHash}`));
+    if(s3.exists()&&s3.val().role){
+      const d=s3.val();
+      // 背景升級
+      set(ref(db,`config/users/${user.uid}`),{
+        email:emailLower,name:d.name||user.displayName||emailLower,
+        role:d.role,photoURL:user.photoURL||'',uid:user.uid,pending:false,
+      }).then(()=>{
+        remove(ref(db,`config/users/${emailHash}`)).catch(()=>{});
+        remove(ref(db,`config/emailWhitelist/${emailHash}`)).catch(()=>{});
+      }).catch(()=>{});
+      return d.role;
     }
+  }catch(e){console.warn('層3查詢失敗:',e);}
 
-  }catch(e){console.error('getUserRole error:',e);}
   return null;
 }
 
