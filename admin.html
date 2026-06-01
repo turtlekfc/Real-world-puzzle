@@ -1308,7 +1308,7 @@ async function proceedToAdmin(){
 function applyRolePermissions(role){
   // 各角色可用功能定義
   const allManage=['nav-stages','nav-settings','nav-story','nav-scoring','nav-ranking','nav-theme','nav-export','nav-stats'];
-  const superOnly=['nav-users'];
+  const superOnly=[];// 帳號管理 host 也可以看到，但功能內部做限制
 
   if(role==='staff'){
     // 工作人員：只能監控、求救、GPS、照片、廣播
@@ -1339,9 +1339,10 @@ async function doLogout(){clearInterval(timeoutTimer);await signOut(auth);curren
 
 function showTab(name){
   const hostOnly=['stages','settings','story','scoring','ranking','theme','export','stats'];
-  const superOnly=['users'];
+  // users：host 可以管理 staff/stagemaster，super 可以管理所有人
   if(hostOnly.includes(name)&&(currentRole==='staff'||currentRole==='stagemaster')){toast('⛔ 您沒有此功能的權限');return;}
-  if(superOnly.includes(name)&&currentRole!=='super'){toast('⛔ 此功能僅限超級管理者');return;}
+  if(name==='users'&&currentRole==='staff'){toast('⛔ 您沒有此功能的權限');return;}
+  if(name==='users'&&currentRole==='stagemaster'){toast('⛔ 您沒有此功能的權限');return;}
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.remove('active'));
@@ -2149,10 +2150,10 @@ async function loadUsers(){
       item.innerHTML=`<div class="user-item-avatar">${safePhotoURL?`<img src="${safePhotoURL}" alt="" referrerpolicy="no-referrer"/>`:'👤'}</div>
         <div class="user-item-info"><div class="user-item-name"></div><div class="user-item-email"></div></div>
         <div class="user-item-actions"><span class="role-tag ${roleClass[u.role]||'staff'}"></span>
-        ${!isSelf&&!isSuper&&currentRole==='super'?`<select class="role-select" onchange="updateUserRole('${uid}',this.value)">
+        ${!isSelf&&!isSuper&&(currentRole==='super'||currentRole==='host')&&u.role!=='super'?`<select class="role-select" onchange="updateUserRole('${uid}',this.value)">
           <option value="staff" ${u.role==='staff'?'selected':''}>👷 工作人員</option>
           <option value="stagemaster" ${u.role==='stagemaster'?'selected':''}>🔑 關主</option>
-          <option value="host" ${u.role==='host'?'selected':''}>🎯 主帳號</option>
+          ${currentRole==='super'?`<option value="host" ${u.role==='host'?'selected':''}>🎯 主帳號</option>`:''}
         </select><button class="btn btn-danger btn-sm" onclick="removeUser('${uid}')">移除</button>`:''}
         </div>`;
       // 使用者提供的資料一律textContent

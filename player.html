@@ -297,6 +297,9 @@ select:focus,input:focus{border-color:var(--primary-light)}
     <button class="btn-start-game" id="btnStartGame" onclick="startGame()" disabled>
       🚀 開始闖關！
     </button>
+    <button onclick="playerLogout()" style="width:100%;padding:10px;background:transparent;border:1px solid rgba(255,255,255,0.3);border-radius:12px;color:rgba(255,255,255,0.6);font-size:13px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:8px">
+      ← 返回（換隊或重新登入）
+    </button>
   </div>
 </div>
 
@@ -321,9 +324,12 @@ select:focus,input:focus{border-color:var(--primary-light)}
           <div class="stage-label" id="displayStageLabel">第 1 關</div>
         </div>
       </div>
-      <div style="text-align:right">
-        <div style="color:rgba(255,255,255,0.65);font-size:10px">進度</div>
-        <div style="color:white;font-size:13px;font-weight:700" id="displayProgress">1/?</div>
+      <div style="text-align:right;display:flex;align-items:center;gap:8px">
+        <div>
+          <div style="color:rgba(255,255,255,0.65);font-size:10px">進度</div>
+          <div style="color:white;font-size:13px;font-weight:700" id="displayProgress">1/?</div>
+        </div>
+        <button onclick="playerLogout()" title="登出" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:rgba(255,255,255,0.7);font-size:11px;padding:4px 8px;cursor:pointer;font-family:'Noto Sans TC',sans-serif">登出</button>
       </div>
     </div>
     <div class="timers">
@@ -471,7 +477,7 @@ let state = {
   waitingToStart:false
 };
 
-window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm; window.listenSessionForceLogout=listenSessionForceLogout;
+window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm; window.listenSessionForceLogout=listenSessionForceLogout; window.playerLogout=playerLogout;
 window.checkGPS=checkGPS; window.selectOpt=selectOpt;
 window.submitAns=submitAns; window.closeFeedback=closeFeedback;
 window.triggerPhoto=triggerPhoto; window.handlePhoto=handlePhoto;
@@ -639,14 +645,31 @@ async function doLogin() {
     if(pass!==(teamCfg.password||'1234')){hideLoading();errEl.textContent='密碼錯誤！';return;}
 
     // ── 檢查2：防止同一隊重複登入 ──
+    // 只有 status==='playing' 且不是已登出(left)才阻擋
     const sessSnap=await get(ref(db,'sessions'));
     if(sessSnap.exists()){
       const allSess=Object.values(sessSnap.val());
-      const activeSession=allSess.find(s=>s.teamKey===teamKey&&s.status==='playing');
+      const activeSession=allSess.find(s=>
+        s.teamKey===teamKey &&
+        s.status==='playing' &&
+        s.status!=='left' &&
+        s.status!=='finished'
+      );
       if(activeSession){
-        hideLoading();
-        errEl.textContent='⚠️ 此隊伍已經在闖關中！請確認是否重複登入。';
-        return;
+        // 檢查是否是最近10分鐘內的 session（太舊的可能是意外中斷）
+        const now=Date.now();
+        const sessAge=now-(activeSession.startTime||0);
+        const TEN_MIN=10*60*1000;
+        // 如果 session 建立超過10分鐘且沒有更新，可能是中斷的session，允許重新登入
+        const lastUpdate=activeSession.totalSec?(activeSession.startTime+(activeSession.totalSec*1000)):activeSession.startTime;
+        const idleTime=now-lastUpdate;
+        if(idleTime<TEN_MIN){
+          hideLoading();
+          errEl.textContent='⚠️ 此隊伍已在闖關中！若需重新登入請先按「返回」登出，或請管理者重置此隊。';
+          return;
+        }
+        // 超過10分鐘沒動靜，視為意外中斷，允許重新登入（將舊session標為left）
+        try{await set(ref(db,`sessions/${Object.entries(sessSnap.val()).find(([k,s])=>s===activeSession)?.[0]}/status`),'left');}catch(e){}
       }
     }
 
@@ -706,7 +729,7 @@ async function startGame(){
     state.sessionKey=sessRef.key;
     await set(sessRef,{
       teamKey:state.teamKey,teamName:state.teamName,
-      startTime:serverTimestamp(),currentStage:0,
+      startTime:serverTimestamp(),startTimeMs:Date.now(),currentStage:0,
       totalStages:state.stages.length,stageOrder:state.stages.map(s=>s.key),
       status:'playing',stageLogs:{},gpsLogs:{},score:0,helpLogs:{}
     });
@@ -1551,6 +1574,43 @@ async function loadFinishRank(){
     if(showScore){const score=document.createElement('span');score.style.fontWeight='700';score.style.color='var(--primary)';score.textContent=`${s.score||0}分`;div.appendChild(score);}
     container.appendChild(div);
   });
+}
+
+// ── 玩家主動登出 ──
+async function playerLogout(){
+  // 如果在遊戲中才問確認
+  if(state.sessionKey&&state.currentIdx>0){
+    if(!confirm('確定要離開？目前進度將不會保留，下次重新登入會從頭開始。'))return;
+  }
+  // 先清除計時器
+  clearInterval(state.timerInterval);
+  clearInterval(state.countdownInterval);
+  // 等待 Firebase 寫入完成（這樣重新登入時才不會被擋）
+  if(state.sessionKey){
+    try{
+      await set(ref(db,`sessions/${state.sessionKey}/status`),'left');
+    }catch(e){
+      console.warn('登出時寫入失敗:',e);
+    }
+  }
+  // 等待登入前，先在等待頁面就登出的情況（沒有 session，只有 teamKey）
+  // → 不需要做什麼，直接重置狀態即可
+  // 重置所有狀態
+  const prevTeamKey=state.teamKey;
+  state.teamKey=null;
+  state.teamName=null;
+  state.sessionKey=null;
+  state.waitingToStart=false;
+  state.currentIdx=0;
+  state.score=0;
+  state.helpUsed=0;
+  state.hintUsed=0;
+  state.stages=[];
+  state.photoFile=null;
+  state.selectedOption=null;
+  // 回到登入頁並重新初始化
+  showScreen('loginScreen');
+  await initLogin();
 }
 
 function tickTimer(){
