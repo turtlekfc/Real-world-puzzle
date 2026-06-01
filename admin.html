@@ -464,12 +464,22 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       </div>
     </div>
 
-    <!-- 求救 -->
+    <!-- 求救 + 關主確認 -->
     <div id="tab-help" class="tab-content">
       <div class="page-header">
-        <div class="page-header-left"><h1>🆘 求救管理</h1><p>處理各隊伍的求救請求</p></div>
+        <div class="page-header-left"><h1>🆘 求救 &amp; 確認管理</h1><p>處理求救請求，以及關主確認過關</p></div>
         <button class="btn btn-ghost btn-sm" onclick="loadHelpRequests()">🔄</button>
       </div>
+      <!-- 關主確認列表 -->
+      <div class="card" id="confirmCard">
+        <div class="card-header">
+          <div class="card-title">👆 等待關主確認</div>
+          <span id="confirmCount" style="font-size:12px;color:var(--text-light)">0 筆</span>
+        </div>
+        <div id="confirmList"><div class="text-muted text-sm">目前無隊伍等待確認</div></div>
+      </div>
+      <!-- 求救列表 -->
+      <div class="card-title" style="margin-bottom:10px;padding:0 4px">🆘 求救紀錄</div>
       <div id="helpRequestList"><div class="text-muted text-sm">載入中...</div></div>
     </div>
 
@@ -890,7 +900,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <hr class="divider"/>
     <div class="form-group">
       <label style="font-size:13px;font-weight:700;color:var(--primary)">🎯 關卡類型</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px" id="stageTypePicker">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px" id="stageTypePicker">
         <div class="stage-type-btn active" onclick="selectStageType('quiz')" id="typeBtn-quiz">
           <div style="font-size:20px;margin-bottom:4px">📝</div>
           <div style="font-size:12px;font-weight:700">選擇題</div>
@@ -903,8 +913,18 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         </div>
         <div class="stage-type-btn" onclick="selectStageType('password')" id="typeBtn-password">
           <div style="font-size:20px;margin-bottom:4px">🔑</div>
-          <div style="font-size:12px;font-weight:700">關主確認</div>
-          <div style="font-size:10px;color:#888;margin-top:2px">輸入密碼過關</div>
+          <div style="font-size:12px;font-weight:700">密碼過關</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">關主告知密碼</div>
+        </div>
+        <div class="stage-type-btn" onclick="selectStageType('confirm')" id="typeBtn-confirm">
+          <div style="font-size:20px;margin-bottom:4px">👆</div>
+          <div style="font-size:12px;font-weight:700">關主按確認</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">關主後台確認</div>
+        </div>
+        <div class="stage-type-btn" onclick="selectStageType('qrcode')" id="typeBtn-qrcode" style="grid-column:1/-1">
+          <div style="font-size:20px;margin-bottom:4px">📱</div>
+          <div style="font-size:12px;font-weight:700">QR Code 掃描</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">關主掃描玩家QR Code驗證</div>
         </div>
       </div>
     </div>
@@ -985,6 +1005,40 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div class="form-group" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="fPassRequirePhoto" style="width:auto;padding:0"/>
         <label for="fPassRequirePhoto" style="margin:0;cursor:pointer">📌 需同時上傳照片記錄</label>
+      </div>
+    </div>
+
+    <!-- 類型4：關主按確認 -->
+    <div id="section-confirm" class="hidden">
+      <hr class="divider"/>
+      <div style="background:#e8f8f0;border:1.5px solid var(--green);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#1a7a40;line-height:1.6">
+        👆 <b>關主按確認說明：</b>玩家完成任務後按「通知關主」，關主在後台點確認，玩家手機即時解鎖。<br>
+        關主需登入後台（具備工作人員以上權限），在「求救/確認」頁面點選通過。
+      </div>
+      <div class="form-group">
+        <label>📋 任務說明（玩家看到的指示）</label>
+        <textarea id="fConfirmTask" rows="3" placeholder="例：找到公園中的大石頭，站在石頭旁邊拍照，完成後通知關主確認。"></textarea>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="fConfirmRequirePhoto" style="width:auto;padding:0"/>
+        <label for="fConfirmRequirePhoto" style="margin:0;cursor:pointer">📌 需上傳現場照片供關主審核</label>
+      </div>
+    </div>
+
+    <!-- 類型5：QR Code 掃描 -->
+    <div id="section-qrcode" class="hidden">
+      <hr class="divider"/>
+      <div style="background:#f0e8ff;border:1.5px solid var(--purple);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#5b3f9e;line-height:1.6">
+        📱 <b>QR Code 掃描說明：</b>玩家手機顯示本關專屬 QR Code，關主用手機掃描後開啟確認頁，按下通過即可。<br>
+        關主只需要手機相機，<b>不需要登入後台</b>。掃描後會開啟確認網頁。
+      </div>
+      <div class="form-group">
+        <label>📋 任務說明（玩家看到的指示）</label>
+        <textarea id="fQRTask" rows="3" placeholder="例：完成關卡任務後，出示手機上的 QR Code 讓關主掃描驗證。"></textarea>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="fQRRequirePhoto" style="width:auto;padding:0"/>
+        <label for="fQRRequirePhoto" style="margin:0;cursor:pointer">📌 需上傳現場照片</label>
       </div>
     </div>
 
@@ -1264,7 +1318,7 @@ function showTab(name){
   if(name==='ranking')loadRankingSettings();
   if(name==='theme')initTheme();
   if(name==='users')loadUsers();
-  if(name==='help')loadHelpRequests();
+  if(name==='help'){loadHelpRequests();loadConfirmRequests();}
   if(name==='stats')loadStats();
   if(name==='broadcast')loadBroadcastHistory();
 }
@@ -1277,13 +1331,28 @@ async function initAdmin(){
   onValue(ref(db,'config/activityStatus'),snap=>{updateActivityStatusUI(snap.val()||'closed');});
   onValue(ref(db,'sessions'),snap=>{
     if(!snap.exists())return;
-    let count=0;
-    Object.values(snap.val()).forEach(s=>{Object.values(s.helpLogs||{}).forEach(h=>{if(!h.answered)count++;});});
+    const sessData=snap.val();
+    // 計算未回覆求救
+    let helpCount=0;
+    Object.values(sessData).forEach(s=>{Object.values(s.helpLogs||{}).forEach(h=>{if(!h.answered)helpCount++;});});
+    // 計算等待關主確認
+    let confirmCount=0;
+    Object.values(sessData).forEach(s=>{
+      if(s.status!=='playing')return;
+      const curIdx=s.currentStage||0;
+      const stageKey=(s.stageOrder||[])[curIdx];
+      if(!stageKey||!stagesData[stageKey])return;
+      if(stagesData[stageKey].stageType!=='confirm')return;
+      const log=(s.stageLogs||{})[curIdx];
+      if(log&&log.waitingConfirm&&!log.confirmed)confirmCount++;
+    });
+    const total=helpCount+confirmCount;
     const badge=document.getElementById('helpBadge');
-    if(count>0){badge.textContent=count;badge.classList.remove('hidden');}else badge.classList.add('hidden');
-    // 同步手機底部求救badge
+    if(total>0){badge.textContent=total;badge.classList.remove('hidden');}else badge.classList.add('hidden');
     const mBadge=document.getElementById('mobileHelpBadge');
-    if(mBadge){if(count>0){mBadge.textContent=count;mBadge.classList.remove('hidden');}else mBadge.classList.add('hidden');}
+    if(mBadge){if(total>0){mBadge.textContent=total;mBadge.classList.remove('hidden');}else mBadge.classList.add('hidden');}
+    // 如果在求救/確認頁面，即時刷新確認列表
+    if(document.getElementById('tab-help')?.classList.contains('active'))loadConfirmRequests();
   });
 }
 
@@ -1361,6 +1430,75 @@ async function loadBroadcastHistory(){
 }
 
 // ── 求救 ──
+// ── 關主確認管理 ──
+window.approveStage=approveStage;
+window.loadConfirmRequests=loadConfirmRequests;
+
+async function loadConfirmRequests(){
+  const container=document.getElementById('confirmList');
+  const countEl=document.getElementById('confirmCount');
+  if(!container)return;
+  const snap=await get(ref(db,'sessions'));
+  const sess=snap.val()||{};
+  const teamsConfig=settingsData.teams||{};
+  let pending=[];
+  Object.entries(sess).forEach(([sessKey,s])=>{
+    // 找正在等待確認的關卡
+    if(s.status!=='playing')return;
+    const curIdx=s.currentStage||0;
+    const stageKey=(s.stageOrder||[])[curIdx];
+    if(!stageKey)return;
+    const stage=stagesData[stageKey];
+    if(!stage||stage.stageType!=='confirm')return;
+    const log=(s.stageLogs||{})[curIdx];
+    // waitingConfirm=true 且尚未確認
+    if(log&&log.waitingConfirm&&!log.confirmed){
+      const cfg=teamsConfig[s.teamKey]||{};
+      pending.push({sessKey,stageIdx:curIdx,stageKey,teamName:s.teamName||s.teamKey,stageName:stage.title||'',photoUrl:log.photoUrl||'',waitSince:log.waitSince||0,teamColor:cfg.color||'#6ee89a'});
+    }
+  });
+  if(countEl)countEl.textContent=`${pending.length} 筆`;
+  if(!pending.length){container.innerHTML='<div class="text-muted text-sm">目前無隊伍等待確認 ✅</div>';return;}
+  container.innerHTML='';
+  pending.sort((a,b)=>a.waitSince-b.waitSince);
+  pending.forEach(p=>{
+    const card=document.createElement('div');
+    card.style.cssText='background:#eaf7ee;border:2px solid var(--green);border-radius:12px;padding:14px 16px;margin-bottom:10px';
+    const waitSec=Math.floor((Date.now()-p.waitSince)/1000);
+    const waitStr=waitSec>60?`${Math.floor(waitSec/60)}分${waitSec%60}秒`:`${waitSec}秒`;
+    card.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:700"></span>
+      <span style="font-size:11px;color:var(--text-light)"></span>
+      <span style="font-size:11px;background:#fff;border-radius:8px;padding:2px 8px;color:var(--green)">⏱ 等待 ${waitStr}</span>
+    </div>
+    ${p.photoUrl?`<img src="${p.photoUrl}" onclick="window.open('${p.photoUrl}','_blank')" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" alt="照片"/>`:
+    '<div style="background:#f0f8f4;border-radius:8px;padding:8px;font-size:12px;color:var(--text-light);margin-bottom:8px;text-align:center">無照片</div>'}
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-success" style="flex:1;justify-content:center;font-size:14px" onclick="approveStage('${p.sessKey}',${p.stageIdx})">✅ 確認通過</button>
+      <button class="btn btn-danger" style="flex:1;justify-content:center;font-size:14px" onclick="rejectStage('${p.sessKey}',${p.stageIdx})">❌ 未通過</button>
+    </div>`;
+    // 安全填入文字
+    card.querySelectorAll('span')[0].textContent=p.teamName;
+    card.querySelectorAll('span')[1].textContent=`第${p.stageIdx+1}關：${p.stageName}`;
+    container.appendChild(card);
+  });
+}
+
+async function approveStage(sessKey,stageIdx){
+  await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmed`),true);
+  await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedAt`),serverTimestamp());
+  await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedBy`),currentUser.email||'admin');
+  toast('✅ 已確認通過！玩家即時解鎖下一關');
+  loadConfirmRequests();
+}
+window.rejectStage=rejectStage;
+async function rejectStage(sessKey,stageIdx){
+  await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
+  await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/rejected`),true);
+  toast('❌ 已退回，玩家收到通知');
+  loadConfirmRequests();
+}
+
 async function loadHelpRequests(){
   const container=document.getElementById('helpRequestList');container.innerHTML='<div class="spinner"></div>';
   const snap=await get(ref(db,'sessions'));const sess=snap.val()||{};
@@ -1492,7 +1630,13 @@ function renderStageList(){
   const entries=Object.entries(stagesData).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
   if(!entries.length){list.innerHTML=`<div class="text-muted text-sm">尚無關卡！</div>`;return;}
   list.innerHTML='';
-  const typeInfo={quiz:{icon:'📝',label:'選擇題',color:'#1a6fa3'},photo:{icon:'📷',label:'照片關卡',color:'#7c5cbf'},password:{icon:'🔑',label:'關主確認',color:'#b08000'}};
+  const typeInfo={
+    quiz:{icon:'📝',label:'選擇題',color:'#1a6fa3'},
+    photo:{icon:'📷',label:'照片關卡',color:'#7c5cbf'},
+    password:{icon:'🔑',label:'密碼過關',color:'#b08000'},
+    confirm:{icon:'👆',label:'關主按確認',color:'#1a7a40'},
+    qrcode:{icon:'📱',label:'QR Code',color:'#c04030'},
+  };
   entries.forEach(([key,s],i)=>{
     const type=s.stageType||'quiz';
     const ti=typeInfo[type]||typeInfo.quiz;
@@ -1519,9 +1663,9 @@ function renderStageList(){
 
 function selectStageType(type){
   document.getElementById('fStageType').value=type;
-  ['quiz','photo','password'].forEach(t=>{
-    document.getElementById(`typeBtn-${t}`).classList.toggle('active',t===type);
-    document.getElementById(`section-${t}`).classList.toggle('hidden',t!==type);
+  ['quiz','photo','password','confirm','qrcode'].forEach(t=>{
+    document.getElementById(`typeBtn-${t}`)?.classList.toggle('active',t===type);
+    document.getElementById(`section-${t}`)?.classList.toggle('hidden',t!==type);
   });
 }
 
@@ -1529,7 +1673,9 @@ function openStageModal(){
   editingStageKey=null;modalImgFile=null;modalImgUrl=null;
   document.getElementById('modalTitle').textContent='新增關卡';
   document.getElementById('fOrder').value=Object.keys(stagesData).length+1;
-  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const cReq=document.getElementById('fConfirmRequirePhoto');if(cReq)cReq.checked=false;
+  const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=false;
   ['fLat','fLng'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fRadius').value='80';
   ['fOpt0','fOpt1','fOpt2','fOpt3'].forEach(id=>document.getElementById(id).value='');
@@ -1561,6 +1707,12 @@ function editStage(key){
   } else if(type==='password'){
     document.getElementById('fPasscode').value=s.passcode||'';
     const passReq=document.getElementById('fPassRequirePhoto');if(passReq)passReq.checked=s.requirePhoto||false;
+  } else if(type==='confirm'){
+    const cTask=document.getElementById('fConfirmTask');if(cTask)cTask.value=s.confirmTask||'';
+    const cReq=document.getElementById('fConfirmRequirePhoto');if(cReq)cReq.checked=s.requirePhoto||false;
+  } else if(type==='qrcode'){
+    const qTask=document.getElementById('fQRTask');if(qTask)qTask.value=s.qrTask||'';
+    const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=s.requirePhoto||false;
   }
   if(s.imageUrl){const img=document.getElementById('imgPreviewModal');img.src=s.imageUrl;img.classList.remove('hidden');document.getElementById('imgPlaceholder').classList.add('hidden');}
   else{document.getElementById('imgPreviewModal').classList.add('hidden');document.getElementById('imgPlaceholder').classList.remove('hidden');}
@@ -1584,7 +1736,11 @@ async function saveStage(){
   } else if(stageType==='photo'){
     if(!document.getElementById('fPhotoDesc').value.trim()){toast('照片關卡請填入AI辨識描述！');return;}
   } else if(stageType==='password'){
-    if(!document.getElementById('fPasscode').value.trim()){toast('關主確認關卡請設定過關密碼！');return;}
+    if(!document.getElementById('fPasscode').value.trim()){toast('密碼關卡請設定過關密碼！');return;}
+  } else if(stageType==='confirm'){
+    if(!document.getElementById('fConfirmTask').value.trim()){toast('關主確認關卡請填入任務說明！');return;}
+  } else if(stageType==='qrcode'){
+    if(!document.getElementById('fQRTask').value.trim()){toast('QR Code關卡請填入任務說明！');return;}
   }
   const btn=document.getElementById('saveStageBtn');btn.disabled=true;btn.textContent='儲存中...';
   try{
@@ -1617,6 +1773,15 @@ async function saveStage(){
       data.passcode=document.getElementById('fPasscode').value.trim().toLowerCase();
       data.requirePhoto=document.getElementById('fPassRequirePhoto')?.checked||false;
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';
+    } else if(stageType==='confirm'){
+      data.confirmTask=document.getElementById('fConfirmTask').value.trim();
+      data.requirePhoto=document.getElementById('fConfirmRequirePhoto')?.checked||false;
+      data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
+      data.pendingConfirm=false;// 關主確認狀態初始為false
+    } else if(stageType==='qrcode'){
+      data.qrTask=document.getElementById('fQRTask').value.trim();
+      data.requirePhoto=document.getElementById('fQRRequirePhoto')?.checked||false;
+      data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
     }
     if(stageType==='quiz'||editingStageKey){
       // answerHash 只有選擇題需要

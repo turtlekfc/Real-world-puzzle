@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🔑 關主確認頁</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Fredoka+One&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans TC',sans-serif;background:linear-gradient(160deg,#0d4f7a,#1a6fa3,#2a9fd6);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:white;border-radius:24px;padding:28px 24px;max-width:380px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.3);text-align:center}
+.icon{font-size:56px;margin-bottom:14px}
+.title{font-family:'Fredoka One',cursive;font-size:22px;color:#1a6fa3;margin-bottom:8px}
+.team-name{font-size:18px;font-weight:900;color:#1a3a5c;margin-bottom:4px}
+.stage-name{font-size:14px;color:#5a8aaa;margin-bottom:20px}
+.info-box{background:#f0f6fa;border-radius:12px;padding:14px;margin-bottom:20px;text-align:left}
+.info-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #e0ecf5}
+.info-row:last-child{border-bottom:none}
+.info-label{color:#5a8aaa}
+.info-value{font-weight:700;color:#1a3a5c}
+.photo-section{margin-bottom:20px}
+.photo-section img{width:100%;border-radius:12px;object-fit:cover;max-height:200px}
+.photo-placeholder{background:#f5f5f5;border-radius:12px;padding:20px;color:#999;font-size:13px}
+.btn-pass{width:100%;padding:16px;background:linear-gradient(90deg,#3db87a,#5dd490);color:white;border:none;border-radius:14px;font-size:17px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(61,184,122,0.35);margin-bottom:10px;transition:transform 0.15s}
+.btn-pass:active{transform:scale(0.97)}
+.btn-pass:disabled{opacity:0.5;cursor:not-allowed}
+.btn-reject{width:100%;padding:14px;background:#fff0ee;color:#c03020;border:2px solid #f09070;border-radius:14px;font-size:15px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:transform 0.15s}
+.btn-reject:active{transform:scale(0.97)}
+.status-box{padding:20px;border-radius:14px;margin-bottom:16px;font-size:15px;font-weight:700}
+.status-box.success{background:#eaf7ee;color:#1a7a40;border:2px solid #3db87a}
+.status-box.error{background:#fff0ee;color:#c03020;border:2px solid #f09070}
+.spinner{width:36px;height:36px;border:4px solid #e0f2fb;border-top-color:#1a6fa3;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none}
+.warn-box{background:#fff8e6;border:1.5px solid #f5c842;border-radius:10px;padding:10px 14px;font-size:12px;color:#7a5a00;margin-bottom:16px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="loadingView">
+    <div class="spinner"></div>
+    <div style="font-size:14px;color:#5a8aaa">載入中...</div>
+  </div>
+
+  <div id="confirmView" class="hidden">
+    <div class="icon">📱</div>
+    <div class="title">關主確認頁</div>
+    <div class="team-name" id="teamNameEl">--</div>
+    <div class="stage-name" id="stageNameEl">第 ? 關</div>
+    <div class="info-box">
+      <div class="info-row"><span class="info-label">隊伍</span><span class="info-value" id="teamNameEl2">--</span></div>
+      <div class="info-row"><span class="info-label">關卡</span><span class="info-value" id="stageNameEl2">--</span></div>
+      <div class="info-row"><span class="info-label">等待時間</span><span class="info-value" id="waitTimeEl">--</span></div>
+    </div>
+    <div class="photo-section" id="photoSection">
+      <div style="font-size:12px;font-weight:600;color:#5a8aaa;margin-bottom:8px;text-align:left">📷 玩家上傳照片</div>
+      <div class="photo-placeholder" id="photoPlaceholder">尚無照片上傳</div>
+      <img id="photoImg" class="hidden" alt="玩家照片"/>
+    </div>
+    <div class="warn-box">⚠️ 請確認玩家已完成任務後再按「確認通過」</div>
+    <button class="btn-pass" id="passBtn" onclick="doApprove()">✅ 確認通過</button>
+    <button class="btn-reject" id="rejectBtn" onclick="doReject()">❌ 退回（未完成任務）</button>
+  </div>
+
+  <div id="successView" class="hidden">
+    <div class="icon">🎉</div>
+    <div class="title">確認完成！</div>
+    <div class="status-box success">玩家已收到通知，自動解鎖下一關！</div>
+    <div style="font-size:13px;color:#5a8aaa">可以關閉此頁面</div>
+  </div>
+
+  <div id="rejectView" class="hidden">
+    <div class="icon">❌</div>
+    <div class="title">已退回</div>
+    <div class="status-box error">玩家已收到退回通知，需重新完成任務</div>
+    <div style="font-size:13px;color:#5a8aaa">可以關閉此頁面</div>
+  </div>
+
+  <div id="errorView" class="hidden">
+    <div class="icon">⚠️</div>
+    <div class="title">連結錯誤</div>
+    <div class="status-box error" id="errorMsg">無效的確認連結</div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, get, set, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInAnonymously }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA51pVs3QZJ3p6eIeVpMVOGqFlNXExEjKo",
+  authDomain: "real-world-puzzle-d5efc.firebaseapp.com",
+  databaseURL: "https://real-world-puzzle-d5efc-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "real-world-puzzle-d5efc",
+  storageBucket: "real-world-puzzle-d5efc.firebasestorage.app",
+  messagingSenderId: "25902212839",
+  appId: "1:25902212869:web:8955631b9c9395233a796c"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+const auth = getAuth(fbApp);
+
+// 解析 URL 參數
+const params = new URLSearchParams(window.location.search);
+const sessKey = params.get('sess');
+const stageIdx = parseInt(params.get('stage') || '0');
+const teamName = params.get('team') || '未知隊伍';
+
+function showView(id) {
+  ['loadingView','confirmView','successView','rejectView','errorView']
+    .forEach(v => document.getElementById(v).classList.toggle('hidden', v !== id));
+}
+
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+  showView('errorView');
+}
+
+async function init() {
+  if (!sessKey) { showError('缺少必要參數，請重新掃描QR Code'); return; }
+
+  // 匿名登入
+  try { await signInAnonymously(auth); } catch(e) { showError('連線失敗，請確認網路並重試'); return; }
+
+  // 讀取 session 資料
+  try {
+    const snap = await get(ref(db, `sessions/${sessKey}`));
+    if (!snap.exists()) { showError('找不到此隊伍的紀錄'); return; }
+    const sess = snap.val();
+    const log = (sess.stageLogs || {})[stageIdx] || {};
+
+    // 確認是否在等待確認狀態
+    if (!log.waitingConfirm) {
+      showError('此關卡目前不需要確認，或已被處理');
+      return;
+    }
+    if (log.confirmed) {
+      showView('successView');
+      return;
+    }
+
+    // 填入資料
+    const stageOrder = sess.stageOrder || [];
+    const stageKey = stageOrder[stageIdx];
+    const stageSnap = stageKey ? await get(ref(db, `stages/${stageKey}`)) : null;
+    const stageName = stageSnap?.val()?.title || `第${stageIdx+1}關`;
+    const waitSince = log.waitSince || Date.now();
+    const waitSec = Math.floor((Date.now() - waitSince) / 1000);
+    const waitStr = waitSec > 60 ? `${Math.floor(waitSec/60)}分${waitSec%60}秒` : `${waitSec}秒`;
+
+    // 安全填入（textContent）
+    document.getElementById('teamNameEl').textContent = teamName;
+    document.getElementById('stageNameEl').textContent = stageName;
+    document.getElementById('teamNameEl2').textContent = sess.teamName || teamName;
+    document.getElementById('stageNameEl2').textContent = stageName;
+    document.getElementById('waitTimeEl').textContent = waitStr;
+
+    // 照片
+    if (log.photoUrl) {
+      const img = document.getElementById('photoImg');
+      img.src = log.photoUrl;
+      img.classList.remove('hidden');
+      document.getElementById('photoPlaceholder').classList.add('hidden');
+    }
+
+    showView('confirmView');
+  } catch(e) {
+    showError('載入失敗：' + e.message);
+  }
+}
+
+window.doApprove = async function() {
+  const passBtn = document.getElementById('passBtn');
+  const rejectBtn = document.getElementById('rejectBtn');
+  passBtn.disabled = true; rejectBtn.disabled = true;
+  passBtn.textContent = '確認中...';
+  try {
+    await set(ref(db, `sessions/${sessKey}/stageLogs/${stageIdx}/confirmed`), true);
+    await set(ref(db, `sessions/${sessKey}/stageLogs/${stageIdx}/confirmedAt`), serverTimestamp());
+    await set(ref(db, `sessions/${sessKey}/stageLogs/${stageIdx}/confirmedBy`), 'QR掃描');
+    showView('successView');
+  } catch(e) {
+    passBtn.disabled = false; rejectBtn.disabled = false;
+    passBtn.textContent = '✅ 確認通過';
+    alert('操作失敗：' + e.message);
+  }
+};
+
+window.doReject = async function() {
+  if (!confirm('確定要退回嗎？玩家需要重新完成任務。')) return;
+  const passBtn = document.getElementById('passBtn');
+  const rejectBtn = document.getElementById('rejectBtn');
+  passBtn.disabled = true; rejectBtn.disabled = true;
+  try {
+    await set(ref(db, `sessions/${sessKey}/stageLogs/${stageIdx}/rejected`), true);
+    await set(ref(db, `sessions/${sessKey}/stageLogs/${stageIdx}/waitingConfirm`), false);
+    showView('rejectView');
+  } catch(e) {
+    passBtn.disabled = false; rejectBtn.disabled = false;
+    alert('操作失敗：' + e.message);
+  }
+};
+
+init();
+</script>
+</body>
+</html>
