@@ -387,11 +387,50 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <p>實境解謎活動管理系統</p>
     <button class="btn-google" onclick="signInWithGoogle()">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"/>
-      使用 Google 帳號登入
+      使用 Google 帳號登入（工作人員）
     </button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
+      <div style="flex:1;height:1px;background:#eee"></div>
+      <span style="font-size:12px;color:#bbb">或</span>
+      <div style="flex:1;height:1px;background:#eee"></div>
+    </div>
+    <div id="stageMasterLoginArea">
+      <input type="password" id="stageMasterPassInput" placeholder="輸入關主密碼" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;font-family:'Noto Sans TC',sans-serif;outline:none;margin-bottom:10px"/>
+      <button onclick="signInWithStageMasterPass()" style="width:100%;padding:12px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
+        🔑 關主密碼登入
+      </button>
+    </div>
     <div class="login-err" id="loginErr"></div>
     <div style="margin-top:14px;font-size:11px;color:var(--text-light);text-align:center;line-height:1.6">
-      ⚠️ 請勿使用無痕視窗登入<br>Google 帳號需在一般視窗中登入
+      ⚠️ Google登入請勿使用無痕視窗
+    </div>
+  </div>
+</div>
+
+<!-- 關主頁面（密碼登入後顯示）-->
+<div id="stageMasterPage" style="display:none;min-height:100vh;background:linear-gradient(160deg,#0d4f7a,#1a6fa3);padding:0">
+  <!-- 頂部 -->
+  <div style="background:rgba(0,0,0,0.2);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="color:white;font-size:16px;font-weight:700" id="smTitle">關主頁面</div>
+      <div style="color:rgba(255,255,255,0.6);font-size:12px" id="smStageInfo">負責關卡載入中...</div>
+    </div>
+    <button onclick="smLogout()" style="background:rgba(255,255,255,0.15);border:none;color:rgba(255,255,255,0.8);padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif">登出</button>
+  </div>
+  <!-- 主內容 -->
+  <div style="padding:14px;max-width:480px;margin:0 auto">
+    <!-- 等待確認列表 -->
+    <div style="background:white;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,0.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700;color:#1a3a5c">👆 等待確認</div>
+        <button onclick="smRefresh()" style="background:#f0f6fa;border:none;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;color:#1a6fa3">🔄 重新整理</button>
+      </div>
+      <div id="smConfirmList"><div style="text-align:center;color:#999;font-size:13px;padding:20px">目前無隊伍等待確認</div></div>
+    </div>
+    <!-- 各隊進度 -->
+    <div style="background:white;border-radius:16px;padding:16px;box-shadow:0 4px 20px rgba(0,0,0,0.2)">
+      <div style="font-size:15px;font-weight:700;color:#1a3a5c;margin-bottom:12px">📊 各隊進度</div>
+      <div id="smProgressList"><div style="text-align:center;color:#999;font-size:13px;padding:10px">載入中...</div></div>
     </div>
   </div>
 </div>
@@ -1013,12 +1052,16 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div id="section-confirm" class="hidden">
       <hr class="divider"/>
       <div style="background:#e8f8f0;border:1.5px solid var(--green);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#1a7a40;line-height:1.6">
-        👆 <b>關主按確認說明：</b>玩家完成任務後按「通知關主」，關主在後台點確認，玩家手機即時解鎖。<br>
-        關主需登入後台（具備工作人員以上權限），在「求救/確認」頁面點選通過。
+        👆 <b>關主按確認說明：</b>玩家完成任務後按「通知關主」，關主用密碼登入後台點確認，玩家手機即時解鎖。
       </div>
       <div class="form-group">
         <label>📋 任務說明（玩家看到的指示）</label>
         <textarea id="fConfirmTask" rows="3" placeholder="例：找到公園中的大石頭，站在石頭旁邊拍照，完成後通知關主確認。"></textarea>
+      </div>
+      <div class="form-group">
+        <label>🔑 此關關主密碼（關主用此密碼登入，只能核准此關）</label>
+        <input type="text" id="fStageMasterPass" placeholder="例：關1關主（英數皆可，建議每關不同）"/>
+        <div style="font-size:11px;color:var(--text-light);margin-top:4px">關主開啟 admin.html 點「關主密碼登入」輸入此密碼即可進入</div>
       </div>
       <div class="form-group" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="fConfirmRequirePhoto" style="width:auto;padding:0"/>
@@ -1105,6 +1148,9 @@ const DEFAULT_SCORING={baseScore:100,timeBonus:50,completionBonus:200,rankBonus:
 
 // 全域函數
 window.signInWithGoogle=signInWithGoogle;window.doLogout=doLogout;window.showTab=showTab;
+window.signInWithStageMasterPass=signInWithStageMasterPass;
+window.smLogout=smLogout;window.smRefresh=smRefresh;
+window.smApprove=smApprove;window.smReject=smReject;
 window.openStageModal=openStageModal;window.closeStageModal=closeStageModal;window.selectStageType=selectStageType;
 window.saveStage=saveStage;window.deleteStage=deleteStage;window.editStage=editStage;
 window.handleModalImg=handleModalImg;window.loadSessions=loadSessions;
@@ -1122,6 +1168,172 @@ window.saveRankingSettings=saveRankingSettings;window.resetScoringToDefault=rese
 window.resetSettingsToDefault=resetSettingsToDefault;window.confirmClearAll=confirmClearAll;
 window.confirmResetAll=confirmResetAll;window.closeConfirm=closeConfirm;window.executeConfirm=executeConfirm;
 window.testGeminiKeys=testGeminiKeys;
+
+// ══ 關主密碼登入系統 ══
+let smState = {stageKey:null, stageIdx:null, stageName:null, stagePass:null};
+
+async function signInWithStageMasterPass(){
+  const pass = document.getElementById('stageMasterPassInput').value.trim();
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+  if(!pass){errEl.textContent='請輸入關主密碼';return;}
+
+  // 讀取所有關卡，找對應密碼
+  try{
+    // 需要先匿名登入才能讀取（Firebase Rules 要求 auth != null）
+    const {getAuth,signInAnonymously} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    const fbAuth = getAuth(fbApp);
+    await signInAnonymously(fbAuth).catch(()=>{});
+
+    const snap = await get(ref(db,'stages'));
+    if(!snap.exists()){errEl.textContent='⚠️ 尚未建立關卡';return;}
+    const stages = snap.val();
+    let found = null;
+    let foundKey = null;
+    let foundIdx = 0;
+    const sorted = Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
+    sorted.forEach(([k,s],i)=>{
+      if(s.stageType==='confirm' && s.stageMasterPass && s.stageMasterPass===pass){
+        found = s;
+        foundKey = k;
+        foundIdx = i;
+      }
+    });
+    if(!found){errEl.textContent='❌ 密碼錯誤，請再試一次';return;}
+
+    // 登入成功
+    smState = {stageKey:foundKey, stageIdx:foundIdx, stageName:found.title||`第${foundIdx+1}關`, stagePass:pass};
+    document.getElementById('stageMasterPage').style.display='block';
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('smTitle').textContent=`🔑 關主頁面`;
+    document.getElementById('smStageInfo').textContent=`負責：${smState.stageName}（第${foundIdx+1}關）`;
+    smRefresh();
+    // 每30秒自動刷新
+    setInterval(smRefresh, 30000);
+  }catch(e){
+    errEl.textContent='⚠️ 連線失敗：'+e.message;
+    console.error(e);
+  }
+}
+
+function smLogout(){
+  smState = {stageKey:null,stageIdx:null,stageName:null,stagePass:null};
+  document.getElementById('stageMasterPage').style.display='none';
+  document.getElementById('loginPage').style.display='flex';
+  document.getElementById('stageMasterPassInput').value='';
+  document.getElementById('loginErr').textContent='';
+}
+
+async function smRefresh(){
+  await smLoadConfirm();
+  await smLoadProgress();
+}
+
+async function smLoadConfirm(){
+  const container = document.getElementById('smConfirmList');
+  if(!smState.stageKey){return;}
+  try{
+    const snap = await get(ref(db,'sessions'));
+    if(!snap.exists()){
+      container.innerHTML='<div style="text-align:center;color:#999;font-size:13px;padding:20px">目前無隊伍等待確認</div>';
+      return;
+    }
+    const sess = snap.val();
+    let pending = [];
+    Object.entries(sess).forEach(([sessKey,s])=>{
+      if(s.status!=='playing')return;
+      // 找此隊當前關卡是否就是這一關
+      const curIdx = s.currentStage||0;
+      const stageKey = (s.stageOrder||[])[curIdx];
+      if(stageKey !== smState.stageKey)return;
+      const log = (s.stageLogs||{})[curIdx]||{};
+      if(log.waitingConfirm && !log.confirmed){
+        pending.push({sessKey, stageIdx:curIdx, teamName:s.teamName||s.teamKey, photoUrl:log.photoUrl||'', waitSince:log.waitSince||0});
+      }
+    });
+
+    if(!pending.length){
+      container.innerHTML='<div style="text-align:center;color:#999;font-size:13px;padding:20px">目前無隊伍等待確認 ✅</div>';
+      return;
+    }
+    container.innerHTML='';
+    pending.forEach(p=>{
+      const card = document.createElement('div');
+      card.style.cssText='border:2px solid #3db87a;border-radius:12px;padding:14px;margin-bottom:10px;background:#eaf7ee';
+      const waitSec = Math.floor((Date.now()-p.waitSince)/1000);
+      const waitStr = waitSec>60?`${Math.floor(waitSec/60)}分${waitSec%60}秒`:`${waitSec}秒`;
+      card.innerHTML=`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:14px;font-weight:700"></span>
+          <span style="font-size:11px;background:white;border-radius:8px;padding:2px 8px;color:#3db87a">⏱ 等待 ${waitStr}</span>
+        </div>
+        ${p.photoUrl?`<img src="${p.photoUrl}" onclick="window.open('${p.photoUrl}','_blank')" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-bottom:10px;cursor:pointer" alt="照片"/>`:'<div style="background:#f0f8f0;border-radius:8px;padding:8px;font-size:12px;color:#999;margin-bottom:10px;text-align:center">無照片</div>'}
+        <div style="display:flex;gap:8px">
+          <button onclick="smApprove('${p.sessKey}',${p.stageIdx})" style="flex:1;padding:12px;background:#3db87a;color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif">✅ 確認通過</button>
+          <button onclick="smReject('${p.sessKey}',${p.stageIdx})" style="flex:1;padding:12px;background:#fff0ee;color:#c04030;border:2px solid #f09070;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif">❌ 退回</button>
+        </div>`;
+      card.querySelector('span').textContent = p.teamName;
+      container.appendChild(card);
+    });
+  }catch(e){console.error('smLoadConfirm:',e);}
+}
+
+async function smLoadProgress(){
+  const container = document.getElementById('smProgressList');
+  try{
+    const [sessSnap, stagesSnap] = await Promise.all([
+      get(ref(db,'sessions')),
+      get(ref(db,'stages'))
+    ]);
+    if(!sessSnap.exists()){container.innerHTML='<div style="color:#999;font-size:13px;text-align:center">尚無隊伍資料</div>';return;}
+    const sess = sessSnap.val();
+    const stages = stagesSnap.val()||{};
+    const sorted = Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
+    const totalStages = sorted.length;
+    // 找每隊最新session
+    const latestByTeam={};
+    Object.values(sess).forEach(s=>{if(!latestByTeam[s.teamKey]||s.startTime>latestByTeam[s.teamKey].startTime)latestByTeam[s.teamKey]=s;});
+    container.innerHTML='';
+    const rows = Object.values(latestByTeam).sort((a,b)=>(b.score||0)-(a.score||0));
+    if(!rows.length){container.innerHTML='<div style="color:#999;font-size:13px;text-align:center">尚無隊伍登入</div>';return;}
+    rows.forEach((s,i)=>{
+      const cur = s.status==='finished'?totalStages:(s.currentStage||0)+1;
+      const prog = Math.min(100,Math.round((cur/totalStages)*100));
+      const isMyStage = (s.stageOrder||[])[s.currentStage||0] === smState.stageKey;
+      const div = document.createElement('div');
+      div.style.cssText=`padding:10px;border-radius:10px;margin-bottom:8px;border:1.5px solid ${isMyStage?'#3db87a':'#eee'};background:${isMyStage?'#eaf7ee':'#f8f8f8'}`;
+      div.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:13px;font-weight:700"></span>
+        <span style="font-size:12px;color:#666">${s.status==='finished'?'✅ 完成':`第${cur}/${totalStages}關`}${isMyStage?' ← 在此關':''}</span>
+      </div>
+      <div style="background:#ddd;border-radius:99px;height:5px;overflow:hidden">
+        <div style="height:100%;border-radius:99px;background:${isMyStage?'#3db87a':'#1a6fa3'};width:${prog}%;transition:width 0.5s"></div>
+      </div>`;
+      div.querySelector('span').textContent = s.teamName||s.teamKey;
+      container.appendChild(div);
+    });
+  }catch(e){console.error('smLoadProgress:',e);}
+}
+
+async function smApprove(sessKey, stageIdx){
+  const btn = event.target;
+  btn.disabled=true;btn.textContent='確認中...';
+  try{
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmed`),true);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedAt`),serverTimestamp());
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedBy`),`關主(${smState.stageName})`);
+    smRefresh();
+  }catch(e){btn.disabled=false;btn.textContent='✅ 確認通過';alert('操作失敗：'+e.message);}
+}
+
+async function smReject(sessKey, stageIdx){
+  if(!confirm('確定退回嗎？玩家需重新完成任務。'))return;
+  try{
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/rejected`),true);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
+    smRefresh();
+  }catch(e){alert('操作失敗：'+e.message);}
+}
 
 function toast(msg,dur=2800){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),dur);}
 
@@ -1759,7 +1971,7 @@ function openStageModal(){
   editingStageKey=null;modalImgFile=null;modalImgUrl=null;
   document.getElementById('modalTitle').textContent='新增關卡';
   document.getElementById('fOrder').value=Object.keys(stagesData).length+1;
-  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const cReq=document.getElementById('fConfirmRequirePhoto');if(cReq)cReq.checked=false;
   const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=false;
   ['fLat','fLng'].forEach(id=>document.getElementById(id).value='');
@@ -1796,6 +2008,7 @@ function editStage(key){
   } else if(type==='confirm'){
     const cTask=document.getElementById('fConfirmTask');if(cTask)cTask.value=s.confirmTask||'';
     const cReq=document.getElementById('fConfirmRequirePhoto');if(cReq)cReq.checked=s.requirePhoto||false;
+    const cPass=document.getElementById('fStageMasterPass');if(cPass)cPass.value=s.stageMasterPass||'';
   } else if(type==='qrcode'){
     const qTask=document.getElementById('fQRTask');if(qTask)qTask.value=s.qrTask||'';
     const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=s.requirePhoto||false;
@@ -1861,9 +2074,10 @@ async function saveStage(){
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';
     } else if(stageType==='confirm'){
       data.confirmTask=document.getElementById('fConfirmTask').value.trim();
+      data.stageMasterPass=(document.getElementById('fStageMasterPass')?.value||'').trim();
       data.requirePhoto=document.getElementById('fConfirmRequirePhoto')?.checked||false;
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
-      data.pendingConfirm=false;// 關主確認狀態初始為false
+      data.pendingConfirm=false;
     } else if(stageType==='qrcode'){
       data.qrTask=document.getElementById('fQRTask').value.trim();
       data.requirePhoto=document.getElementById('fQRRequirePhoto')?.checked||false;
