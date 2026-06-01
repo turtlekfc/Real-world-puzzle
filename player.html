@@ -435,9 +435,10 @@ const auth = getAuth(fbApp);
 // ── 匿名登入（讓 Firebase Rules 允許讀取）──
 // 玩家不需要 Google 帳號，用匿名 auth 即可通過 Rules
 // 注意：無痕模式可能導致第三方 Cookie 被擋，建議使用一般視窗
+// 匿名登入成功後才載入設定（Rules 需要 auth != null）
 signInAnonymously(auth).then(()=>{
-  // 匿名登入成功，initLogin 會繼續載入設定
-  console.log('匿名登入成功');
+  console.log('匿名登入成功，開始載入設定');
+  initLogin();// ← 登入成功後才執行
 }).catch(e=>{
   console.warn('匿名登入失敗:',e);
   const hintEl=document.getElementById('loadingHint');
@@ -518,7 +519,7 @@ async function initLogin() {
     hintEl.textContent='⚠️ 載入失敗，3秒後重試...';setTimeout(initLogin,3000);
   }
 }
-initLogin();
+// initLogin() 已移到 signInAnonymously.then() 裡面執行
 
 // ── 監聽活動狀態 ──
 onValue(ref(db,'config/activityStatus'),snap=>{
