@@ -14,7 +14,7 @@
   --radius:14px;--shadow:0 2px 16px rgba(26,111,163,0.12);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text)}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);font-size:15px}
 #loginPage{min-height:100vh;background:linear-gradient(160deg,var(--primary-dark),var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;padding:24px}
 .login-card{background:white;border-radius:24px;padding:40px 32px;max-width:400px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.25);text-align:center}
 .login-card h1{font-family:'Fredoka One',cursive;font-size:28px;color:var(--primary);margin-bottom:4px}
@@ -38,7 +38,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .activity-status.closed{background:rgba(240,112,80,0.2);color:#f09070;border:1px solid rgba(240,112,80,0.3)}
 .activity-status.paused{background:rgba(245,200,66,0.2);color:#f5c842;border:1px solid rgba(245,200,66,0.3)}
 .nav-group-label{padding:8px 18px 3px;font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:1px;text-transform:uppercase}
-.nav-item{display:flex;align-items:center;gap:8px;padding:9px 18px;color:rgba(255,255,255,0.6);cursor:pointer;font-size:13px;transition:all 0.15s;border-left:3px solid transparent}
+.nav-item{display:flex;align-items:center;gap:8px;padding:10px 18px;color:rgba(255,255,255,0.6);cursor:pointer;font-size:14px;transition:all 0.15s;border-left:3px solid transparent}
 .nav-item:hover{background:rgba(255,255,255,0.07);color:white}
 .nav-item.active{background:rgba(255,255,255,0.12);color:white;border-left-color:var(--sand)}
 .nav-item.disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
@@ -47,15 +47,15 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
 .sidebar-bottom{margin-top:auto;padding:10px;border-top:1px solid rgba(255,255,255,0.08)}
 .main{margin-left:230px;padding:20px 26px;min-height:100vh}
 .page-header{margin-bottom:14px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.page-header-left h1{font-size:21px;font-weight:700}
+.page-header-left h1{font-size:22px;font-weight:700}
 .page-header-left p{font-size:12px;color:var(--text-light);margin-top:3px}
 .tab-content{display:none}.tab-content.active{display:block}
 .form-group{margin-bottom:13px}
-.form-group label{display:block;font-size:12px;font-weight:500;color:var(--text-light);margin-bottom:4px}
-input[type="text"],input[type="number"],input[type="email"],input[type="password"],input[type="datetime-local"],input[type="color"],select,textarea{width:100%;padding:10px 13px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:'Noto Sans TC',sans-serif;color:var(--text);outline:none;transition:border-color 0.2s;resize:vertical;background:white}
+.form-group label{display:block;font-size:13px;font-weight:500;color:var(--text-light);margin-bottom:5px}
+input[type="text"],input[type="number"],input[type="email"],input[type="password"],input[type="datetime-local"],input[type="color"],select,textarea{width:100%;padding:10px 13px;border:2px solid var(--border);border-radius:10px;font-size:15px;font-family:'Noto Sans TC',sans-serif;color:var(--text);outline:none;transition:border-color 0.2s;resize:vertical;background:white}
 input:focus,select:focus,textarea:focus{border-color:var(--primary-light)}
 input[type="color"]{padding:4px;height:36px;cursor:pointer}
-.btn{padding:9px 16px;border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:5px}
+.btn{padding:10px 18px;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:5px}
 .btn:active{transform:scale(0.97)}
 .btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
 .btn-primary{background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;box-shadow:0 3px 10px rgba(26,111,163,0.25)}
@@ -69,7 +69,7 @@ input[type="color"]{padding:4px;height:36px;cursor:pointer}
 .btn-block{width:100%;justify-content:center}
 .card{background:white;border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);margin-bottom:13px}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap}
-.card-title{font-size:15px;font-weight:700}
+.card-title{font-size:16px;font-weight:700}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .form-row-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
@@ -119,9 +119,9 @@ input[type="color"]{padding:4px;height:36px;cursor:pointer}
 .stat-val{font-size:24px;font-weight:700;color:var(--primary)}
 .stat-lbl{font-size:11px;color:var(--text-light);margin-top:2px}
 /* TABLE */
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:var(--primary-pale);color:var(--primary);font-weight:600;padding:9px 12px;text-align:left}
-td{padding:9px 12px;border-bottom:1px solid #f0f5f9;color:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:var(--primary-pale);color:var(--primary);font-weight:600;padding:10px 13px;text-align:left}
+td{padding:10px 13px;border-bottom:1px solid #f0f5f9;color:var(--text)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#f8fcff}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
@@ -133,7 +133,7 @@ tr:hover td{background:#f8fcff}
 .stage-item{background:white;border-radius:12px;padding:13px 16px;box-shadow:var(--shadow);border-left:4px solid var(--primary-light)}
 .stage-item-header{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .stage-num{width:26px;height:26px;border-radius:50%;background:var(--primary-pale);color:var(--primary);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.stage-name{font-size:13px;font-weight:700;flex:1}
+.stage-name{font-size:14px;font-weight:700;flex:1}
 .stage-meta{display:flex;gap:10px;font-size:11px;color:var(--text-light);flex-wrap:wrap}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
@@ -156,7 +156,7 @@ tr:hover td{background:#f8fcff}
 .photo-info-bar{background:rgba(0,0,0,0.6);color:white;font-size:9px;padding:3px 5px}
 .photo-delete-btn{width:100%;padding:4px;background:var(--coral);color:white;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif}
 /* SETTINGS */
-.settings-section-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid var(--primary-pale);display:flex;align-items:center;justify-content:space-between}
+.settings-section-title{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid var(--primary-pale);display:flex;align-items:center;justify-content:space-between}
 .team-settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
 .team-setting-card{background:white;border-radius:12px;padding:12px;box-shadow:var(--shadow);border-left:4px solid var(--primary-light)}
 /* MEDIA */
@@ -234,48 +234,150 @@ input:checked+.toggle-slider{background:var(--primary)}
 input:checked+.toggle-slider:before{transform:translateX(18px)}
 
 /* ── RWD 手機版 ── */
+/* 手機底部導覽列 */
+.mobile-bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--primary-dark);
+  border-top:1px solid rgba(255,255,255,0.1);
+  z-index:50;padding:0;
+  box-shadow:0 -4px 16px rgba(0,0,0,0.3);
+}
+.mobile-nav-scroll{
+  display:flex;overflow-x:auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.mobile-nav-scroll::-webkit-scrollbar{display:none}
+.mobile-nav-item{
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 14px 10px;cursor:pointer;
+  color:rgba(255,255,255,0.55);font-size:10px;
+  border-top:3px solid transparent;flex-shrink:0;
+  min-width:56px;gap:3px;transition:all 0.15s;
+  white-space:nowrap;position:relative;
+}
+.mobile-nav-item:hover{color:rgba(255,255,255,0.9)}
+.mobile-nav-item.active{color:var(--sand);border-top-color:var(--sand)}
+.mobile-nav-item .m-icon{font-size:20px;line-height:1}
+.mobile-nav-item .m-label{font-size:9px;font-weight:600;letter-spacing:0.3px}
+.mobile-nav-badge{
+  position:absolute;top:5px;right:8px;
+  background:var(--coral);color:white;
+  font-size:9px;font-weight:700;padding:1px 4px;
+  border-radius:10px;min-width:16px;text-align:center;
+}
+/* 手機頂部狀態列 */
+.mobile-top-bar{
+  display:none;
+  background:var(--primary-dark);
+  padding:8px 14px;
+  align-items:center;justify-content:space-between;
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  border-bottom:1px solid rgba(255,255,255,0.1);
+  box-shadow:0 2px 8px rgba(0,0,0,0.2);
+}
+.mobile-top-title{
+  color:white;font-size:15px;font-weight:700;
+  font-family:'Fredoka One',cursive;
+}
+.mobile-top-right{display:flex;align-items:center;gap:10px}
+.mobile-top-status{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+.mobile-top-status.open{background:rgba(61,184,122,0.3);color:#6ee89a}
+.mobile-top-status.closed{background:rgba(240,112,80,0.2);color:#f09070}
+.mobile-top-status.paused{background:rgba(245,200,66,0.2);color:#f5c842}
+.mobile-top-user{color:rgba(255,255,255,0.6);font-size:11px}
+
 @media (max-width: 768px){
-  .sidebar{
-    width:100%;height:auto;position:fixed;top:0;left:0;right:0;bottom:auto;
-    flex-direction:row;flex-wrap:nowrap;overflow-x:auto;z-index:20;
-    padding-bottom:0;
+  .sidebar{display:none}
+  .mobile-bottom-nav{display:block}
+  .mobile-top-bar{display:flex}
+  .main{
+    margin-left:0;
+    margin-top:52px;
+    padding:14px 14px 90px;
   }
-  .sidebar-logo{display:none}
-  .user-info{min-width:120px;padding:6px 8px}
-  .user-name{font-size:10px}
-  .activity-status{display:none}
-  .nav-group-label{display:none}
-  .nav-item{
-    flex-direction:column;gap:2px;padding:7px 10px;
-    font-size:9px;border-left:none;border-bottom:3px solid transparent;
-    flex-shrink:0;min-width:54px;text-align:center;
-  }
-  .nav-item.active{border-bottom-color:var(--sand);border-left:none;background:rgba(255,255,255,0.12)}
-  .nav-icon{font-size:18px}
-  .nav-badge{margin-left:0;margin-top:2px}
-  .sidebar-bottom{display:none}
-  .main{margin-left:0;margin-top:92px;padding:14px 12px}
   .form-row,.form-row-3,.form-row-4{grid-template-columns:1fr}
   .team-settings-grid{grid-template-columns:1fr}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
   .team-grid{grid-template-columns:1fr 1fr}
   .page-header{flex-direction:column;align-items:flex-start}
-  .card{padding:14px 14px}
-  table{font-size:11px}
-  th,td{padding:6px 7px}
+  .card{padding:14px}
+  table{font-size:13px}
+  th,td{padding:8px 9px}
   .modal-box{padding:16px;margin:0}
-  .modal-overlay{padding:8px}
-  .help-req-header{flex-wrap:wrap}
-  .timeout-bar{margin-top:0}
+  .modal-overlay{padding:8px;align-items:flex-end}
+  .modal-box{border-radius:18px 18px 0 0;max-height:92vh;overflow-y:auto}
+  .timeout-bar{top:52px;position:fixed;left:0;right:0;z-index:40}
+  .page-header-left h1{font-size:18px}
+  .card-title{font-size:15px}
 }
 @media (max-width: 480px){
   .team-grid{grid-template-columns:1fr}
-  .nav-item{padding:6px 7px;min-width:46px}
-  .nav-icon{font-size:16px}
+  .mobile-nav-item{min-width:50px;padding:8px 10px 10px}
+  .mobile-nav-item .m-icon{font-size:18px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
+
+<!-- 手機頂部狀態列 -->
+<div class="mobile-top-bar" id="mobileTopBar">
+  <div class="mobile-top-title" id="mobileSidebarTitle">🐚 解謎後台</div>
+  <div class="mobile-top-right">
+    <div class="mobile-top-status closed" id="mobileStatusBadge">未開始</div>
+    <div class="mobile-top-user" id="mobileUserName"></div>
+  </div>
+</div>
+
+<!-- 手機底部導覽列 -->
+<div class="mobile-bottom-nav" id="mobileBottomNav">
+  <div class="mobile-nav-scroll">
+    <div class="mobile-nav-item active" onclick="showTab('monitor')" id="mnav-monitor">
+      <span class="m-icon">📊</span><span class="m-label">監控</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('help')" id="mnav-help">
+      <span class="m-icon">🆘</span><span class="m-label">求救</span>
+      <span class="mobile-nav-badge hidden" id="mobileHelpBadge">0</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('broadcast')" id="mnav-broadcast">
+      <span class="m-icon">📢</span><span class="m-label">廣播</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('photos')" id="mnav-photos">
+      <span class="m-icon">📷</span><span class="m-label">照片</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('stages')" id="mnav-stages">
+      <span class="m-icon">📋</span><span class="m-label">關卡</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('settings')" id="mnav-settings">
+      <span class="m-icon">⚙️</span><span class="m-label">設定</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('scoring')" id="mnav-scoring">
+      <span class="m-icon">🏆</span><span class="m-label">分數</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('ranking')" id="mnav-ranking">
+      <span class="m-icon">👁️</span><span class="m-label">排行</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('story')" id="mnav-story">
+      <span class="m-icon">📖</span><span class="m-label">故事</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('export')" id="mnav-export">
+      <span class="m-icon">📤</span><span class="m-label">匯出</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('map')" id="mnav-map">
+      <span class="m-icon">🗺️</span><span class="m-label">GPS</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('stats')" id="mnav-stats">
+      <span class="m-icon">📈</span><span class="m-label">統計</span>
+    </div>
+    <div class="mobile-nav-item" onclick="showTab('users')" id="mnav-users">
+      <span class="m-icon">👥</span><span class="m-label">帳號</span>
+    </div>
+    <div class="mobile-nav-item" onclick="doLogout()" style="color:rgba(255,255,255,0.4)">
+      <span class="m-icon">🚪</span><span class="m-label">登出</span>
+    </div>
+  </div>
+</div>
 
 <!-- LOGIN -->
 <div id="loginPage">
@@ -288,6 +390,9 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       使用 Google 帳號登入
     </button>
     <div class="login-err" id="loginErr"></div>
+    <div style="margin-top:14px;font-size:11px;color:var(--text-light);text-align:center;line-height:1.6">
+      ⚠️ 請勿使用無痕視窗登入<br>Google 帳號需在一般視窗中登入
+    </div>
   </div>
 </div>
 
@@ -635,6 +740,13 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <div class="toggle-desc">完成闖關後是否顯示最終排行榜</div>
           </div>
           <label class="toggle-switch"><input type="checkbox" id="rk_showFinishRank" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">顯示關卡進度條</div>
+            <div class="toggle-desc">玩家遊戲畫面頂部的關卡進度點和進度數字</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="rk_showProgress" checked><span class="toggle-slider"></span></label>
         </div>
       </div>
     </div>
@@ -1082,9 +1194,16 @@ async function proceedToAdmin(){
   loginTime=Date.now();
   document.getElementById('loginPage').style.display='none';
   document.getElementById('adminPage').style.display='block';
-  document.getElementById('userName').textContent=currentUser.displayName||currentUser.email;
+  const displayName=currentUser.displayName||currentUser.email;
+  document.getElementById('userName').textContent=displayName;
   const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 關主',staff:'👷 工作人員'};
   document.getElementById('userRoleLabel').textContent=roleLabels[currentRole]||currentRole;
+  // 手機頂部bar
+  const mobileUserEl=document.getElementById('mobileUserName');
+  if(mobileUserEl)mobileUserEl.textContent=(currentUser.displayName||'').split(' ')[0]||'';
+  // 顯示admin頁、隱藏手機導覽依角色控制
+  document.getElementById('mobileBottomNav').style.display='';
+  document.getElementById('mobileTopBar').style.display='';
   if(currentUser.photoURL)document.getElementById('userAvatar').innerHTML=`<img src="${currentUser.photoURL}" alt=""/>`;
   if(currentRole==='super')set(ref(db,`config/users/${currentUser.uid}`),{email:currentUser.email,name:currentUser.displayName||currentUser.email,role:'super',photoURL:currentUser.photoURL||'',lastLogin:serverTimestamp()});
   applyRolePermissions(currentRole);
@@ -1127,13 +1246,14 @@ async function doLogout(){clearInterval(timeoutTimer);await signOut(auth);curren
 function showTab(name){
   const hostOnly=['stages','settings','story','scoring','ranking','theme','export','stats'];
   const superOnly=['users'];
-  // staff 和 stagemaster 都不能用管理功能
   if(hostOnly.includes(name)&&(currentRole==='staff'||currentRole==='stagemaster')){toast('⛔ 您沒有此功能的權限');return;}
   if(superOnly.includes(name)&&currentRole!=='super'){toast('⛔ 此功能僅限超級管理者');return;}
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
-  document.getElementById('nav-'+name).classList.add('active');
+  document.getElementById('nav-'+name)?.classList.add('active');
+  document.getElementById('mnav-'+name)?.classList.add('active');
   if(name==='stages')loadStages();
   if(name==='photos')loadPhotos();
   if(name==='export')loadExport();
@@ -1161,6 +1281,9 @@ async function initAdmin(){
     Object.values(snap.val()).forEach(s=>{Object.values(s.helpLogs||{}).forEach(h=>{if(!h.answered)count++;});});
     const badge=document.getElementById('helpBadge');
     if(count>0){badge.textContent=count;badge.classList.remove('hidden');}else badge.classList.add('hidden');
+    // 同步手機底部求救badge
+    const mBadge=document.getElementById('mobileHelpBadge');
+    if(mBadge){if(count>0){mBadge.textContent=count;mBadge.classList.remove('hidden');}else mBadge.classList.add('hidden');}
   });
 }
 
@@ -1176,6 +1299,12 @@ function updateActivityStatusUI(status){
   badge.textContent=status==='open'?'🟢 進行中':status==='paused'?'🟡 暫停中':'⭕ 未開始';
   dot.className='status-dot '+status;
   txt.textContent=status==='open'?'活動進行中':status==='paused'?'活動已暫停':'活動未開始';
+  // 同步手機頂部狀態
+  const mBadge=document.getElementById('mobileStatusBadge');
+  if(mBadge){
+    mBadge.className='mobile-top-status '+status;
+    mBadge.textContent=status==='open'?'進行中':status==='paused'?'暫停中':'未開始';
+  }
 }
 
 function checkStuckTeams(){
@@ -1649,6 +1778,8 @@ async function saveSettings(){
   };
   await set(ref(db,'config/settings'),settings);settingsData=settings;
   document.getElementById('sidebarTitle').textContent='🐚 '+settings.activityName;
+  const mTitle=document.getElementById('mobileSidebarTitle');
+  if(mTitle)mTitle.textContent='🐚 '+settings.activityName;
   toast('✅ 設定已儲存！');
 }
 
@@ -1719,14 +1850,22 @@ async function loadRankingSettings(){
   document.getElementById('rk_showTeamName').checked=s.showRankingTeamName!==false;
   document.getElementById('rk_showScore').checked=s.showRankingScore!==false;
   document.getElementById('rk_showFinishRank').checked=s.showFinishRank!==false;
+  document.getElementById('rk_showProgress').checked=s.showProgress!==false;
 }
 
 async function saveRankingSettings(){
-  const rk={showRanking:document.getElementById('rk_showRanking').checked,showRankingTeamName:document.getElementById('rk_showTeamName').checked,showRankingScore:document.getElementById('rk_showScore').checked,showFinishRank:document.getElementById('rk_showFinishRank').checked};
+  const rk={
+    showRanking:document.getElementById('rk_showRanking').checked,
+    showRankingTeamName:document.getElementById('rk_showTeamName').checked,
+    showRankingScore:document.getElementById('rk_showScore').checked,
+    showFinishRank:document.getElementById('rk_showFinishRank').checked,
+    showProgress:document.getElementById('rk_showProgress').checked,
+  };
   await set(ref(db,'config/settings/showRanking'),rk.showRanking);
   await set(ref(db,'config/settings/showRankingTeamName'),rk.showRankingTeamName);
   await set(ref(db,'config/settings/showRankingScore'),rk.showRankingScore);
   await set(ref(db,'config/settings/showFinishRank'),rk.showFinishRank);
+  await set(ref(db,'config/settings/showProgress'),rk.showProgress);
   Object.assign(settingsData,rk);toast('✅ 排行榜設定已儲存！');
 }
 

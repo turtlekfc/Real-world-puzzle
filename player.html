@@ -283,14 +283,11 @@ select:focus,input:focus{border-color:var(--primary-light)}
       <div class="rules-title">📋 活動規則</div>
       <div id="rulesList"></div>
     </div>
-    <!-- 隊伍資訊 -->
-    <div class="team-info-card">
-      <div class="team-info-title">👥 隊伍資訊</div>
-      <div class="team-info-row"><span class="team-info-label">隊伍名稱</span><span class="team-info-value" id="infoTeamName">--</span></div>
-      <div class="team-info-row"><span class="team-info-label">關卡數量</span><span class="team-info-value" id="infoStageCount">--</span></div>
-      <div class="team-info-row"><span class="team-info-label">求救次數</span><span class="team-info-value" id="infoHelpTimes">--</span></div>
-      <div class="team-info-row"><span class="team-info-label">活動狀態</span><span class="team-info-value" id="infoStatus">等待開始</span></div>
-    </div>
+    <!-- 隊伍資訊卡片已移除，狀態直接顯示在等待底部 -->
+    <div id="infoTeamName" style="display:none"></div>
+    <div id="infoStageCount" style="display:none"></div>
+    <div id="infoHelpTimes" style="display:none"></div>
+    <div id="infoStatus" style="display:none"></div>
   </div>
   <div class="wait-footer">
     <div class="wait-status-bar" id="waitStatusBar">
@@ -435,7 +432,20 @@ const auth = getAuth(fbApp);
 
 // ── 匿名登入（讓 Firebase Rules 允許讀取）──
 // 玩家不需要 Google 帳號，用匿名 auth 即可通過 Rules
-signInAnonymously(auth).catch(e=>console.warn('匿名登入失敗:',e));
+// 注意：無痕模式可能導致第三方 Cookie 被擋，建議使用一般視窗
+signInAnonymously(auth).then(()=>{
+  // 匿名登入成功，可以讀取 Firebase
+}).catch(e=>{
+  console.warn('匿名登入失敗:',e);
+  // 如果匿名登入失敗（無痕模式等情況），在頁面顯示提示
+  const hintEl=document.getElementById('loadingHint');
+  if(hintEl){
+    hintEl.textContent='⚠️ 請使用一般視窗（非無痕）開啟，才能正常使用';
+    hintEl.style.color='var(--coral)';
+  }
+  const loginBtn=document.getElementById('loginBtn');
+  if(loginBtn)loginBtn.disabled=true;
+});
 
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -654,12 +664,27 @@ function startCountdown(endTimeMs){
 
 function updateProgress(){
   const total=state.stages.length,cur=state.currentIdx;
-  let html='';
-  for(let i=0;i<total;i++){let cls='prog-dot';if(i<cur)cls+=' done';else if(i===cur)cls+=' active';html+=`<div class="${cls}"></div>`;}
-  html+=`<span class="prog-label">第${cur+1}/${total}關</span>`;
-  document.getElementById('progressBar').innerHTML=html;
+  const showProgress=state.settings.showProgress!==false;
+  // 進度條顯示控制
+  const progressBarEl=document.getElementById('progressBar');
+  if(progressBarEl){
+    if(showProgress){
+      let html='';
+      for(let i=0;i<total;i++){let cls='prog-dot';if(i<cur)cls+=' done';else if(i===cur)cls+=' active';html+=`<div class="${cls}"></div>`;}
+      html+=`<span class="prog-label">第${cur+1}/${total}關</span>`;
+      progressBarEl.innerHTML=html;
+      progressBarEl.style.display='';
+    } else {
+      progressBarEl.style.display='none';
+    }
+  }
+  // header右上角進度數字也依開關顯示
+  const progEl=document.getElementById('displayProgress');
+  if(progEl){
+    progEl.textContent=showProgress?`${cur+1}/${total}`:'--';
+    progEl.closest('div')?.style?.setProperty('display', showProgress?'':'none');
+  }
   document.getElementById('displayStageLabel').textContent=`第 ${cur+1} 關`;
-  document.getElementById('displayProgress').textContent=`${cur+1}/${total}`;
   document.getElementById('currentScore').textContent=`${state.score} 分`;
 }
 
@@ -781,6 +806,10 @@ function renderStage(){
       <div class="gps-desc" id="gpsHint"></div>
       <button class="btn-gps" id="gpsBtn" onclick="checkGPS()">📡 驗證我的位置</button>
       <div class="gps-status" id="gpsStatus"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+        <button class="action-btn btn-help" id="gpsHelpBtn" onclick="showHelp()" style="max-width:180px" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
+        <button class="action-btn btn-hint" id="gpsHintBtn" onclick="useHint()" style="max-width:180px" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
+      </div>
     </div>`:''}
     <div class="state-card" id="questionCard" ${hasGPS?'style="display:none"':''}>
       ${questionCardInner}
