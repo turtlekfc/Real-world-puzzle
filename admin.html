@@ -449,6 +449,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           <button class="btn btn-warn btn-sm" onclick="setActivityStatus('paused')">⏸ 暫停</button>
           <button class="btn btn-danger btn-sm" onclick="setActivityStatus('closed')">⏹ 結束</button>
           <button class="btn btn-ghost btn-sm" onclick="loadSessions()">🔄</button>
+          <button class="btn btn-purple btn-sm" onclick="forceLogoutAll()" title="強制登出所有隊伍，清除闖關紀錄">⏏️ 強制重置</button>
         </div>
       </div>
       <div class="activity-control">
@@ -1112,7 +1113,8 @@ window.loadUsers=loadUsers;window.addUser=addUser;window.removeUser=removeUser;w
 window.exportCSV=exportCSV;window.exportJSON=exportJSON;window.exportGPSLog=exportGPSLog;
 window.saveSettings=saveSettings;window.saveScoring=saveScoring;window.updateScorePreview=updateScorePreview;
 window.saveTheme=saveTheme;window.applyCustomTheme=applyCustomTheme;window.previewCustomTheme=previewCustomTheme;window.selectTheme=selectTheme;
-window.setActivityStatus=setActivityStatus;window.loadGPSLog=loadGPSLog;window.renderTeamSettings=renderTeamSettings;
+window.setActivityStatus=setActivityStatus;
+window.forceLogoutAll=forceLogoutAll;window.loadGPSLog=loadGPSLog;window.renderTeamSettings=renderTeamSettings;
 window.handleMediaUpload=handleMediaUpload;window.removeMedia=removeMedia;
 window.sendBroadcast=sendBroadcast;window.loadHelpRequests=loadHelpRequests;window.replyHelp=replyHelp;
 window.loadStats=loadStats;window.saveStory=saveStory;window.handleStoryImg=handleStoryImg;window.removeStoryImg=removeStoryImg;
@@ -1398,6 +1400,41 @@ async function setActivityStatus(status){
   await set(ref(db,'config/activityStatus'),status);
   toast(status==='open'?'✅ 活動已開始！':status==='paused'?'⏸ 活動已暫停':'⏹ 活動已結束');
 }
+
+async function forceLogoutAll(){
+  showConfirm(
+    '⏏️ 強制重置所有隊伍',
+    '這會讓所有正在闖關的玩家立即返回登入頁面，並清除所有闖關紀錄。\n\n適用情況：\n• 某隊需要重新開始\n• 解除重複登入問題\n• 活動重置\n\n確定要繼續嗎？',
+    false, '',
+    async () => {
+      try{
+        // 寫入強制登出旗標，玩家端即時偵測到後自動登出
+        await set(ref(db,'config/forceLogout'),{ts:Date.now(),by:currentUser.email||'admin'});
+        // 清除所有 sessions，解除「隊伍已在闖關中」的封鎖
+        await set(ref(db,'sessions'),null);
+        toast('✅ 所有隊伍已被強制登出！可以重新登入了');
+        loadSessions();
+      }catch(e){toast('❌ 操作失敗：'+e.message);}
+    }
+  );
+}
+
+// 只重置特定隊伍（隊伍卡片用）
+window.forceLogoutTeam=forceLogoutTeam;
+async function forceLogoutTeam(teamKey,teamName){
+  if(!confirm(`確定要強制登出「${teamName}」嗎？`))return;
+  const snap=await get(ref(db,'sessions'));
+  if(!snap.exists()){toast('找不到該隊伍的紀錄');return;}
+  let found=false;
+  Object.entries(snap.val()).forEach(([k,s])=>{
+    if(s.teamKey===teamKey&&s.status==='playing'){
+      set(ref(db,`sessions/${k}/forceLogout`),true);
+      found=true;
+    }
+  });
+  if(found)toast(`✅「${teamName}」已被強制登出`);
+  else toast('此隊伍目前不在闖關中');
+}
 function updateActivityStatusUI(status){
   const badge=document.getElementById('activityStatusBadge');
   const dot=document.getElementById('monitorStatusDot');
@@ -1622,6 +1659,16 @@ function renderMonitor(){
     card.querySelector('.t-status').textContent=statusTxt;
     const spans=card.querySelectorAll('.t-detail span');spans[0].textContent=progTxt;spans[1].textContent=timeTxt;
     card.querySelector('.t-score').textContent=scoreText;
+    // 重置按鈕（只在有session時顯示）
+    if(sess){
+      const resetBtn=document.createElement('button');
+      resetBtn.className='btn btn-danger btn-sm';
+      resetBtn.style.cssText='width:100%;margin-top:8px;font-size:11px;padding:4px 8px';
+      resetBtn.textContent='⏏️ 重置此隊';
+      const tName=cfg.name||`隊伍${i+1}`;
+      resetBtn.onclick=()=>forceLogoutTeam(key,tName);
+      card.appendChild(resetBtn);
+    }
     grid.appendChild(card);
   }
   const rows=Object.values(sessions).sort((a,b)=>(b.score||0)-(a.score||0));

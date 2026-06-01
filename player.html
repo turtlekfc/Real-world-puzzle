@@ -471,7 +471,7 @@ let state = {
   waitingToStart:false
 };
 
-window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm;
+window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm; window.listenSessionForceLogout=listenSessionForceLogout;
 window.checkGPS=checkGPS; window.selectOpt=selectOpt;
 window.submitAns=submitAns; window.closeFeedback=closeFeedback;
 window.triggerPhoto=triggerPhoto; window.handlePhoto=handlePhoto;
@@ -564,6 +564,53 @@ onValue(ref(db,'config/activityStatus'),snap=>{
     else if(status==='open'&&!document.getElementById('gameScreen').classList.contains('active')){showScreen('gameScreen');state.timerInterval=setInterval(tickTimer,1000);}
   }
 });
+
+// ── 監聽強制登出旗標 ──
+onValue(ref(db,'config/forceLogout'),snap=>{
+  if(!snap.exists()||!state.teamKey)return;// 尚未登入不處理
+  const fl=snap.val();
+  if(!fl||!fl.ts)return;
+  // 若旗標時間比登入時間新，代表是新的強制登出指令
+  const loginTime=state.gameStartTime||0;
+  if(fl.ts>loginTime){
+    // 清除狀態，跳回登入頁
+    clearInterval(state.timerInterval);
+    clearInterval(state.countdownInterval);
+    state.teamKey=null;state.sessionKey=null;state.waitingToStart=false;
+    // 顯示提示
+    const toast=document.createElement('div');
+    toast.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;color:white;font-family:inherit';
+    toast.innerHTML='<div style="font-size:48px">⏏️</div><div style="font-size:18px;font-weight:700">管理者已重置活動</div><div style="font-size:14px;opacity:0.7">即將返回登入頁面...</div>';
+    document.body.appendChild(toast);
+    setTimeout(()=>{
+      document.body.removeChild(toast);
+      showScreen('loginScreen');
+      // 重新載入隊伍選單
+      signInAnonymously(auth).then(()=>initLogin()).catch(()=>initLogin());
+    },2500);
+  }
+});
+
+// 監聽個別 session 的強制登出
+function listenSessionForceLogout(){
+  if(!state.sessionKey)return;
+  onValue(ref(db,`sessions/${state.sessionKey}/forceLogout`),snap=>{
+    if(snap.val()===true){
+      clearInterval(state.timerInterval);
+      clearInterval(state.countdownInterval);
+      state.teamKey=null;state.sessionKey=null;state.waitingToStart=false;
+      const toast=document.createElement('div');
+      toast.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;color:white;font-family:inherit';
+      toast.innerHTML='<div style="font-size:48px">⏏️</div><div style="font-size:18px;font-weight:700">管理者已重置此隊伍</div><div style="font-size:14px;opacity:0.7">即將返回登入頁面...</div>';
+      document.body.appendChild(toast);
+      setTimeout(()=>{
+        document.body.removeChild(toast);
+        showScreen('loginScreen');
+        signInAnonymously(auth).then(()=>initLogin()).catch(()=>initLogin());
+      },2500);
+    }
+  });
+}
 
 // 廣播
 onValue(ref(db,'config/broadcast'),snap=>{
@@ -671,6 +718,7 @@ async function startGame(){
     if(cfg.bannerUrl){const b=document.getElementById('gameBanner');b.src=cfg.bannerUrl;b.classList.remove('hidden');}
     startCountdown(cfg.activityEndTime);
     listenForHelpReplies();
+    listenSessionForceLogout();// 監聽此 session 的個別強制登出
     renderStage();
   }catch(e){
     hideLoading();
