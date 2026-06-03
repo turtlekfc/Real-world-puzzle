@@ -676,7 +676,10 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <div class="name">🗑️ 清除所有闖關資料</div>
             <div class="desc">刪除所有隊伍紀錄、GPS資料、玩家照片（Storage）。建議先匯出備份！</div>
           </div>
-          <button class="btn btn-danger-outline btn-sm" onclick="confirmClearAll()">清除資料</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-danger-outline btn-sm" onclick="confirmClearAll()">輸入確認</button>
+            <button class="btn btn-danger btn-sm" onclick="quickClearAll()">⚡ 直接清除</button>
+          </div>
         </div>
         <div class="danger-action">
           <div class="danger-action-info">
@@ -1368,13 +1371,51 @@ function closeConfirm(){document.getElementById('confirmOverlay').classList.add(
 function executeConfirm(){
   const inp=document.getElementById('confirmInput');
   if(!inp.classList.contains('hidden')){
-    if(inp.value!==inp.placeholder&&inp.value!=='確認刪除'){toast('輸入不正確，請重試');return;}
+    // 正確：只需比對輸入值是否等於 placeholder（即要求輸入的文字）
+    if(inp.value.trim()!==inp.placeholder.trim()){
+      toast('⚠️ 輸入不正確，請重試');
+      return;
+    }
   }
   closeConfirm();
   if(confirmAction)confirmAction();
 }
 
 // ── 危險操作 ──
+// 快速清除（不需要輸入文字）
+window.quickClearAll=quickClearAll;
+async function quickClearAll(){
+  if(!confirm('⚠️ 確定要清除所有闖關資料嗎？\n\n這會刪除：\n• 所有隊伍分數和進度\n• 所有玩家照片\n\n此操作無法還原！'))return;
+  try{
+    toast('🗑️ 清除中...');
+    await set(ref(db,'sessions'),null);
+    sessions={};
+    // 清除照片
+    let photoCount=0;
+    try{
+      const photoList=await listAll(sRef(storage,'photos'));
+      const jobs=[];
+      for(const folder of photoList.prefixes){
+        const files=await listAll(folder);
+        files.items.forEach(f=>jobs.push(deleteObject(f)));
+      }
+      photoList.items.forEach(f=>jobs.push(deleteObject(f)));
+      const results=await Promise.allSettled(jobs);
+      photoCount=results.filter(r=>r.status==='fulfilled').length;
+    }catch(e){console.warn('照片清除:',e);}
+    renderMonitor();
+    loadSessions();
+    if(document.getElementById('tab-photos')?.classList.contains('active'))loadPhotos();
+    if(document.getElementById('tab-stats')?.classList.contains('active'))loadStats();
+    if(document.getElementById('tab-export')?.classList.contains('active'))loadExport();
+    toast(`✅ 清除完成！（${photoCount} 張照片已刪除）`);
+  }catch(e){
+    toast('❌ 清除失敗：'+e.message);
+    console.error('清除失敗:',e);
+    alert('清除失敗：'+e.message+'\n\n請確認 Firebase Rules 是否允許刪除 sessions 根節點。');
+  }
+}
+
 function confirmClearAll(){
   showConfirm(
     '⚠️ 清除所有闖關資料',
