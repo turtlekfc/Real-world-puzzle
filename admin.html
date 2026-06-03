@@ -1382,27 +1382,33 @@ function confirmClearAll(){
     true,'確認刪除',
     async()=>{
       try{
-        // 清除 sessions
-        await set(ref(db,'sessions'),null);
-        // 同時清除 Storage 照片資料夾
         toast('🗑️ 清除中，請稍候...');
+        // 步驟1：清除 Firebase sessions（主要資料）
+        await set(ref(db,'sessions'),null);
+        sessions={};// 同步清除本地快取
+        // 步驟2：清除 Storage 照片
+        let photoCount=0;
         try{
           const photosRef=sRef(storage,'photos');
           const photoList=await listAll(photosRef);
           const deleteJobs=[];
-          // 逐一刪除子資料夾下的檔案
           for(const folderRef of photoList.prefixes){
             const files=await listAll(folderRef);
             files.items.forEach(item=>deleteJobs.push(deleteObject(item)));
           }
           photoList.items.forEach(item=>deleteJobs.push(deleteObject(item)));
-          await Promise.allSettled(deleteJobs);
-          toast(`✅ 所有闖關資料已清除（含 ${deleteJobs.length} 張照片）`);
-        }catch(e){
-          toast('✅ 闖關紀錄已清除（照片清除失敗，請手動到 Storage 刪除）');
-        }
+          const results=await Promise.allSettled(deleteJobs);
+          photoCount=results.filter(r=>r.status==='fulfilled').length;
+        }catch(e){console.warn('Storage清除失敗:',e);}
+        // 步驟3：強制刷新所有畫面
+        renderMonitor();
         loadSessions();
-      }catch(e){toast('❌ 清除失敗：'+e.message);}
+        // 若目前在照片頁，也刷新
+        if(document.getElementById('tab-photos')?.classList.contains('active'))loadPhotos();
+        if(document.getElementById('tab-stats')?.classList.contains('active'))loadStats();
+        if(document.getElementById('tab-export')?.classList.contains('active'))loadExport();
+        toast(`✅ 清除完成！（${photoCount} 張照片已刪除）`);
+      }catch(e){toast('❌ 清除失敗：'+e.message);console.error(e);}
     }
   );
 }
