@@ -966,10 +966,15 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           <div style="font-size:12px;font-weight:700">關主按確認</div>
           <div style="font-size:10px;color:#888;margin-top:2px">關主後台確認</div>
         </div>
-        <div class="stage-type-btn" onclick="selectStageType('qrcode')" id="typeBtn-qrcode" style="grid-column:1/-1">
+        <div class="stage-type-btn" onclick="selectStageType('qrcode')" id="typeBtn-qrcode">
           <div style="font-size:20px;margin-bottom:4px">📱</div>
           <div style="font-size:12px;font-weight:700">QR Code 掃描</div>
-          <div style="font-size:10px;color:#888;margin-top:2px">關主掃描玩家QR Code驗證</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">關主掃描QR Code驗證</div>
+        </div>
+        <div class="stage-type-btn" onclick="selectStageType('overlay')" id="typeBtn-overlay" style="grid-column:1/-1">
+          <div style="font-size:20px;margin-bottom:4px">🖼️</div>
+          <div style="font-size:12px;font-weight:700">套圖拍照</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">PNG疊加相機，對準後拍照</div>
         </div>
       </div>
     </div>
@@ -1092,6 +1097,56 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div class="form-group" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="fQRRequirePhoto" style="width:auto;padding:0"/>
         <label for="fQRRequirePhoto" style="margin:0;cursor:pointer">📌 需上傳現場照片</label>
+      </div>
+    </div>
+
+    <!-- 類型6：套圖拍照 -->
+    <div id="section-overlay" class="hidden">
+      <hr class="divider"/>
+      <div style="background:#fff3e0;border:1.5px solid #ff9800;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#e65100;line-height:1.6">
+        🖼️ <b>套圖拍照說明：</b>玩家開啟相機時，你上傳的透明 PNG 會疊加在畫面上，玩家對準後按拍照，拍出來的照片包含實景和框架。
+      </div>
+      <div class="form-group">
+        <label>📋 任務說明（玩家看到的指示）</label>
+        <textarea id="fOverlayTask" rows="3" placeholder="例：將相機對準大石頭，讓石頭完整出現在框框內後拍照。"></textarea>
+      </div>
+      <div class="form-group">
+        <label>🖼️ 套圖 PNG（透明背景，疊加在相機畫面上）</label>
+        <div class="img-upload-area" onclick="document.getElementById('fOverlayImgInput').click()" style="border-color:#ff9800;background:#fff8f0">
+          <div id="overlayImgPlaceholder" class="text-muted text-sm">📤 點擊上傳透明 PNG（建議 1080×1920 直式，9:16）</div>
+          <img id="overlayImgPreview" class="hidden" style="max-height:120px;border-radius:7px" alt="套圖預覽"/>
+          <input type="file" id="fOverlayImgInput" accept="image/png" onchange="handleOverlayImg()" style="display:none"/>
+        </div>
+        <div style="font-size:11px;color:var(--text-light);margin-top:5px">
+          建議設計：四周透明，中間放輪廓線或對位框。玩家拍照時實景會透過透明區域顯示。
+        </div>
+      </div>
+      <div class="form-group">
+        <label>✅ 驗證方式</label>
+        <select id="fOverlayVerify" onchange="toggleOverlayVerify(this.value)">
+          <option value="ai">🤖 AI 辨識（填入描述後自動判斷）</option>
+          <option value="confirm">👆 關主確認（關主看照片後手動確認）</option>
+        </select>
+      </div>
+      <div id="overlayAISection">
+        <div class="form-group">
+          <label>🤖 AI 辨識描述</label>
+          <input type="text" id="fOverlayAIDesc" placeholder="例：照片中大石頭完整出現在框架內，且背景清晰可辨"/>
+        </div>
+        <div class="form-group">
+          <label>嚴謹度</label>
+          <select id="fOverlayStrictness">
+            <option value="loose">🟢 寬鬆</option>
+            <option value="standard" selected>🟡 標準</option>
+            <option value="strict">🔴 嚴格</option>
+          </select>
+        </div>
+      </div>
+      <div id="overlayConfirmSection" class="hidden">
+        <div class="form-group">
+          <label>🔑 關主密碼（可選）</label>
+          <input type="text" id="fOverlayMasterPass" placeholder="留空則不需要密碼"/>
+        </div>
       </div>
     </div>
 
@@ -2036,6 +2091,7 @@ function renderStageList(){
     password:{icon:'🔑',label:'密碼過關',color:'#b08000'},
     confirm:{icon:'👆',label:'關主按確認',color:'#1a7a40'},
     qrcode:{icon:'📱',label:'QR Code',color:'#c04030'},
+    overlay:{icon:'🖼️',label:'套圖拍照',color:'#e65100'},
   };
   entries.forEach(([key,s],i)=>{
     const type=s.stageType||'quiz';
@@ -2063,7 +2119,7 @@ function renderStageList(){
 
 function selectStageType(type){
   document.getElementById('fStageType').value=type;
-  ['quiz','photo','password','confirm','qrcode'].forEach(t=>{
+  ['quiz','photo','password','confirm','qrcode','overlay'].forEach(t=>{
     document.getElementById(`typeBtn-${t}`)?.classList.toggle('active',t===type);
     document.getElementById(`section-${t}`)?.classList.toggle('hidden',t!==type);
   });
@@ -2073,7 +2129,10 @@ function openStageModal(){
   editingStageKey=null;modalImgFile=null;modalImgUrl=null;
   document.getElementById('modalTitle').textContent='新增關卡';
   document.getElementById('fOrder').value=Object.keys(stagesData).length+1;
-  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass','fOverlayTask','fOverlayAIDesc','fOverlayMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const oImgPrev=document.getElementById('overlayImgPreview');if(oImgPrev)oImgPrev.classList.add('hidden');
+  const oImgPh=document.getElementById('overlayImgPlaceholder');if(oImgPh)oImgPh.classList.remove('hidden');
+  if(document.getElementById('fOverlayImgInput'))document.getElementById('fOverlayImgInput').value='';
   const cReq=document.getElementById('fConfirmRequirePhoto');if(cReq)cReq.checked=false;
   const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=false;
   ['fLat','fLng'].forEach(id=>document.getElementById(id).value='');
@@ -2115,12 +2174,46 @@ function editStage(key){
     const qTask=document.getElementById('fQRTask');if(qTask)qTask.value=s.qrTask||'';
     const qReq=document.getElementById('fQRRequirePhoto');if(qReq)qReq.checked=s.requirePhoto||false;
     const qPass=document.getElementById('fQRMasterPass');if(qPass)qPass.value=s.qrMasterPass||'';
+  } else if(type==='overlay'){
+    const oTask=document.getElementById('fOverlayTask');if(oTask)oTask.value=s.overlayTask||'';
+    const oVerify=document.getElementById('fOverlayVerify');if(oVerify)oVerify.value=s.overlayVerify||'ai';
+    const oDesc=document.getElementById('fOverlayAIDesc');if(oDesc)oDesc.value=s.overlayAIDesc||'';
+    const oStr=document.getElementById('fOverlayStrictness');if(oStr)oStr.value=s.overlayStrictness||'standard';
+    const oPass=document.getElementById('fOverlayMasterPass');if(oPass)oPass.value=s.overlayMasterPass||'';
+    if(s.overlayImageUrl){const img=document.getElementById('overlayImgPreview');img.src=s.overlayImageUrl;img.classList.remove('hidden');document.getElementById('overlayImgPlaceholder').classList.add('hidden');}
+    toggleOverlayVerify(s.overlayVerify||'ai');
   }
   if(s.imageUrl){const img=document.getElementById('imgPreviewModal');img.src=s.imageUrl;img.classList.remove('hidden');document.getElementById('imgPlaceholder').classList.add('hidden');}
   else{document.getElementById('imgPreviewModal').classList.add('hidden');document.getElementById('imgPlaceholder').classList.remove('hidden');}
   document.getElementById('stageModal').classList.remove('hidden');
 }
 function closeStageModal(){document.getElementById('stageModal').classList.add('hidden');editingStageKey=null;}
+
+function handleOverlayImg(){
+  const file=document.getElementById('fOverlayImgInput').files[0];
+  if(!file)return;
+  if(!file.type.includes('png')){alert('套圖請上傳 PNG 格式（需要透明背景）');return;}
+  if(file.size>3*1024*1024){alert('圖片請在 3MB 以內');return;}
+  // 套圖單獨儲存，不走 modalImgFile
+  window._overlayImgFile=file;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=document.getElementById('overlayImgPreview');
+    img.src=e.target.result;img.classList.remove('hidden');
+    document.getElementById('overlayImgPlaceholder').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+window.handleOverlayImg=handleOverlayImg;
+
+function toggleOverlayVerify(val){
+  const v=val||document.getElementById('fOverlayVerify')?.value||'ai';
+  const aiSec=document.getElementById('overlayAISection');
+  const cfSec=document.getElementById('overlayConfirmSection');
+  if(aiSec)aiSec.classList.toggle('hidden',v!=='ai');
+  if(cfSec)cfSec.classList.toggle('hidden',v!=='confirm');
+}
+window.toggleOverlayVerify=toggleOverlayVerify;
 // ── Canvas 浮水印處理 ──
 function addWatermarkToImage(base64Data, watermarkText){
   return new Promise((resolve)=>{
@@ -2221,6 +2314,8 @@ async function saveStage(){
     if(!document.getElementById('fConfirmTask').value.trim()){toast('關主確認關卡請填入任務說明！');return;}
   } else if(stageType==='qrcode'){
     if(!document.getElementById('fQRTask').value.trim()){toast('QR Code關卡請填入任務說明！');return;}
+  } else if(stageType==='overlay'){
+    if(!document.getElementById('fOverlayTask').value.trim()){toast('套圖拍照請填入任務說明！');return;}
   }
   const btn=document.getElementById('saveStageBtn');btn.disabled=true;btn.textContent='儲存中...';
   try{
@@ -2264,6 +2359,25 @@ async function saveStage(){
       data.qrMasterPass=(document.getElementById('fQRMasterPass')?.value||'').trim();
       data.requirePhoto=document.getElementById('fQRRequirePhoto')?.checked||false;
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
+    } else if(stageType==='overlay'){
+      data.overlayTask=document.getElementById('fOverlayTask').value.trim();
+      data.overlayVerify=document.getElementById('fOverlayVerify').value||'ai';
+      data.overlayAIDesc=document.getElementById('fOverlayAIDesc').value.trim();
+      data.overlayStrictness=document.getElementById('fOverlayStrictness').value||'standard';
+      data.overlayMasterPass=(document.getElementById('fOverlayMasterPass')?.value||'').trim();
+      data.requirePhoto=true;
+      data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
+      // 上傳套圖 PNG
+      let overlayImageUrl=editingStageKey&&stagesData[editingStageKey]?.overlayImageUrl||'';
+      if(window._overlayImgFile){
+        try{
+          const oPath=`overlay-images/${Date.now()}_overlay.png`;
+          const oSnap=await uploadBytes(sRef(storage,oPath),window._overlayImgFile);
+          overlayImageUrl=await getDownloadURL(oSnap.ref);
+          window._overlayImgFile=null;
+        }catch(e){toast('⚠️ 套圖上傳失敗');}
+      }
+      data.overlayImageUrl=overlayImageUrl;
     }
     if(stageType==='quiz'||editingStageKey){
       // answerHash 只有選擇題需要

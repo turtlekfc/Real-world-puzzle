@@ -219,6 +219,15 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .finish-rank-section{background:#f8f4ff;border-radius:12px;padding:12px;margin-bottom:12px}
 .finish-rank-title{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .finish-msg{font-size:13px;color:var(--text-light);line-height:1.7}
+/* 套圖相機 */
+.overlay-camera-wrap{position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;margin-bottom:10px}
+.overlay-video{width:100%;display:block;max-height:60vh;object-fit:cover}
+.overlay-png{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.overlay-shutter{width:64px;height:64px;border-radius:50%;background:white;border:4px solid #ddd;cursor:pointer;margin:0 auto;display:block;box-shadow:0 2px 12px rgba(0,0,0,0.3);transition:transform 0.1s}
+.overlay-shutter:active{transform:scale(0.92)}
+.overlay-hint{font-size:12px;color:var(--text-light);text-align:center;margin:6px 0 10px}
+.overlay-result{width:100%;border-radius:10px;display:none;margin-bottom:10px}
+.overlay-retry{width:100%;padding:9px;background:var(--primary-pale);color:var(--primary);border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-bottom:8px}
 /* UTILS */
 .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.88);display:flex;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:10px;font-size:13px;color:var(--primary)}
 .spinner{width:36px;height:36px;border:4px solid var(--primary-pale);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite}
@@ -448,19 +457,29 @@ signInAnonymously(auth).then(async ()=>{
   const saved=sessionStorage.getItem('playerLogin');
   if(saved){
     try{
-      const {teamKey,pass}=JSON.parse(saved);
-      if(teamKey&&pass){
+      const {teamKey}=JSON.parse(saved);
+      if(teamKey){
         // 先載入設定
         await initLogin();
-        // 自動填入並登入
-        const sel=document.getElementById('teamSelect');
-        const pwd=document.getElementById('teamPassword');
-        if(sel&&pwd){
-          sel.value=teamKey;
-          pwd.value=pass;
-          await doLogin();
-          return;// 自動登入成功，不需要繼續
+        // 只自動選好隊伍，密碼讓玩家自己輸入（安全性較高）
+        // 但若有進行中 session，直接嘗試恢復（不需要密碼）
+        const sessSnap=await get(ref(db,'sessions'));
+        if(sessSnap.exists()){
+          const allSess=Object.entries(sessSnap.val());
+          const activeSession=allSess.find(([k,s])=>s.teamKey===teamKey&&s.status==='playing');
+          if(activeSession){
+            // 有進行中 session → 直接恢復，不需要密碼
+            const sel=document.getElementById('teamSelect');
+            if(sel){
+              sel.value=teamKey;
+              await doLoginResume(teamKey,activeSession[0],activeSession[1]);
+              return;
+            }
+          }
         }
+        // 沒有進行中 session → 只預填隊伍，讓玩家輸入密碼
+        const sel=document.getElementById('teamSelect');
+        if(sel)sel.value=teamKey;
       }
     }catch(e){
       sessionStorage.removeItem('playerLogin');
@@ -499,7 +518,7 @@ let state = {
   waitingToStart:false
 };
 
-window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm; window.listenSessionForceLogout=listenSessionForceLogout; window.playerLogout=playerLogout;
+window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm; window.listenSessionForceLogout=listenSessionForceLogout; window.playerLogout=playerLogout; window.overlayShoot=overlayShoot; window.overlayRetake=overlayRetake; window.doLoginResume=doLoginResume;
 window.checkGPS=checkGPS; window.selectOpt=selectOpt;
 window.submitAns=submitAns; window.closeFeedback=closeFeedback;
 window.triggerPhoto=triggerPhoto; window.handlePhoto=handlePhoto;
@@ -653,6 +672,55 @@ onValue(ref(db,'config/broadcast'),snap=>{
 });
 
 // ── 登入 ──
+// 直接用已有的 session 恢復進度（不需要密碼驗證）
+async function doLoginResume(teamKey, sessKey, sessData){
+  showLoading('恢復進度中...');
+  try{
+    const cfg=state.settings;
+    const teamCfg=(cfg.teams||{})[teamKey]||{};
+    const snap=await get(ref(db,'stages'));
+    if(!snap.exists()){hideLoading();return;}
+    const stagesMap=Object.fromEntries(
+      Object.entries(snap.val()).map(([k,v])=>{const{answerIndex,...safe}=v;return[k,{key:k,answerHash:v.answerHash||'',...safe}];})
+    );
+    state.teamKey=teamKey;
+    state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;
+    state.teamColor=teamCfg.color||'#6ee89a';
+    state.scoring=cfg.scoring||getDefaultScoring();
+    state.sessionKey=sessKey;
+    state.currentIdx=sessData.currentStage||0;
+    state.score=sessData.score||0;
+    state.gameStartTime=Date.now()-(sessData.totalSec||0)*1000;
+    state.totalSeconds=sessData.totalSec||0;
+    state.waitingToStart=false;
+    if(sessData.stageOrder&&sessData.stageOrder.length){
+      state.stages=sessData.stageOrder.map(k=>stagesMap[k]).filter(Boolean);
+    } else {
+      const arr=Object.values(snap.val()).map((v,i)=>({key:Object.keys(snap.val())[i],...v}));
+      arr.sort((a,b)=>(a.order||0)-(b.order||0));
+      state.stages=arr;
+    }
+    hideLoading();
+    showScreen('gameScreen');
+    document.getElementById('teamDot').style.background=state.teamColor;
+    document.getElementById('displayTeamName').textContent=state.teamName;
+    if(cfg.bannerUrl){const b=document.getElementById('gameBanner');b.src=cfg.bannerUrl;b.classList.remove('hidden');}
+    startCountdown(cfg.activityEndTime);
+    listenForHelpReplies();
+    listenSessionForceLogout();
+    const resumedStage=state.stages[state.currentIdx];
+    if(resumedStage&&(resumedStage.stageType==='confirm'||resumedStage.stageType==='qrcode')){
+      listenForStageConfirm(state.currentIdx);
+    }
+    renderStage();
+    const t=document.createElement('div');t.className='reply-toast';
+    t.textContent=`✅ 已自動恢復進度！目前第 ${state.currentIdx+1} 關`;
+    document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+    // 更新 sessionStorage（只存 teamKey）
+    try{sessionStorage.setItem('playerLogin',JSON.stringify({teamKey}));}catch(e){}
+  }catch(e){hideLoading();console.error(e);}
+}
+
 async function doLogin() {
   const teamKey=document.getElementById('teamSelect').value;
   const pass=document.getElementById('teamPassword').value.trim();
@@ -664,7 +732,9 @@ async function doLogin() {
   try {
     const cfg=state.settings;
     const teamCfg=(cfg.teams||{})[teamKey]||{};
-    if(pass!==(teamCfg.password||'1234')){hideLoading();errEl.textContent='密碼錯誤！';return;}
+    // 安全修復：若隊伍未設定密碼，禁止登入
+    if(!teamCfg.password){hideLoading();errEl.textContent='⚠️ 此隊伍尚未設定密碼，請聯絡工作人員';return;}
+    if(pass!==teamCfg.password){hideLoading();errEl.textContent='密碼錯誤！';return;}
 
     // ── 讀取關卡資料 ──
     const snap=await get(ref(db,'stages'));
@@ -676,8 +746,8 @@ async function doLogin() {
     state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;
     state.teamColor=teamCfg.color||'#6ee89a';
     state.scoring=cfg.scoring||getDefaultScoring();
-    // 記住登入資訊（重新整理時自動恢復）
-    try{sessionStorage.setItem('playerLogin',JSON.stringify({teamKey,pass}));}catch(e){}
+    // 記住登入資訊（只存 teamKey，不存密碼，安全性較高）
+    try{sessionStorage.setItem('playerLogin',JSON.stringify({teamKey}));}catch(e){}
 
     // ── 檢查是否有進行中的 session（重新整理/返回的情況）──
     const sessSnap=await get(ref(db,'sessions'));
@@ -994,6 +1064,43 @@ function renderStage(){
         ✋ 我已完成，通知關主確認
       </button>`;
 
+  } else if(stageType==='overlay'){
+    const verifyType=stage.overlayVerify||'ai';
+    questionCardInner=`
+      <div class="q-tag" style="background:#fff3e0;color:#e65100">🖼️ 套圖拍照</div>
+      <div id="stageImgWrap"></div>
+      <div class="q-title" id="stageTitle"></div>
+      <div class="q-desc" id="stageDesc"></div>
+      <div id="hintArea"></div>
+      <div class="overlay-hint" id="overlayTaskDesc"></div>
+      <!-- 相機區域 -->
+      <div class="overlay-camera-wrap" id="overlayCameraWrap">
+        <video class="overlay-video" id="overlayVideo" autoplay playsinline muted></video>
+        <img id="overlayPNG" class="overlay-png hidden" alt="套圖"/>
+      </div>
+      <!-- 拍照結果 -->
+      <canvas id="overlayCanvas" style="display:none"></canvas>
+      <img id="overlayResult" class="overlay-result" alt="拍照結果"/>
+      <div class="photo-verify-status" id="photoVerifyStatus"></div>
+      <div class="skip-photo-area hidden" id="skipPhotoArea">
+        <div class="skip-msg">已失敗 3 次，是否跳過？（扣 ${sc.skipPhotoPenalty||20} 分）</div>
+        <div class="skip-photo-btns">
+          <button class="btn-skip" onclick="skipPhotoVerify()">跳過（扣分）</button>
+          <button class="btn-retake" onclick="overlayRetake()">重新拍照</button>
+        </div>
+      </div>
+      <!-- 控制列 -->
+      <div id="overlayControls">
+        <button class="overlay-shutter" id="overlayShutterBtn" onclick="overlayShoot()" title="拍照">📷</button>
+        <div class="overlay-hint">對準後按下拍照鍵</div>
+      </div>
+      <button class="overlay-retry hidden" id="overlayRetryBtn" onclick="overlayRetake()">🔄 重新拍照</button>
+      <div class="action-bar">
+        <button class="action-btn btn-help" id="helpBtn" onclick="showHelp()" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
+        <button class="action-btn btn-rank ${showRankBtn?'':'hidden-rank'}" onclick="showRank()">🏆 排行</button>
+        <button class="action-btn btn-hint" id="hintBtn" onclick="useHint()" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
+      </div>`;
+
   } else if(stageType==='qrcode'){
     // 類型5：QR Code 掃描
     questionCardInner=`
@@ -1051,6 +1158,16 @@ function renderStage(){
   const titleEl=document.getElementById('stageTitle');if(titleEl)titleEl.textContent=stage.title||'';
   const descEl=document.getElementById('stageDesc');if(descEl)descEl.textContent=stage.description||'';
   if(stageType==='quiz')(stage.options||[]).forEach((opt,i)=>{const el=document.getElementById('optText'+i);if(el)el.textContent=opt;});
+  // 套圖拍照：填入任務說明 + 啟動相機 + 載入 PNG
+  if(stageType==='overlay'){
+    const oDesc=document.getElementById('overlayTaskDesc');
+    if(oDesc)oDesc.textContent=stage.overlayTask||'對準目標後按下拍照';
+    if(stage.overlayImageUrl){
+      const png=document.getElementById('overlayPNG');
+      if(png){png.src=stage.overlayImageUrl;png.classList.remove('hidden');}
+    }
+    startOverlayCamera();
+  }
   if(stage.imageUrl){const img=document.createElement('img');img.className='q-image';img.alt='關卡圖片';img.src=stage.imageUrl;const wrap=document.getElementById('stageImgWrap');if(wrap)wrap.appendChild(img);}
   // 填入新類型文字（XSS安全）
   const confirmTaskEl=document.getElementById('confirmTaskDesc');
@@ -1242,6 +1359,104 @@ function handleConfirmReject(stageIdx){
   // 重置Firebase狀態
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${stageIdx}/rejected`),false);
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
+}
+
+// ── 套圖相機系統 ──
+let _overlayStream = null;
+
+async function startOverlayCamera(){
+  const video = document.getElementById('overlayVideo');
+  if(!video)return;
+  try{
+    _overlayStream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment', width:{ideal:1920}, height:{ideal:1080}},
+      audio:false
+    });
+    video.srcObject = _overlayStream;
+  }catch(e){
+    console.warn('相機啟動失敗:',e);
+    const wrap=document.getElementById('overlayCameraWrap');
+    if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">⚠️ 無法啟動相機<br>請確認已允許相機權限</div>';
+  }
+}
+
+function stopOverlayCamera(){
+  if(_overlayStream){_overlayStream.getTracks().forEach(t=>t.stop());_overlayStream=null;}
+}
+
+function overlayShoot(){
+  const video=document.getElementById('overlayVideo');
+  const canvas=document.getElementById('overlayCanvas');
+  const png=document.getElementById('overlayPNG');
+  const result=document.getElementById('overlayResult');
+  const btn=document.getElementById('overlayShutterBtn');
+  if(!video||!canvas)return;
+  // 合成：相機畫面 + 套圖 PNG
+  canvas.width=video.videoWidth||1080;
+  canvas.height=video.videoHeight||1920;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  if(png&&!png.classList.contains('hidden')&&png.complete){
+    ctx.drawImage(png,0,0,canvas.width,canvas.height);
+  }
+  // 顯示結果
+  canvas.toBlob(blob=>{
+    state.photoFile=new File([blob],'overlay_photo.jpg',{type:'image/jpeg'});
+    const url=URL.createObjectURL(blob);
+    if(result){result.src=url;result.style.display='block';}
+    // 隱藏相機，顯示結果
+    const wrap=document.getElementById('overlayCameraWrap');
+    if(wrap)wrap.style.display='none';
+    if(btn)btn.style.display='none';
+    const retryBtn=document.getElementById('overlayRetryBtn');
+    if(retryBtn)retryBtn.classList.remove('hidden');
+    stopOverlayCamera();
+    // 依驗證方式處理
+    const stage=state.stages[state.currentIdx];
+    const verifyType=stage.overlayVerify||'ai';
+    if(verifyType==='ai'&&state.settings.geminiKey&&stage.overlayAIDesc){
+      const reader=new FileReader();
+      reader.onload=async e=>{
+        const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
+        if(passed)setTimeout(()=>passPhotoStage(),800);
+      };
+      reader.readAsDataURL(blob);
+    } else if(verifyType==='confirm'){
+      // 關主確認模式：上傳照片後通知關主
+      overlayNotifyConfirm();
+    } else {
+      // 沒有AI Key，直接過關
+      passPhotoStage();
+    }
+  },'image/jpeg',0.88);
+}
+window.overlayShoot=overlayShoot;
+
+function overlayRetake(){
+  // 重新拍照
+  state.photoFile=null;state.photoFailCount=0;
+  const result=document.getElementById('overlayResult');if(result)result.style.display='none';
+  const wrap=document.getElementById('overlayCameraWrap');if(wrap)wrap.style.display='';
+  const btn=document.getElementById('overlayShutterBtn');if(btn)btn.style.display='';
+  const retryBtn=document.getElementById('overlayRetryBtn');if(retryBtn)retryBtn.classList.add('hidden');
+  const statusEl=document.getElementById('photoVerifyStatus');if(statusEl)statusEl.style.display='none';
+  const skipArea=document.getElementById('skipPhotoArea');if(skipArea)skipArea.classList.add('hidden');
+  startOverlayCamera();
+}
+window.overlayRetake=overlayRetake;
+
+async function overlayNotifyConfirm(){
+  // 套圖+關主確認模式：上傳照片後等關主確認
+  if(state.photoFile){
+    const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
+    try{const snap=await uploadBytes(sRef(storage,path),state.photoFile);const url=await getDownloadURL(snap.ref);await set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);}catch(e){console.warn(e);}
+  }
+  await set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/waitingConfirm`),true);
+  await set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/waitSince`),Date.now());
+  listenForStageConfirm(state.currentIdx);
+  const statusEl=document.getElementById('photoVerifyStatus');
+  if(statusEl){statusEl.className='photo-verify-status checking';statusEl.style.display='';statusEl.textContent='⏳ 照片已送出，等待關主確認中...';}
+  const retryBtn=document.getElementById('overlayRetryBtn');if(retryBtn)retryBtn.classList.add('hidden');
 }
 
 function triggerPhoto(){document.getElementById('photoInput').click()}
@@ -1506,6 +1721,8 @@ async function submitAns(){
 function closeFeedback(){
   document.getElementById('feedbackOverlay').classList.add('hidden');
   if(state.lastCorrect){
+    // 如果是套圖關卡，離開時停止相機
+    stopOverlayCamera();
     clearInterval(state.timerInterval);
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageSec`),state.stageSeconds);
     state.currentIdx++;state.hintUsed=0;
