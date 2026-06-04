@@ -1183,6 +1183,24 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     </div>
 
     <input type="hidden" id="fStageType" value="quiz"/>
+    <!-- 故事欄位（所有類型共用）-->
+    <hr class="divider"/>
+    <div style="background:linear-gradient(135deg,#f8f4ff,#f0e8ff);border:1.5px solid var(--purple);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:12px">📖 故事系統（可選，留空則跳過）</div>
+      <div class="form-group">
+        <label>📖 開場故事（玩家到達後、答題前顯示）</label>
+        <textarea id="fStoryIntro" rows="3" placeholder="例：你來到了一棵古老的大榕樹前，傳說這裡埋藏著第一個線索...（留空則跳過）"></textarea>
+      </div>
+      <div class="form-group">
+        <label>🎉 過關故事（答對後顯示，推進劇情）</label>
+        <textarea id="fStoryOutro" rows="3" placeholder="例：你解開了謎題，發現石板上刻著一個神秘符號，這是前往下一關的鑰匙...（留空則跳過）"></textarea>
+      </div>
+      <div class="form-group">
+        <label>🗺️ 下一關指引（過關後顯示，告訴玩家往哪走）</label>
+        <input type="text" id="fNextHint" placeholder="例：帶著這個符號，前往海螺館正門口左邊的大石頭旁（留空則跳過）"/>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeStageModal()">取消</button>
       <button class="btn btn-primary" onclick="saveStage()" id="saveStageBtn">💾 儲存關卡</button>
@@ -2173,7 +2191,7 @@ function openStageModal(){
   // 重置是非題
   const tfTrue=document.getElementById('tfAnswerTrue');if(tfTrue)tfTrue.checked=true;
   const tfReq=document.getElementById('fTFRequirePhoto');if(tfReq)tfReq.checked=false;
-  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass','fOverlayTask','fOverlayAIDesc','fOverlayMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass','fOverlayTask','fOverlayAIDesc','fOverlayMasterPass','fStoryIntro','fStoryOutro','fNextHint'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const oImgPrev=document.getElementById('overlayImgPreview');if(oImgPrev)oImgPrev.classList.add('hidden');
   const oImgPh=document.getElementById('overlayImgPlaceholder');if(oImgPh)oImgPh.classList.remove('hidden');
   if(document.getElementById('fOverlayImgInput'))document.getElementById('fOverlayImgInput').value='';
@@ -2197,6 +2215,10 @@ function editStage(key){
   document.getElementById('fOrder').value=s.order||1;document.getElementById('fTitle').value=s.title||'';document.getElementById('fDesc').value=s.description||'';
   document.getElementById('fLat').value=s.lat||'';document.getElementById('fLng').value=s.lng||'';document.getElementById('fRadius').value=s.radius||80;document.getElementById('fLocationHint').value=s.locationHint||'';
   document.getElementById('fHint1').value=s.hints?.h1||'';document.getElementById('fHint2').value=s.hints?.h2||'';
+  // 故事欄位
+  const fi=document.getElementById('fStoryIntro');if(fi)fi.value=s.storyIntro||'';
+  const fo=document.getElementById('fStoryOutro');if(fo)fo.value=s.storyOutro||'';
+  const fn=document.getElementById('fNextHint');if(fn)fn.value=s.nextHint||'';
   // 類型相關
   const type=s.stageType||'quiz';
   selectStageType(type);
@@ -2382,6 +2404,9 @@ async function saveStage(){
       radius:parseInt(document.getElementById('fRadius').value)||80,
       locationHint:document.getElementById('fLocationHint').value.trim(),
       hints:{h1:document.getElementById('fHint1').value.trim(),h2:document.getElementById('fHint2').value.trim()},
+      storyIntro:(document.getElementById('fStoryIntro')?.value||'').trim(),
+      storyOutro:(document.getElementById('fStoryOutro')?.value||'').trim(),
+      nextHint:(document.getElementById('fNextHint')?.value||'').trim(),
       updatedAt:serverTimestamp(),
     };
     // 類型專屬資料

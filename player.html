@@ -227,6 +227,20 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .finish-rank-section{background:#f8f4ff;border-radius:12px;padding:12px;margin-bottom:12px}
 .finish-rank-title{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .finish-msg{font-size:13px;color:var(--text-light);line-height:1.7}
+/* 故事片段 */
+.story-popup{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:150;display:flex;align-items:flex-end;justify-content:center;padding:0}
+.story-popup-box{background:white;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.3);animation:slideUp 0.35s ease}
+@keyframes slideUp{from{transform:translateY(100%)}}
+.story-popup-tag{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.story-popup-tag.intro{color:var(--purple)}
+.story-popup-tag.outro{color:var(--green)}
+.story-popup-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px}
+.story-popup-body{font-size:14px;color:var(--text);line-height:1.9;white-space:pre-wrap;margin-bottom:14px}
+.story-next-hint{background:linear-gradient(135deg,var(--primary-pale),#f0e8ff);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--text);line-height:1.7}
+.story-next-hint .hint-label{font-size:11px;font-weight:700;color:var(--primary);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.btn-story-next{width:100%;padding:14px;background:linear-gradient(90deg,var(--green),#5dd490);color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(61,184,122,0.3)}
+.btn-story-next:active{transform:scale(0.97)}
+.btn-story-close{width:100%;padding:12px;background:var(--primary-pale);color:var(--primary);border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:8px}
 /* 套圖相機 */
 .overlay-camera-wrap{position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;margin-bottom:10px}
 .overlay-video{width:100%;display:block;max-height:60vh;object-fit:cover}
@@ -382,6 +396,21 @@ select:focus,input:focus{border-color:var(--primary-light)}
       <div id="finishRankList"></div>
     </div>
     <div class="finish-msg" id="finishMsg">🐚 恭喜完成所有挑戰！</div>
+  </div>
+</div>
+
+<!-- 故事彈窗 -->
+<div class="story-popup hidden" id="storyPopup">
+  <div class="story-popup-box">
+    <div class="story-popup-tag" id="storyPopupTag">📖 故事</div>
+    <div class="story-popup-title" id="storyPopupTitle"></div>
+    <div class="story-popup-body" id="storyPopupBody"></div>
+    <div class="story-next-hint hidden" id="storyNextHintBox">
+      <div class="hint-label">🗺️ 前往下一關</div>
+      <div id="storyNextHintText"></div>
+    </div>
+    <button class="btn-story-next hidden" id="btnStoryNext" onclick="closeStoryPopup()">🚀 出發！</button>
+    <button class="btn-story-close hidden" id="btnStoryClose" onclick="closeStoryPopup()">我知道了</button>
   </div>
 </div>
 
@@ -1190,6 +1219,14 @@ function renderStage(){
   const titleEl=document.getElementById('stageTitle');if(titleEl)titleEl.textContent=stage.title||'';
   const descEl=document.getElementById('stageDesc');if(descEl)descEl.textContent=stage.description||'';
   if(stageType==='quiz')(stage.options||[]).forEach((opt,i)=>{const el=document.getElementById('optText'+i);if(el)el.textContent=opt;});
+  // 無 GPS 關卡：直接顯示開場故事
+  if(!hasGPS && stage.storyIntro){
+    // 延遲一點讓畫面先渲染
+    setTimeout(()=>{
+      showStoryIntro(stage,()=>{});// 關閉後直接繼續（題目已顯示）
+    },300);
+  }
+
   // 套圖拍照：填入任務說明 + 啟動相機 + 載入 PNG
   if(stageType==='overlay'){
     const oDesc=document.getElementById('overlayTaskDesc');
@@ -1198,7 +1235,10 @@ function renderStage(){
       const png=document.getElementById('overlayPNG');
       if(png){png.src=stage.overlayImageUrl;png.classList.remove('hidden');}
     }
+    // stageImgWrap：overlay 不顯示另外的題目圖（套圖 PNG 就是圖）
     startOverlayCamera();
+  } else if(stage.imageUrl){
+    // 其他類型：填入題目圖（避免重複，原本在最後面有處理，這裡不重複）
   }
   if(stage.imageUrl){const img=document.createElement('img');img.className='q-image';img.alt='關卡圖片';img.src=stage.imageUrl;const wrap=document.getElementById('stageImgWrap');if(wrap)wrap.appendChild(img);}
   // 填入新類型文字（XSS安全）
@@ -1258,8 +1298,15 @@ function checkGPS(){
 function calcDist(lat1,lng1,lat2,lng2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function arriveAtStage(){
   const g=document.getElementById('gpsCard'),q=document.getElementById('questionCard');
-  if(g)g.style.display='none';if(q)q.style.display='';
+  if(g)g.style.display='none';
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/arrivedAt`),serverTimestamp());
+  // 有開場故事 → 先顯示再展開題目
+  const stage=state.stages[state.currentIdx];
+  if(stage&&stage.storyIntro){
+    showStoryIntro(stage,()=>{if(q)q.style.display='';});
+  } else {
+    if(q)q.style.display='';
+  }
 }
 async function recordGPSLog(lat,lng,dist,passed,stageIdx){
   state.gpsLogCount++;
@@ -1355,7 +1402,6 @@ function listenForStageConfirm(stageIdx){
 }
 
 async function handleConfirmPass(stageIdx){
-  // 計分
   const sc=state.scoring;
   const base=sc.baseScore||100;
   const timeBonus=Math.max(0,Math.round((sc.timeBonus||50)*(1-state.stageSeconds/300)));
@@ -1364,7 +1410,6 @@ async function handleConfirmPass(stageIdx){
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   state.lastCorrect=true;
-  // 顯示過關
   document.getElementById('feedbackIcon').textContent='✅';
   document.getElementById('feedbackTitle').textContent='關主確認通過！';
   document.getElementById('feedbackTitle').className='feedback-title correct';
@@ -1373,6 +1418,7 @@ async function handleConfirmPass(stageIdx){
   document.getElementById('feedbackBtn').textContent='前往下一關 →';
   document.getElementById('feedbackBtn').className='btn-next';
   document.getElementById('feedbackOverlay').classList.remove('hidden');
+  // 過關故事由 closeFeedback 統一處理
 }
 
 function handleConfirmReject(stageIdx){
@@ -1490,6 +1536,77 @@ async function overlayNotifyConfirm(){
   if(statusEl){statusEl.className='photo-verify-status checking';statusEl.style.display='';statusEl.textContent='⏳ 照片已送出，等待關主確認中...';}
   const retryBtn=document.getElementById('overlayRetryBtn');if(retryBtn)retryBtn.classList.add('hidden');
 }
+
+// ── 故事系統 ──
+
+// 顯示開場故事（到達後、答題前）
+function showStoryIntro(stage, onClose){
+  if(!stage.storyIntro){onClose();return;}
+  const popup=document.getElementById('storyPopup');
+  const tag=document.getElementById('storyPopupTag');
+  const title=document.getElementById('storyPopupTitle');
+  const body=document.getElementById('storyPopupBody');
+  const nextHintBox=document.getElementById('storyNextHintBox');
+  const btnNext=document.getElementById('btnStoryNext');
+  const btnClose=document.getElementById('btnStoryClose');
+  tag.className='story-popup-tag intro';
+  tag.textContent='📖 故事片段';
+  title.textContent=stage.title||'';
+  body.textContent=stage.storyIntro;
+  nextHintBox.classList.add('hidden');
+  btnNext.classList.add('hidden');
+  btnClose.classList.remove('hidden');
+  btnClose.textContent='開始挑戰 →';
+  popup.classList.remove('hidden');
+  // 關閉後執行 onClose
+  popup._onClose=onClose;
+}
+
+// 顯示過關故事 + 下一關指引（答對後）
+function showStoryOutro(stage, isLast, onClose){
+  const hasOutro=!!(stage.storyOutro);
+  const hasNext=!!(stage.nextHint);
+  if(!hasOutro&&!hasNext){onClose();return;}
+  const popup=document.getElementById('storyPopup');
+  const tag=document.getElementById('storyPopupTag');
+  const title=document.getElementById('storyPopupTitle');
+  const body=document.getElementById('storyPopupBody');
+  const nextHintBox=document.getElementById('storyNextHintBox');
+  const nextHintText=document.getElementById('storyNextHintText');
+  const btnNext=document.getElementById('btnStoryNext');
+  const btnClose=document.getElementById('btnStoryClose');
+  tag.className='story-popup-tag outro';
+  tag.textContent='🎉 關卡完成';
+  title.textContent='';
+  body.textContent=stage.storyOutro||'';
+  // 下一關指引
+  if(hasNext&&!isLast){
+    nextHintBox.classList.remove('hidden');
+    nextHintText.textContent=stage.nextHint;
+    btnNext.classList.remove('hidden');
+    btnNext.textContent='🚀 出發！';
+    btnClose.classList.add('hidden');
+  } else if(isLast){
+    nextHintBox.classList.add('hidden');
+    btnNext.classList.add('hidden');
+    btnClose.classList.remove('hidden');
+    btnClose.textContent='🏆 前往完賽頁面';
+  } else {
+    nextHintBox.classList.add('hidden');
+    btnNext.classList.remove('hidden');
+    btnNext.textContent='➡️ 前往下一關';
+    btnClose.classList.add('hidden');
+  }
+  popup.classList.remove('hidden');
+  popup._onClose=onClose;
+}
+
+function closeStoryPopup(){
+  const popup=document.getElementById('storyPopup');
+  popup.classList.add('hidden');
+  if(popup._onClose){const fn=popup._onClose;popup._onClose=null;fn();}
+}
+window.closeStoryPopup=closeStoryPopup;
 
 function triggerPhoto(){document.getElementById('photoInput').click()}
 
@@ -1824,13 +1941,22 @@ async function submitAns(){
 function closeFeedback(){
   document.getElementById('feedbackOverlay').classList.add('hidden');
   if(state.lastCorrect){
-    // 如果是套圖關卡，離開時停止相機
     stopOverlayCamera();
     clearInterval(state.timerInterval);
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageSec`),state.stageSeconds);
+    const currentStage=state.stages[state.currentIdx];
+    const isLast=(state.currentIdx+1>=state.stages.length);
     state.currentIdx++;state.hintUsed=0;
-    if(state.currentIdx>=state.stages.length){showFinish();return;}
-    renderStage();
+    // 有過關故事或下一關指引 → 先顯示彈窗再跳轉
+    if(currentStage&&(currentStage.storyOutro||currentStage.nextHint)){
+      showStoryOutro(currentStage,isLast,()=>{
+        if(isLast){showFinish();}
+        else{renderStage();}
+      });
+    } else {
+      if(isLast){showFinish();}
+      else{renderStage();}
+    }
   } else {
     state.selectedOption=null;
     state.tfAnswer=null;
