@@ -929,9 +929,13 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <!-- 基本資訊（所有類型共用）-->
     <div class="form-row">
       <div class="form-group"><label>關卡順序</label><input type="number" id="fOrder" min="1" value="1"/></div>
-      <div class="form-group"><label>關卡標題／任務說明</label><input type="text" id="fTitle" placeholder="題目或任務說明"/></div>
+      <div class="form-group"><label>關卡標題（所有類型共用）</label><input type="text" id="fTitle" placeholder="例：這是哪裡？（選擇題）/ 前往大石頭旁拍照（照片關）"/></div>
     </div>
-    <div class="form-group"><label>補充說明文字</label><textarea id="fDesc" rows="2" placeholder="補充說明..."></textarea></div>
+    <div class="form-group">
+      <label>📝 題目說明 / 補充文字</label>
+      <textarea id="fDesc" rows="2" placeholder="選擇題：完整題目敘述。照片/套圖/密碼：更詳細的任務說明..."></textarea>
+      <div style="font-size:11px;color:var(--text-light);margin-top:3px">💡 選擇題的完整題目請填在這裡，標題只需簡短關卡名稱</div>
+    </div>
     <div class="form-group">
       <label>關卡圖片（可選）</label>
       <div class="img-upload-area" onclick="document.getElementById('fImgInput').click()">
@@ -949,7 +953,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <div class="stage-type-btn active" onclick="selectStageType('quiz')" id="typeBtn-quiz">
           <div style="font-size:20px;margin-bottom:4px">📝</div>
           <div style="font-size:12px;font-weight:700">選擇題</div>
-          <div style="font-size:10px;color:#888;margin-top:2px">標準問答</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">A B C D 四選一</div>
+        </div>
+        <div class="stage-type-btn" onclick="selectStageType('truefalse')" id="typeBtn-truefalse">
+          <div style="font-size:20px;margin-bottom:4px">⭕</div>
+          <div style="font-size:12px;font-weight:700">是非題</div>
+          <div style="font-size:10px;color:#888;margin-top:2px">○ 對 ✕ 錯</div>
         </div>
         <div class="stage-type-btn" onclick="selectStageType('photo')" id="typeBtn-photo">
           <div style="font-size:20px;margin-bottom:4px">📷</div>
@@ -1018,6 +1027,29 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div class="form-group" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="fRequirePhoto" style="width:auto;padding:0"/>
         <label for="fRequirePhoto" style="margin:0;cursor:pointer">📌 此關需同時拍照上傳</label>
+      </div>
+    </div>
+
+    <!-- 是非題 -->
+    <div id="section-truefalse" class="hidden">
+      <hr class="divider"/>
+      <div style="background:#e8f4ff;border:1.5px solid #2a9fd6;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:#0d4f7a;line-height:1.6">
+        ⭕ <b>是非題說明：</b>玩家只需選擇「○ 對」或「✕ 錯」，比選擇題更簡單直覺。
+      </div>
+      <div class="form-group">
+        <label>✅ 正確答案</label>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px 18px;border:2px solid var(--border);border-radius:12px;font-size:15px;flex:1;justify-content:center" id="tfTrueLabel">
+            <input type="radio" name="tfAnswer" id="tfAnswerTrue" value="true" style="width:auto;padding:0"/> ⭕ 對（是）
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px 18px;border:2px solid var(--border);border-radius:12px;font-size:15px;flex:1;justify-content:center" id="tfFalseLabel">
+            <input type="radio" name="tfAnswer" id="tfAnswerFalse" value="false" style="width:auto;padding:0"/> ✕ 錯（否）
+          </label>
+        </div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="fTFRequirePhoto" style="width:auto;padding:0"/>
+        <label for="fTFRequirePhoto" style="margin:0;cursor:pointer">📌 此關需同時拍照上傳</label>
       </div>
     </div>
 
@@ -2100,6 +2132,7 @@ function renderStageList(){
     confirm:{icon:'👆',label:'關主按確認',color:'#1a7a40'},
     qrcode:{icon:'📱',label:'QR Code',color:'#c04030'},
     overlay:{icon:'🖼️',label:'套圖拍照',color:'#e65100'},
+    truefalse:{icon:'⭕',label:'是非題',color:'#0d4f7a'},
   };
   entries.forEach(([key,s],i)=>{
     const type=s.stageType||'quiz';
@@ -2127,7 +2160,7 @@ function renderStageList(){
 
 function selectStageType(type){
   document.getElementById('fStageType').value=type;
-  ['quiz','photo','password','confirm','qrcode','overlay'].forEach(t=>{
+  ['quiz','truefalse','photo','password','confirm','qrcode','overlay'].forEach(t=>{
     document.getElementById(`typeBtn-${t}`)?.classList.toggle('active',t===type);
     document.getElementById(`section-${t}`)?.classList.toggle('hidden',t!==type);
   });
@@ -2137,6 +2170,9 @@ function openStageModal(){
   editingStageKey=null;modalImgFile=null;modalImgUrl=null;
   document.getElementById('modalTitle').textContent='新增關卡';
   document.getElementById('fOrder').value=Object.keys(stagesData).length+1;
+  // 重置是非題
+  const tfTrue=document.getElementById('tfAnswerTrue');if(tfTrue)tfTrue.checked=true;
+  const tfReq=document.getElementById('fTFRequirePhoto');if(tfReq)tfReq.checked=false;
   ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass','fOverlayTask','fOverlayAIDesc','fOverlayMasterPass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const oImgPrev=document.getElementById('overlayImgPreview');if(oImgPrev)oImgPrev.classList.add('hidden');
   const oImgPh=document.getElementById('overlayImgPlaceholder');if(oImgPh)oImgPh.classList.remove('hidden');
@@ -2164,7 +2200,12 @@ function editStage(key){
   // 類型相關
   const type=s.stageType||'quiz';
   selectStageType(type);
-  if(type==='quiz'){
+  if(type==='truefalse'){
+    const tfA=s.tfAnswer!==false?'true':'false';
+    const radio=document.getElementById(tfA==='true'?'tfAnswerTrue':'tfAnswerFalse');
+    if(radio)radio.checked=true;
+    const tfReq=document.getElementById('fTFRequirePhoto');if(tfReq)tfReq.checked=s.requirePhoto||false;
+  } else if(type==='quiz'){
     (s.options||[]).forEach((opt,i)=>document.getElementById(`fOpt${i}`).value=opt);
     document.getElementById('fAnswer').value=s.answerIndex||0;
     document.getElementById('fRequirePhoto').checked=s.requirePhoto||false;
@@ -2311,7 +2352,9 @@ async function saveStage(){
   const title=document.getElementById('fTitle').value.trim();if(!title){toast('請輸入關卡標題！');return;}
   const stageType=document.getElementById('fStageType').value||'quiz';
   // 類型驗證
-  if(stageType==='quiz'){
+  if(stageType==='truefalse'){
+    // 是非題不需要額外驗證，預設是「對」
+  } else if(stageType==='quiz'){
     const opts=['fOpt0','fOpt1','fOpt2','fOpt3'].map(id=>document.getElementById(id).value.trim()).filter(v=>v);
     if(opts.length<2){toast('選擇題請至少填入兩個選項！');return;}
   } else if(stageType==='photo'){
@@ -2342,7 +2385,13 @@ async function saveStage(){
       updatedAt:serverTimestamp(),
     };
     // 類型專屬資料
-    if(stageType==='quiz'){
+    if(stageType==='truefalse'){
+      const tfAnswer=document.getElementById('tfAnswerTrue')?.checked!==false;
+      data.tfAnswer=tfAnswer;// true=對, false=錯
+      data.requirePhoto=document.getElementById('fTFRequirePhoto')?.checked||false;
+      data.options=['○ 對（是）','✕ 錯（否）'];data.answerIndex=tfAnswer?0:1;
+      // answerHash 用 true/false 字串產生
+    } else if(stageType==='quiz'){
       const opts=['fOpt0','fOpt1','fOpt2','fOpt3'].map(id=>document.getElementById(id).value.trim()).filter(v=>v);
       const answerIndex=parseInt(document.getElementById('fAnswer').value)||0;
       data.options=opts;data.answerIndex=answerIndex;
@@ -2387,9 +2436,8 @@ async function saveStage(){
       }
       data.overlayImageUrl=overlayImageUrl;
     }
-    if(stageType==='quiz'||editingStageKey){
-      // answerHash 只有選擇題需要
-      if(stageType==='quiz'){
+    if(stageType==='quiz'||stageType==='truefalse'||editingStageKey){
+      if(stageType==='quiz'||stageType==='truefalse'){
         const keyForHash=editingStageKey||('tmp_'+Date.now());
         data.answerHash=await sha256(`${keyForHash}_${data.answerIndex}`);
       }

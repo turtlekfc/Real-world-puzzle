@@ -143,6 +143,14 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .option-btn.wrong .opt-letter{background:var(--coral);color:white}
 .btn-submit{width:100%;padding:12px;background:linear-gradient(90deg,var(--primary),var(--primary-light));color:white;border:none;border-radius:13px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer}
 .btn-submit:disabled{opacity:0.5;cursor:not-allowed}
+/* 是非題 */
+.tf-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;border-radius:16px;border:2.5px solid var(--border);background:#f8f8f8;cursor:pointer;font-size:20px;font-weight:700;font-family:'Noto Sans TC',sans-serif;transition:all 0.15s;width:100%;margin-bottom:10px}
+.tf-btn:active{transform:scale(0.97)}
+.tf-btn.tf-true{border-color:#3db87a;background:#eaf7ee;color:#1a7a40}
+.tf-btn.tf-false{border-color:var(--coral);background:#fff0ee;color:#c03020}
+.tf-btn.selected{box-shadow:0 0 0 3px rgba(26,111,163,0.2)}
+.tf-btn.correct{border-color:var(--green);background:#eaf7ee}
+.tf-btn.wrong{border-color:var(--coral);background:#fff0ee;opacity:0.6}
 /* 行動列 */
 .action-bar{display:flex;gap:8px;margin-bottom:10px}
 .action-btn{flex:1;padding:9px 6px;border:none;border-radius:12px;font-size:12px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;text-align:center;transition:all 0.15s}
@@ -510,7 +518,7 @@ let state = {
   teamKey:null, teamName:null, teamColor:null, stages:[],
   currentIdx:0, stageSeconds:0, totalSeconds:0,
   gameStartTime:null, timerInterval:null, countdownInterval:null,
-  selectedOption:null, totalAttempts:0, stageAttempts:0,
+  selectedOption:null, tfAnswer:null, totalAttempts:0, stageAttempts:0,
   photoFile:null, sessionKey:null, lastCorrect:false,
   settings:{}, scoring:{}, gpsLogCount:0,
   score:0, helpUsed:0, hintUsed:0,
@@ -927,6 +935,7 @@ function updateProgress(){
 }
 
 function renderStage(){
+  stopOverlayCamera();// 換關前先停止舊的相機串流
   state.selectedOption=null;state.photoFile=null;state.stageAttempts=0;state.lastCorrect=false;state.photoFailCount=0;state.hintUsed=0;
   updateProgress();
   const stage=state.stages[state.currentIdx];
@@ -949,7 +958,30 @@ function renderStage(){
   // 各類型的題目卡 HTML
   let questionCardInner='';
 
-  if(stageType==='quiz'){
+  if(stageType==='truefalse'){
+    questionCardInner=`
+      <div class="q-tag" style="background:#e8f4ff;color:#0d4f7a">⭕ 是非題</div>
+      <div id="stageImgWrap"></div>
+      <div class="q-title" id="stageTitle"></div>
+      <div class="q-desc" id="stageDesc"></div>
+      <div id="hintArea"></div>
+      ${stage.requirePhoto?`
+      <div onclick="triggerPhoto()" class="photo-upload-area" id="photoArea">
+        <div class="icon">📷</div><div class="text">📌 此關需拍照上傳</div>
+      </div>
+      <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto()"/>
+      `:''}
+      <div class="action-bar">
+        <button class="action-btn btn-help" id="helpBtn" onclick="showHelp()" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
+        <button class="action-btn btn-rank ${showRankBtn?'':'hidden-rank'}" onclick="showRank()">🏆 排行</button>
+        <button class="action-btn btn-hint" id="hintBtn" onclick="useHint()" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
+      </div>
+      <button class="tf-btn tf-true" id="tfBtnTrue" onclick="selectTF(true)">⭕ 對（是）</button>
+      <button class="tf-btn tf-false" id="tfBtnFalse" onclick="selectTF(false)">✕ 錯（否）</button>
+      <button class="btn-submit" id="submitBtn" onclick="submitTF()" disabled>確認答案 🐚</button>`;
+
+  } else   if(stageType==='quiz'){
     questionCardInner=`
       <div class="q-tag">📝 解謎題目</div>
       <div id="stageImgWrap"></div>
@@ -1504,6 +1536,7 @@ function handlePhotoOnly(){
 
 // 照片關卡：辨識通過後過關
 async function passPhotoStage(){
+  stopOverlayCamera();// 照片關卡過關後停止相機
   const stage=state.stages[state.currentIdx];
   state.stageAttempts=Math.max(1,state.stageAttempts);
   // 上傳照片
@@ -1650,6 +1683,7 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
 }
 
 function skipPhotoVerify(){
+  stopOverlayCamera();// 跳過照片後停止相機
   const penalty=state.scoring.skipPhotoPenalty||20;
   state.score=Math.max(0,state.score-penalty);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
@@ -1667,6 +1701,75 @@ function retakePhoto(){
   state.photoFile=null;state.photoFailCount=0;
   document.getElementById('photoInput').value='';
 }
+
+// ── 是非題 ──
+function selectTF(answer){
+  state.tfAnswer=answer;
+  const trueBtn=document.getElementById('tfBtnTrue');
+  const falseBtn=document.getElementById('tfBtnFalse');
+  if(trueBtn)trueBtn.classList.toggle('selected',answer===true);
+  if(falseBtn)falseBtn.classList.toggle('selected',answer===false);
+  const submitBtn=document.getElementById('submitBtn');
+  if(submitBtn)submitBtn.disabled=false;
+}
+window.selectTF=selectTF;
+
+async function submitTF(){
+  if(state.tfAnswer===undefined||state.tfAnswer===null)return;
+  const stage=state.stages[state.currentIdx];
+  if(stage.requirePhoto&&!state.photoFile){alert('此關必須拍照後才能作答！');return;}
+  document.getElementById('submitBtn').disabled=true;
+  state.stageAttempts++;state.totalAttempts++;
+  // 比對答案：tfAnswer 是 boolean，stage.tfAnswer 也是 boolean
+  const correct=(state.tfAnswer===true && stage.tfAnswer!==false) ||
+                (state.tfAnswer===false && stage.tfAnswer===false);
+  state.lastCorrect=correct;
+  // 顯示對錯
+  const trueBtn=document.getElementById('tfBtnTrue');
+  const falseBtn=document.getElementById('tfBtnFalse');
+  if(correct){
+    if(state.tfAnswer===true&&trueBtn)trueBtn.classList.add('correct');
+    if(state.tfAnswer===false&&falseBtn)falseBtn.classList.add('correct');
+  } else {
+    if(state.tfAnswer===true&&trueBtn)trueBtn.classList.add('wrong');
+    if(state.tfAnswer===false&&falseBtn)falseBtn.classList.add('wrong');
+  }
+  // 上傳照片
+  if(state.photoFile){
+    const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
+    try{const snap=await uploadBytes(sRef(storage,path),state.photoFile);const url=await getDownloadURL(snap.ref);set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);}catch(e){console.warn(e);}
+  }
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/answeredAt`),serverTimestamp());
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/correct`),correct);
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/attempts`),state.stageAttempts);
+  // 計分
+  const sc=state.scoring;
+  let scoreMsg='';
+  if(correct){
+    const base=sc.baseScore||100;
+    const timeBonus=Math.max(0,Math.round((sc.timeBonus||50)*(1-state.stageSeconds/300)));
+    const wrongPenalty=(state.stageAttempts-1)*(sc.wrongPenalty||10);
+    const scoreChange=Math.max(0,base+timeBonus-wrongPenalty);
+    state.score+=scoreChange;
+    scoreMsg=`+${scoreChange}分`;
+  } else {
+    state.score=Math.max(0,state.score-(sc.wrongPenalty||10));
+    scoreMsg=`答錯扣${sc.wrongPenalty||10}分`;
+  }
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
+  // 顯示結果
+  document.getElementById('feedbackIcon').textContent=correct?'🎉':'😅';
+  document.getElementById('feedbackTitle').textContent=correct?'答對了！':'再想想看！';
+  document.getElementById('feedbackTitle').className='feedback-title '+(correct?'correct':'wrong');
+  document.getElementById('feedbackMsg').textContent=correct?`正確答案是「${stage.tfAnswer!==false?'⭕ 對':'✕ 錯'}」，答對了！`:`正確答案是「${stage.tfAnswer!==false?'⭕ 對':'✕ 錯'}」，不對唷！`;
+  document.getElementById('feedbackScore').textContent=scoreMsg;
+  const btn=document.getElementById('feedbackBtn');
+  btn.textContent=correct?'前往下一關 →':'再試一次 →';
+  btn.className=correct?'btn-next':'btn-retry';
+  document.getElementById('feedbackOverlay').classList.remove('hidden');
+}
+window.submitTF=submitTF;
 
 function selectOpt(idx){
   state.selectedOption=idx;
@@ -1730,8 +1833,11 @@ function closeFeedback(){
     renderStage();
   } else {
     state.selectedOption=null;
+    state.tfAnswer=null;
     document.querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected','correct','wrong'));
-    document.getElementById('submitBtn').disabled=true;
+    document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('selected','correct','wrong'));
+    const submitBtn=document.getElementById('submitBtn');
+    if(submitBtn)submitBtn.disabled=true;
   }
 }
 
