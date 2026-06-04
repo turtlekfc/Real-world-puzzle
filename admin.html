@@ -655,12 +655,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <div class="form-row">
           <div class="form-group">
             <label>第 1 組 Gemini API Key（主要）</label>
-            <input type="text" id="settingGeminiKey" placeholder="AIza..." autocomplete="off" style="font-family:monospace;font-size:12px"/>
+            <input type="password" id="settingGeminiKey" placeholder="AIza..." autocomplete="new-password" style="font-family:monospace;font-size:12px"/>
             <div class="key-status" id="keyStatus1">⏳ 未設定</div>
           </div>
           <div class="form-group">
             <label>第 2 組 Gemini API Key（備用，超限自動切換）</label>
-            <input type="text" id="settingGeminiKey2" placeholder="AIza...（可選）" autocomplete="off" style="font-family:monospace;font-size:12px"/>
+            <input type="password" id="settingGeminiKey2" placeholder="AIza...（可選）" autocomplete="new-password" style="font-family:monospace;font-size:12px"/>
             <div class="key-status standby" id="keyStatus2">⏳ 備用中</div>
           </div>
         </div>
@@ -676,10 +676,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <div class="name">🗑️ 清除所有闖關資料</div>
             <div class="desc">刪除所有隊伍紀錄、GPS資料、玩家照片（Storage）。建議先匯出備份！</div>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-danger-outline btn-sm" onclick="confirmClearAll()">輸入確認</button>
-            <button class="btn btn-danger btn-sm" onclick="quickClearAll()">⚡ 直接清除</button>
-          </div>
+          <button class="btn btn-danger btn-sm" onclick="quickClearAll()">🗑️ 清除所有資料</button>
         </div>
         <div class="danger-action">
           <div class="danger-action-info">
@@ -1192,10 +1189,8 @@ async function signInWithStageMasterPass(){
 
   // 讀取所有關卡，找對應密碼
   try{
-    // 需要先匿名登入才能讀取（Firebase Rules 要求 auth != null）
-    const {getAuth,signInAnonymously} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-    const fbAuth = getAuth(fbApp);
-    await signInAnonymously(fbAuth).catch(()=>{});
+    // 用頂層已 import 的 auth 匿名登入
+    await signInAnonymously(auth).catch(()=>{});
 
     const snap = await get(ref(db,'stages'));
     if(!snap.exists()){errEl.textContent='⚠️ 尚未建立關卡';return;}
@@ -2445,11 +2440,20 @@ async function saveSettings(){
     showProgress:settingsData.showProgress,
     activityStartTime:settingsData.activityStartTime,
   };
-  await set(ref(db,'config/settings'),settings);settingsData=settings;
-  document.getElementById('sidebarTitle').textContent='🐚 '+settings.activityName;
-  const mTitle=document.getElementById('mobileSidebarTitle');
-  if(mTitle)mTitle.textContent='🐚 '+settings.activityName;
-  toast('✅ 設定已儲存！');
+  // 清除所有 undefined 值（Firebase 不接受 undefined）
+  const cleanSettings=JSON.parse(JSON.stringify(settings, (k,v)=>v===undefined?null:v));
+  try{
+    await set(ref(db,'config/settings'),cleanSettings);
+    settingsData=cleanSettings;
+    document.getElementById('sidebarTitle').textContent='🐚 '+cleanSettings.activityName;
+    const mTitle=document.getElementById('mobileSidebarTitle');
+    if(mTitle)mTitle.textContent='🐚 '+cleanSettings.activityName;
+    toast('✅ 設定已儲存！');
+  }catch(e){
+    toast('❌ 儲存失敗：'+e.message);
+    console.error('saveSettings error:',e);
+    alert('儲存失敗：'+e.message);
+  }
 }
 
 // ── 故事與規則 ──

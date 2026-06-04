@@ -724,6 +724,11 @@ async function doLogin() {
       listenForHelpReplies();
       listenSessionForceLogout();
       renderStage();
+      // 恢復進度後，若當前關卡是 confirm 或 qrcode 類型，重新監聽確認狀態
+      const resumedStage=state.stages[state.currentIdx];
+      if(resumedStage&&(resumedStage.stageType==='confirm'||resumedStage.stageType==='qrcode')){
+        listenForStageConfirm(state.currentIdx);
+      }
       // 恢復提示
       const toast=document.createElement('div');toast.className='reply-toast';
       toast.textContent=`✅ 已恢復進度！目前第 ${state.currentIdx+1} 關`;
@@ -1596,6 +1601,8 @@ function closeBroadcast(){document.getElementById('broadcastOverlay').classList.
 
 async function showFinish(){
   clearInterval(state.timerInterval);clearInterval(state.countdownInterval);
+  // 完賽後清除 sessionStorage，下次開啟回到登入頁
+  try{sessionStorage.removeItem('playerLogin');}catch(e){}
   const elapsed=Math.floor((Date.now()-state.gameStartTime)/1000);
   const t=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`;
   const sc=state.scoring;
