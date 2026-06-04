@@ -1721,6 +1721,13 @@ async function initAdmin(){
   await loadSettings();
   applyThemeFromSettings();
   loadSessions();loadStages();
+  // 監聽設定變化，設定更新時自動刷新監控頁
+  onValue(ref(db,'config/settings'),snap=>{
+    if(snap.exists()){
+      settingsData={...settingsData,...snap.val()};
+      renderMonitor();// 隊伍數量或設定改變時更新卡片
+    }
+  });
   onValue(ref(db,'sessions'),snap=>{sessions=snap.val()||{};renderMonitor();checkStuckTeams();});
   onValue(ref(db,'config/activityStatus'),snap=>{updateActivityStatusUI(snap.val()||'closed');});
   onValue(ref(db,'sessions'),snap=>{
@@ -1822,7 +1829,7 @@ function updateActivityStatusUI(status){
 }
 
 function checkStuckTeams(){
-  const stuckMin=(settingsData.stuckMinutes||10)*60*1000;
+  const stuckMin=(parseInt(settingsData.stuckMinutes)||10)*60*1000;
   const teamsConfig=settingsData.teams||{};
   const now=Date.now();
   const latestByTeam={};
@@ -2004,7 +2011,8 @@ async function replyHelp(sessKey,helpKey){
 function loadSessions(){get(ref(db,'sessions')).then(snap=>{sessions=snap.val()||{};renderMonitor();});}
 
 function renderMonitor(){
-  const teamsConfig=settingsData.teams||{};const teamCount=settingsData.teamCount||4;
+  const teamsConfig=settingsData.teams||{};
+  const teamCount=parseInt(settingsData.teamCount)||4;// 確保是數字
   const latestByTeam={};
   Object.values(sessions).forEach(s=>{if(!latestByTeam[s.teamKey]||s.startTime>latestByTeam[s.teamKey].startTime)latestByTeam[s.teamKey]=s;});
   const grid=document.getElementById('teamGrid');grid.innerHTML='';
