@@ -506,12 +506,11 @@ signInAnonymously(auth).then(async ()=>{
           const activeSession=allSess.find(([k,s])=>s.teamKey===teamKey&&s.status==='playing');
           if(activeSession){
             // 有進行中 session → 直接恢復，不需要密碼
+            state.waitingToStart=false;// 防止 activityStatus 監聽器干擾
             const sel=document.getElementById('teamSelect');
-            if(sel){
-              sel.value=teamKey;
-              await doLoginResume(teamKey,activeSession[0],activeSession[1]);
-              return;
-            }
+            if(sel)sel.value=teamKey;
+            await doLoginResume(teamKey,activeSession[0],activeSession[1]);
+            return;
           }
         }
         // 沒有進行中 session → 只預填隊伍，讓玩家輸入密碼
@@ -608,8 +607,8 @@ async function initLogin() {
 // ── 監聽活動狀態 ──
 onValue(ref(db,'config/activityStatus'),snap=>{
   const status=snap.val()||'closed';
-  // 等待頁面：更新按鈕狀態
-  if(state.waitingToStart){
+  // 只有在等待頁面且尚未開始才更新按鈕
+  if(state.waitingToStart && !state.sessionKey){
     const btn=document.getElementById('btnStartGame');
     const statusText=document.getElementById('waitStatusText');
     const statusSub=document.getElementById('waitStatusSub');
@@ -837,6 +836,7 @@ async function doLogin() {
     }
 
     if(resumeSession){
+      state.waitingToStart=false;// 防止 activityStatus 監聽器干擾
       // ── 恢復進度：直接回到遊戲畫面 ──
       showLoading('恢復進度中...');
       // 依照 stageOrder 恢復關卡順序
@@ -919,6 +919,11 @@ function showWaitScreen(cfg,teamCfg){
 
 // ── 開始闖關 ──
 async function startGame(){
+  // 清除舊的錯誤訊息
+  document.querySelectorAll('.start-err-msg').forEach(el=>el.remove());
+  // 重置按鈕文字
+  const sgBtn=document.getElementById('btnStartGame');
+  if(sgBtn)sgBtn.textContent='🚀 開始闖關！';
   showLoading('建立隊伍紀錄...');
   try{
     state.currentIdx=0;state.totalAttempts=0;state.stageAttempts=0;
@@ -951,12 +956,22 @@ async function startGame(){
     }
   }catch(e){
     hideLoading();
-    // 顯示錯誤，讓玩家可以重試
+    console.error('startGame error:',e);
+    // 清除舊的錯誤訊息
+    document.querySelectorAll('.start-err-msg').forEach(el=>el.remove());
+    // 顯示錯誤提示（可重試）
     const errMsg=document.createElement('div');
+    errMsg.className='start-err-msg';
     errMsg.style.cssText='background:var(--coral);color:white;padding:10px 16px;border-radius:12px;font-size:13px;text-align:center;margin:10px 0';
-    errMsg.textContent='⚠️ 連線失敗，請確認網路後重新整理頁面';
-    document.getElementById('wait-footer')?.prepend(errMsg)||document.body.prepend(errMsg);
-    console.error(e);
+    errMsg.textContent='⚠️ 連線失敗（'+e.message+'），請確認網路後再試';
+    const footer=document.getElementById('wait-footer');
+    if(footer)footer.prepend(errMsg);
+    // 讓按鈕可以重按
+    const btn=document.getElementById('btnStartGame');
+    if(btn){btn.disabled=false;btn.textContent='🚀 重試！';}
+    // 重置 session key 讓下次可以重新建立
+    state.sessionKey=null;
+    state.waitingToStart=true;
   }
 }
 
