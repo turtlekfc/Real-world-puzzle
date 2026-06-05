@@ -676,6 +676,39 @@ onValue(ref(db,'config/forceLogout'),snap=>{
 });
 
 // 監聽個別 session 的強制登出
+// 監聽工作人員協助過關
+function listenStaffSkip(){
+  if(!state.sessionKey)return;
+  onValue(ref(db,`sessions/${state.sessionKey}`),snap=>{
+    if(!snap.exists())return;
+    const s=snap.val();
+    if(s.currentStage!==undefined && s.currentStage!==state.currentIdx && !state._staffSkipping){
+      state._staffSkipping=true;
+      const newIdx=s.currentStage;
+      const isFinished=s.status==='finished';
+      const t=document.createElement('div');
+      t.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1a7a40;color:white;padding:10px 22px;border-radius:14px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);white-space:nowrap';
+      t.textContent=isFinished?'🏆 工作人員已協助完賽！':'⏭️ 工作人員協助過關，跳往下一關...';
+      document.body.appendChild(t);
+      setTimeout(()=>{
+        t.remove();
+        state._staffSkipping=false;
+        if(isFinished){
+          state.score=s.score||state.score;
+          showFinish();
+        } else {
+          state.currentIdx=newIdx;
+          state.score=s.score||state.score;
+          state.hintUsed=0;
+          document.getElementById('currentScore').textContent=`${state.score} 分`;
+          renderStage();
+        }
+      },2000);
+    }
+  });
+}
+window.listenStaffSkip=listenStaffSkip;
+
 function listenSessionForceLogout(){
   if(!state.sessionKey)return;
   onValue(ref(db,`sessions/${state.sessionKey}/forceLogout`),snap=>{
@@ -745,6 +778,7 @@ async function doLoginResume(teamKey, sessKey, sessData){
     startCountdown(cfg.activityEndTime);
     listenForHelpReplies();
     listenSessionForceLogout();
+    listenStaffSkip();// 監聽工作人員協助過關
     const resumedStage=state.stages[state.currentIdx];
     if(resumedStage&&(resumedStage.stageType==='confirm'||resumedStage.stageType==='qrcode')){
       listenForStageConfirm(state.currentIdx);
@@ -830,6 +864,7 @@ async function doLogin() {
       startCountdown(cfg2.activityEndTime);
       listenForHelpReplies();
       listenSessionForceLogout();
+      listenStaffSkip();
       renderStage();
       // 恢復進度後，若當前關卡是 confirm 或 qrcode 類型，重新監聽確認狀態
       const resumedStage=state.stages[state.currentIdx];

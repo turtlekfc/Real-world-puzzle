@@ -1843,6 +1843,77 @@ async function forceLogoutAll(){
 
 // 只重置特定隊伍（隊伍卡片用）
 window.forceLogoutTeam=forceLogoutTeam;
+window.showSkipStageDialog=showSkipStageDialog;
+window.doSkipStage=doSkipStage;
+
+function showSkipStageDialog(sessKey, teamName, sessData){
+  if(!sessKey){toast('找不到此隊的闖關紀錄');return;}
+  const curIdx=sessData.currentStage||0;
+  const stageOrder=sessData.stageOrder||[];
+  const stageKey=stageOrder[curIdx];
+  const stageName=stageKey&&stagesData[stageKey]?stagesData[stageKey].title||`第${curIdx+1}關`:`第${curIdx+1}關`;
+  const total=stageOrder.length;
+  const isLast=(curIdx+1>=total);
+  // 使用自訂彈窗，支援兩個選項
+  const existing=document.getElementById('skipDialog');if(existing)existing.remove();
+  const dialog=document.createElement('div');
+  dialog.id='skipDialog';
+  dialog.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
+  dialog.innerHTML=`<div style="background:white;border-radius:18px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">⏭️ 協助過關</div>
+    <div style="font-size:13px;color:#5a8aaa;margin-bottom:6px"></div>
+    <div style="font-size:13px;margin-bottom:16px;padding:10px;background:#f8f8f8;border-radius:10px;line-height:1.7">
+      <b>目前：</b><span></span><br>
+      <span style="color:var(--text-light);font-size:12px">玩家手機將即時跳到下一關</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="skipBtn" style="padding:12px;background:#fff3e0;color:#e65100;border:2px solid #ff9800;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
+        ⏭️ 跳過此關（不計分）
+      </button>
+      <button id="passBtn" style="padding:12px;background:#e8f8f0;color:#1a7a40;border:2px solid var(--green);border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
+        ✅ 強制過關（給予基礎分）
+      </button>
+      <button id="cancelSkipBtn" style="padding:10px;background:#f5f5f5;color:#888;border:none;border-radius:12px;font-size:13px;font-family:'Noto Sans TC',sans-serif;cursor:pointer">取消</button>
+    </div>
+  </div>`;
+  // 填入文字（XSS安全）
+  dialog.querySelectorAll('span')[0].textContent=teamName;
+  dialog.querySelectorAll('span')[1].textContent=`${stageName}（第${curIdx+1}/${total}關）`;
+  dialog.querySelector('#skipBtn').onclick=()=>{dialog.remove();doSkipStageChoice(sessKey,teamName,sessData,curIdx,isLast,'skip');};
+  dialog.querySelector('#passBtn').onclick=()=>{dialog.remove();doSkipStageChoice(sessKey,teamName,sessData,curIdx,isLast,'pass');};
+  dialog.querySelector('#cancelSkipBtn').onclick=()=>dialog.remove();
+  document.body.appendChild(dialog);
+}
+
+async function doSkipStageChoice(sessKey, teamName, sessData, curIdx, isLast, mode){
+  try{
+    const baseScore=mode==='pass'?100:0;
+    // 計分
+    const newScore=(sessData.score||0)+baseScore;
+    // 標記此關已完成
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${curIdx}/correct`),true);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${curIdx}/skippedByStaff`),true);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${curIdx}/skippedMode`),mode);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${curIdx}/answeredAt`),serverTimestamp());
+    await set(ref(db,`sessions/${sessKey}/score`),newScore);
+    if(isLast){
+      // 最後一關：標記完賽
+      await set(ref(db,`sessions/${sessKey}/status`),'finished');
+      await set(ref(db,`sessions/${sessKey}/finishedAt`),serverTimestamp());
+      toast(`✅「${teamName}」已協助完賽！`);
+    } else {
+      // 前往下一關
+      await set(ref(db,`sessions/${sessKey}/currentStage`),curIdx+1);
+      toast(`✅「${teamName}」已${mode==='pass'?'強制過關':'跳過此關'}，進入第${curIdx+2}關！`);
+    }
+    loadSessions();
+  }catch(e){toast('❌ 操作失敗：'+e.message);console.error(e);}
+}
+
+// doSkipStage 保留相容性
+function doSkipStage(sessKey,teamName,sessData,curIdx,isLast,mode){
+  doSkipStageChoice(sessKey,teamName,sessData,curIdx,isLast,mode);
+}
 async function forceLogoutTeam(teamKey,teamName){
   if(!confirm(`確定要重置「${teamName}」嗎？
 
@@ -2098,8 +2169,29 @@ function renderMonitor(){
     card.querySelector('.t-status').textContent=statusTxt;
     const spans=card.querySelectorAll('.t-detail span');spans[0].textContent=progTxt;spans[1].textContent=timeTxt;
     card.querySelector('.t-score').textContent=scoreText;
-    // 重置按鈕（只在有session時顯示）
-    if(sess){
+    // 按鈕區（只在有session且正在闖關時顯示）
+    if(sess&&sess.status==='playing'){
+      const btnWrap=document.createElement('div');
+      btnWrap.style.cssText='display:flex;gap:5px;margin-top:8px';
+      // 協助過關按鈕
+      const helpBtn=document.createElement('button');
+      helpBtn.className='btn btn-warn btn-sm';
+      helpBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px';
+      helpBtn.textContent='⏭️ 協助過關';
+      const sessKey=Object.entries(sessions).find(([k,s])=>s.teamKey===key&&s.status==='playing')?.[0];
+      const tName=cfg.name||`隊伍${i+1}`;
+      helpBtn.onclick=()=>showSkipStageDialog(sessKey,tName,sess);
+      // 重置按鈕
+      const resetBtn=document.createElement('button');
+      resetBtn.className='btn btn-danger btn-sm';
+      resetBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px';
+      resetBtn.textContent='⏏️ 重置';
+      resetBtn.onclick=()=>forceLogoutTeam(key,tName);
+      btnWrap.appendChild(helpBtn);
+      btnWrap.appendChild(resetBtn);
+      card.appendChild(btnWrap);
+    } else if(sess){
+      // 已完成或已離開：只顯示重置
       const resetBtn=document.createElement('button');
       resetBtn.className='btn btn-danger btn-sm';
       resetBtn.style.cssText='width:100%;margin-top:8px;font-size:11px;padding:4px 8px';
