@@ -678,31 +678,46 @@ onValue(ref(db,'config/forceLogout'),snap=>{
 // 監聽工作人員協助過關
 function listenStaffSkip(){
   if(!state.sessionKey)return;
-  onValue(ref(db,`sessions/${state.sessionKey}`),snap=>{
+  // 分別監聽 currentStage 和 status，避免監聽整個 session 造成衝突
+  let _lastKnownStage=state.currentIdx;
+  // 監聽 currentStage 變化
+  onValue(ref(db,`sessions/${state.sessionKey}/currentStage`),snap=>{
     if(!snap.exists())return;
-    const s=snap.val();
-    if(s.currentStage!==undefined && s.currentStage!==state.currentIdx && !state._staffSkipping){
+    const newIdx=snap.val();
+    if(newIdx===null||newIdx===undefined)return;
+    // 初次觸發時記錄當前值，不執行跳關
+    if(_lastKnownStage===state.currentIdx&&newIdx===state.currentIdx){
+      _lastKnownStage=newIdx;return;
+    }
+    if(newIdx!==state.currentIdx&&!state._staffSkipping){
       state._staffSkipping=true;
-      const newIdx=s.currentStage;
-      const isFinished=s.status==='finished';
-      const t=document.createElement('div');
-      t.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1a7a40;color:white;padding:10px 22px;border-radius:14px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);white-space:nowrap';
-      t.textContent=isFinished?'🏆 工作人員已協助完賽！':'⏭️ 工作人員協助過關，跳往下一關...';
-      document.body.appendChild(t);
-      setTimeout(()=>{
-        t.remove();
-        state._staffSkipping=false;
-        if(isFinished){
-          state.score=s.score||state.score;
-          showFinish();
-        } else {
-          state.currentIdx=newIdx;
-          state.score=s.score||state.score;
-          state.hintUsed=0;
-          document.getElementById('currentScore').textContent=`${state.score} 分`;
-          renderStage();
-        }
-      },2000);
+      _lastKnownStage=newIdx;
+      // 取得最新分數
+      get(ref(db,`sessions/${state.sessionKey}/score`)).then(scoreSnap=>{
+        const newScore=scoreSnap.val()||state.score;
+        // 取得 status 判斷是否完賽
+        get(ref(db,`sessions/${state.sessionKey}/status`)).then(statusSnap=>{
+          const isFinished=statusSnap.val()==='finished';
+          const t=document.createElement('div');
+          t.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1a7a40;color:white;padding:10px 22px;border-radius:14px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);white-space:nowrap';
+          t.textContent=isFinished?'🏆 工作人員已協助完賽！':'⏭️ 工作人員協助過關，跳往下一關...';
+          document.body.appendChild(t);
+          setTimeout(()=>{
+            t.remove();
+            state._staffSkipping=false;
+            if(isFinished){
+              state.score=newScore;
+              showFinish();
+            } else {
+              state.currentIdx=newIdx;
+              state.score=newScore;
+              state.hintUsed=0;
+              document.getElementById('currentScore').textContent=`${state.score} 分`;
+              renderStage();
+            }
+          },2000);
+        });
+      });
     }
   });
 }
@@ -1373,11 +1388,29 @@ async function recordGPSLog(lat,lng,dist,passed,stageIdx){
 
 function useHint(){
   const stage=state.stages[state.currentIdx];
-  const maxHint=2;
-  if(state.hintUsed>=maxHint)return;
+  const maxHint=parseInt(state.settings.hintAfter)||2;// 從設定讀取
+  if(state.hintUsed>=maxHint){
+    // 已用完提示次數
+    const hintArea=document.getElementById('hintArea');
+    if(hintArea&&!hintArea.querySelector('.hint-used-up')){
+      const msg=document.createElement('div');msg.className='hint-box hint-used-up';
+      msg.textContent='💡 提示次數已用完';hintArea.appendChild(msg);
+    }
+    return;
+  }
   const hints=[stage.hints?.h1,stage.hints?.h2].filter(Boolean);
   const hint=hints[state.hintUsed];
-  if(!hint){alert('此關沒有設定提示');return;}
+  if(!hint){
+    // 此關沒有設定提示，顯示在畫面上
+    const hintArea=document.getElementById('hintArea');
+    if(hintArea&&!hintArea.querySelector('.hint-none')){
+      const msg=document.createElement('div');msg.className='hint-box hint-none';
+      const label=document.createElement('div');label.className='hint-label';label.textContent='💡 系統提示';
+      const text=document.createElement('div');text.textContent='此關卡尚未設定提示，請繼續思考或使用求救功能！';
+      msg.appendChild(label);msg.appendChild(text);hintArea.appendChild(msg);
+    }
+    return;
+  }
   state.hintUsed++;
   const penalty=state.scoring.hintPenalty||5;
   state.score=Math.max(0,state.score-penalty);
