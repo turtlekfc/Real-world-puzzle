@@ -930,9 +930,10 @@ async function startGame(){
     state.score=0;state.helpUsed=0;state.hintUsed=0;
     state.gameStartTime=Date.now();state.gpsLogCount=0;state.photoFailCount=0;
     state.waitingToStart=false;
-    const sessRef=push(ref(db,'sessions'));
-    state.sessionKey=sessRef.key;
-    await set(sessRef,{
+    // 產生唯一 session key（不用 push 避開根節點寫入限制）
+    const newSessKey=state.teamKey+'_'+Date.now();
+    state.sessionKey=newSessKey;
+    await set(ref(db,'sessions/'+newSessKey),{
       teamKey:state.teamKey,teamName:state.teamName,
       startTime:serverTimestamp(),startTimeMs:Date.now(),currentStage:0,
       totalStages:state.stages.length,stageOrder:state.stages.map(s=>s.key),
