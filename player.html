@@ -907,7 +907,13 @@ async function startGame(){
     startCountdown(cfg.activityEndTime);
     listenForHelpReplies();
     listenSessionForceLogout();// 監聽此 session 的個別強制登出
-    renderStage();
+    // 顯示第一關位置提示（若有設定）
+    const firstStage=state.stages[0];
+    if(firstStage&&firstStage.nextHint){
+      showFirstStageHint(firstStage.nextHint,firstStage.title||'第1關',()=>renderStage());
+    } else {
+      renderStage();
+    }
   }catch(e){
     hideLoading();
     // 顯示錯誤，讓玩家可以重試
@@ -1539,6 +1545,32 @@ async function overlayNotifyConfirm(){
 
 // ── 故事系統 ──
 
+// 活動開始：顯示第一關位置提示
+function showFirstStageHint(hint, stageName, onClose){
+  if(!hint){onClose();return;}
+  const popup=document.getElementById('storyPopup');
+  const tag=document.getElementById('storyPopupTag');
+  const body=document.getElementById('storyPopupBody');
+  const nextHintBox=document.getElementById('storyNextHintBox');
+  const nextHintText=document.getElementById('storyNextHintText');
+  const btnNext=document.getElementById('btnStoryNext');
+  const btnClose=document.getElementById('btnStoryClose');
+  tag.className='story-popup-tag intro';
+  tag.textContent='🏁 活動開始！';
+  body.textContent='';
+  nextHintBox.classList.remove('hidden');
+  nextHintText.textContent=hint;
+  // 修改 hint-label 文字
+  const hintLabel=nextHintBox.querySelector('.hint-label');
+  if(hintLabel)hintLabel.textContent='🗺️ 第一關位置';
+  btnNext.classList.remove('hidden');
+  btnNext.textContent='🚀 出發！';
+  btnClose.classList.add('hidden');
+  popup.classList.remove('hidden');
+  popup._onClose=onClose;
+}
+window.showFirstStageHint=showFirstStageHint;
+
 // 顯示開場故事（到達後、答題前）
 function showStoryIntro(stage, onClose){
   if(!stage.storyIntro){onClose();return;}
@@ -1562,14 +1594,14 @@ function showStoryIntro(stage, onClose){
   popup._onClose=onClose;
 }
 
-// 顯示過關故事 + 下一關指引（答對後）
-function showStoryOutro(stage, isLast, onClose){
+// 顯示過關故事 + 下一關位置提示（答對後）
+// nextStageHint = 下一關的 nextHint（位置提示），由 closeFeedback 傳入
+function showStoryOutro(stage, isLast, nextStageHint, onClose){
   const hasOutro=!!(stage.storyOutro);
-  const hasNext=!!(stage.nextHint);
-  if(!hasOutro&&!hasNext){onClose();return;}
+  const hasNextHint=!!nextStageHint&&!isLast;
+  if(!hasOutro&&!hasNextHint&&!isLast){onClose();return;}
   const popup=document.getElementById('storyPopup');
   const tag=document.getElementById('storyPopupTag');
-  const title=document.getElementById('storyPopupTitle');
   const body=document.getElementById('storyPopupBody');
   const nextHintBox=document.getElementById('storyNextHintBox');
   const nextHintText=document.getElementById('storyNextHintText');
@@ -1577,21 +1609,22 @@ function showStoryOutro(stage, isLast, onClose){
   const btnClose=document.getElementById('btnStoryClose');
   tag.className='story-popup-tag outro';
   tag.textContent='🎉 關卡完成';
-  title.textContent='';
   body.textContent=stage.storyOutro||'';
-  // 下一關指引
-  if(hasNext&&!isLast){
-    nextHintBox.classList.remove('hidden');
-    nextHintText.textContent=stage.nextHint;
-    btnNext.classList.remove('hidden');
-    btnNext.textContent='🚀 出發！';
-    btnClose.classList.add('hidden');
-  } else if(isLast){
+  if(isLast){
+    // 最後一關：無位置提示，只有完賽按鈕
     nextHintBox.classList.add('hidden');
     btnNext.classList.add('hidden');
     btnClose.classList.remove('hidden');
     btnClose.textContent='🏆 前往完賽頁面';
+  } else if(hasNextHint){
+    // 有下一關位置提示
+    nextHintBox.classList.remove('hidden');
+    nextHintText.textContent=nextStageHint;
+    btnNext.classList.remove('hidden');
+    btnNext.textContent='🚀 出發！';
+    btnClose.classList.add('hidden');
   } else {
+    // 無位置提示，直接前往下一關
     nextHintBox.classList.add('hidden');
     btnNext.classList.remove('hidden');
     btnNext.textContent='➡️ 前往下一關';
@@ -1946,10 +1979,13 @@ function closeFeedback(){
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageSec`),state.stageSeconds);
     const currentStage=state.stages[state.currentIdx];
     const isLast=(state.currentIdx+1>=state.stages.length);
+    // 取得下一關的位置提示（nextHint 代表「本關位置提示」，在進此關前顯示）
+    const nextStage=!isLast?state.stages[state.currentIdx+1]:null;
+    const nextStageHint=nextStage?.nextHint||'';
     state.currentIdx++;state.hintUsed=0;
-    // 有過關故事或下一關指引 → 先顯示彈窗再跳轉
-    if(currentStage&&(currentStage.storyOutro||currentStage.nextHint)){
-      showStoryOutro(currentStage,isLast,()=>{
+    // 有過關故事、下一關位置提示，或是最後一關 → 顯示彈窗
+    if(currentStage&&(currentStage.storyOutro||nextStageHint||isLast)){
+      showStoryOutro(currentStage,isLast,nextStageHint,()=>{
         if(isLast){showFinish();}
         else{renderStage();}
       });

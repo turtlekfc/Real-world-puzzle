@@ -241,7 +241,6 @@ window.verifyMasterPass = function(){
 window.doApprove = async function() {
   const passBtn = document.getElementById('passBtn');
   const rejectBtn = document.getElementById('rejectBtn');
-  if(passBtn.disabled) return;// 防重複點擊
   passBtn.disabled = true; rejectBtn.disabled = true;
   passBtn.textContent = '確認中...';
   try {
