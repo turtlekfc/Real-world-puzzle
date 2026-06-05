@@ -1196,8 +1196,9 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <textarea id="fStoryOutro" rows="3" placeholder="例：你解開了謎題，發現石板上刻著一個神秘符號，這是前往下一關的鑰匙...（留空則跳過）"></textarea>
       </div>
       <div class="form-group">
-        <label>🗺️ 下一關指引（過關後顯示，告訴玩家往哪走）</label>
-        <input type="text" id="fNextHint" placeholder="例：帶著這個符號，前往海螺館正門口左邊的大石頭旁（留空則跳過）"/>
+        <label>🗺️ 本關位置提示（活動開始或上一關結束後顯示，告訴玩家「這一關在哪裡」）</label>
+        <input type="text" id="fNextHint" placeholder="例：請前往海螺館正門口左邊的大石頭旁（留空則跳過）"/>
+        <div style="font-size:11px;color:var(--text-light);margin-top:3px">💡 系統會在進入此關前自動顯示給玩家，隨機路線也會正確對應</div>
       </div>
     </div>
 
@@ -1485,11 +1486,14 @@ function executeConfirm(){
 // 快速清除（不需要輸入文字）
 window.quickClearAll=quickClearAll;
 async function quickClearAll(){
-  if(!confirm('⚠️ 確定要清除所有闖關資料嗎？\n\n這會刪除：\n• 所有隊伍分數和進度\n• 所有玩家照片\n\n此操作無法還原！'))return;
+  if(!confirm('⚠️ 確定要清除所有闖關資料嗎？\n\n這會刪除：\n• 所有隊伍分數和進度\n• 所有玩家照片\n• 廣播紀錄\n\n此操作無法還原！'))return;
   try{
     toast('🗑️ 清除中...');
     await set(ref(db,'sessions'),null);
     sessions={};
+    // 清除廣播紀錄
+    await set(ref(db,'config/broadcastHistory'),null).catch(()=>{});
+    await set(ref(db,'config/broadcast'),null).catch(()=>{});
     // 清除照片
     let photoCount=0;
     try{
@@ -1508,7 +1512,8 @@ async function quickClearAll(){
     if(document.getElementById('tab-photos')?.classList.contains('active'))loadPhotos();
     if(document.getElementById('tab-stats')?.classList.contains('active'))loadStats();
     if(document.getElementById('tab-export')?.classList.contains('active'))loadExport();
-    toast(`✅ 清除完成！（${photoCount} 張照片已刪除）`);
+    if(document.getElementById('tab-broadcast')?.classList.contains('active'))loadBroadcastHistory();
+    toast(`✅ 清除完成！（sessions、廣播、${photoCount} 張照片已刪除）`);
   }catch(e){
     toast('❌ 清除失敗：'+e.message);
     console.error('清除失敗:',e);
