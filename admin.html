@@ -387,7 +387,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <p>實境解謎活動管理系統</p>
     <button class="btn-google" onclick="signInWithGoogle()">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"/>
-      使用 Google 帳號登入（工作人員）
+      使用 Google 帳號登入（策劃人員）
     </button>
     <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
       <div style="flex:1;height:1px;background:#eee"></div>
@@ -397,7 +397,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div id="stageMasterLoginArea">
       <input type="password" id="stageMasterPassInput" placeholder="輸入關主密碼" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;font-family:'Noto Sans TC',sans-serif;outline:none;margin-bottom:10px"/>
       <button onclick="signInWithStageMasterPass()" style="width:100%;padding:12px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
-        🔑 關主密碼登入
+        🔑 總關主密碼登入
       </button>
     </div>
     <div class="login-err" id="loginErr"></div>
@@ -643,7 +643,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <select id="settingHintAfter"><option value="0">不提供</option><option value="1">1次/關</option><option value="2" selected>2次/關</option><option value="3">3次/關</option></select>
           </div>
           <div class="form-group"><label>路線模式</label>
-            <select id="settingRouteMode"><option value="random">隨機</option><option value="fixed">固定</option></select>
+            <select id="settingRouteMode"><option value="random">隨機</option><option value="fixed">固定順序</option></select>
           </div>
           <div class="form-group"><label>GPS失敗處理</label>
             <select id="settingGpsFail"><option value="block">阻擋</option><option value="allow">允許跳過</option></select>
@@ -831,16 +831,22 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <!-- 帳號 -->
     <div id="tab-users" class="tab-content">
       <div class="page-header"><div class="page-header-left"><h1>👥 帳號管理</h1></div></div>
+      <div style="font-size:11px;color:var(--text-light);margin-bottom:10px;padding:8px 12px;background:#f8f4ff;border:1px solid #d0b0f0;border-radius:8px;line-height:1.8">
+        👑 <b>超級管理者</b>：全部權限，可管理所有角色（包括主帳號）<br>
+        🎯 <b>活動主帳號</b>：全部功能，但不能修改其他主帳號或超級管理者<br>
+        👷 <b>策劃人員</b>：監控、求救、廣播、驗證過關<br>
+        🔑 <b>總關主</b>：GPS查看、監控、驗證過關
+      </div>
       <div class="add-user-form">
         <h3>➕ 新增人員</h3>
         <div class="form-row">
-          <div class="form-group"><label>姓名</label><input type="text" id="newUserName" placeholder="工作人員姓名"/></div>
+          <div class="form-group"><label>姓名</label><input type="text" id="newUserName" placeholder="策劃人員姓名"/></div>
           <div class="form-group"><label>Gmail</label><input type="email" id="newUserEmail" placeholder="example@gmail.com"/></div>
         </div>
         <div class="form-group"><label>權限角色</label>
           <select id="newUserRole">
-            <option value="staff">👷 工作人員（監控+求救）</option>
-            <option value="stagemaster">🔑 關主（確認玩家過關）</option>
+            <option value="staff">👷 策劃人員（監控+求救+驗證）</option>
+            <option value="stagemaster">🔑 總關主（確認玩家過關）</option>
             <option value="host">🎯 活動主帳號（管理關卡+設定）</option>
           </select>
         </div>
@@ -859,8 +865,8 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <th>功能</th>
             <th>👑 超級管理者</th>
             <th>🎯 活動主帳號</th>
-            <th>🔑 關主</th>
-            <th>👷 工作人員</th>
+            <th>🔑 總關主</th>
+            <th>👷 策劃人員</th>
           </tr></thead>
           <tbody>
             <tr><td>帳號管理</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
@@ -880,7 +886,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         </table>
         </div>
         <div style="margin-top:14px;padding:12px;background:var(--primary-pale);border-radius:10px;font-size:12px;color:var(--primary);line-height:1.7">
-          <b>🔑 關主說明：</b>現場關主使用手機登入後台，在「求救管理」中即時回覆求救，並可查看各隊伍進度。
+          <b>🔑 總關主說明：</b>現場關主使用手機登入後台，在「求救管理」中即時回覆求救，並可查看各隊伍進度。
           如果是「關主確認關卡」，由玩家輸入密碼過關（不需要關主在後台按確認）。
         </div>
       </div>
@@ -907,9 +913,30 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div class="card">
         <div class="card-title" style="margin-bottom:12px">匯出選項</div>
         <div class="flex gap-8" style="flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="exportCSV()">📊 匯出 CSV</button>
+          <button class="btn btn-primary" onclick="exportCSV()">📊 匯出 CSV（成績）</button>
           <button class="btn btn-ghost" onclick="exportGPSLog()">📍 匯出 GPS</button>
-          <button class="btn btn-ghost" onclick="exportJSON()">🗂️ 匯出 JSON</button>
+          <button class="btn btn-ghost" onclick="exportJSON()">🗂️ 匯出 JSON（含關卡）</button>
+          <button class="btn btn-purple" onclick="exportStagesJSON()">📋 匯出關卡設定</button>
+          <button class="btn btn-ghost" onclick="exportSettingsJSON()">⚙️ 匯出活動設定</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:8px">📥 匯入功能</div>
+        <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;line-height:1.7">
+          匯入 JSON 檔案，可還原關卡設定或活動設定。<br>
+          ⚠️ 匯入關卡會<b>覆蓋</b>現有關卡；匯入設定會<b>覆蓋</b>現有設定，請確認後再執行。
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:5px">📋 匯入關卡設定</div>
+            <input type="file" id="importStagesFile" accept=".json" style="font-size:12px"/>
+            <button class="btn btn-warn btn-sm" style="margin-top:6px;width:100%" onclick="importStagesJSON()">匯入關卡</button>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:5px">⚙️ 匯入活動設定</div>
+            <input type="file" id="importSettingsFile" accept=".json" style="font-size:12px"/>
+            <button class="btn btn-warn btn-sm" style="margin-top:6px;width:100%" onclick="importSettingsJSON()">匯入設定</button>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -1027,6 +1054,16 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div class="form-group" style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="fRequirePhoto" style="width:auto;padding:0"/>
         <label for="fRequirePhoto" style="margin:0;cursor:pointer">📌 此關需同時拍照上傳</label>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="fFixedFirst" style="width:auto;padding:0"/>
+          <label for="fFixedFirst" style="margin:0;cursor:pointer;font-size:12px">🏁 固定為第一關（隨機模式也優先）</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="fFixedLast" style="width:auto;padding:0"/>
+          <label for="fFixedLast" style="margin:0;cursor:pointer;font-size:12px">🏆 固定為最後一關（隨機模式也最後）</label>
+        </div>
       </div>
     </div>
 
@@ -1181,7 +1218,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       </div>
       <div id="overlayConfirmSection" class="hidden">
         <div class="form-group">
-          <label>🔑 關主密碼（可選）</label>
+          <label>🔑 總關主密碼（可選）</label>
           <input type="text" id="fOverlayMasterPass" placeholder="留空則不需要密碼"/>
         </div>
       </div>
@@ -1233,7 +1270,7 @@ import { getDatabase, ref, get, set, push, remove, onValue, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject, listAll }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged }
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig={apiKey:"AIzaSyA51pVs3QZJ3p6eIeVpMVOGqFlNXExEjKo",authDomain:"real-world-puzzle-d5efc.firebaseapp.com",databaseURL:"https://real-world-puzzle-d5efc-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"real-world-puzzle-d5efc",storageBucket:"real-world-puzzle-d5efc.firebasestorage.app",messagingSenderId:"25902212869",appId:"1:25902212869:web:8955631b9c9395233a796c"};
@@ -1300,8 +1337,8 @@ async function signInWithStageMasterPass(){
 
   // 讀取所有關卡，找對應密碼
   try{
-    // 用頂層已 import 的 auth 匿名登入
-    await signInAnonymously(auth).catch(()=>{});
+    // 確保匿名登入完成後再讀取關卡（需要 auth）
+    try{ await signInAnonymously(auth); }catch(e){ /* 已登入則忽略 */ }
 
     const snap = await get(ref(db,'stages'));
     if(!snap.exists()){errEl.textContent='⚠️ 尚未建立關卡';return;}
@@ -1327,7 +1364,7 @@ async function signInWithStageMasterPass(){
     smState = {stageKey:foundKey, stageIdx:foundIdx, stageName:found.title||`第${foundIdx+1}關`, stagePass:pass};
     document.getElementById('stageMasterPage').style.display='block';
     document.getElementById('loginPage').style.display='none';
-    document.getElementById('smTitle').textContent=`🔑 關主頁面`;
+    document.getElementById('smTitle').textContent=`🔑 總關主頁面`;
     document.getElementById('smStageInfo').textContent=`負責：${smState.stageName}（第${foundIdx+1}關）`;
     smRefresh();
     // 每30秒自動刷新
@@ -1495,7 +1532,11 @@ async function quickClearAll(){
   if(!confirm('⚠️ 確定要清除所有闖關資料嗎？\n\n這會刪除：\n• 所有隊伍分數和進度\n• 所有玩家照片\n• 廣播紀錄\n\n此操作無法還原！'))return;
   try{
     toast('🗑️ 清除中...');
-    await set(ref(db,'sessions'),null);
+    // 逐一刪除各 session（$sessionId 層級允許寫入，避開根節點限制）
+    const sessSnapQ=await get(ref(db,'sessions'));
+    if(sessSnapQ.exists()){
+      await Promise.allSettled(Object.keys(sessSnapQ.val()).map(k=>set(ref(db,`sessions/${k}`),null)));
+    }
     sessions={};
     // 清除廣播紀錄
     await set(ref(db,'config/broadcastHistory'),null).catch(()=>{});
@@ -1694,7 +1735,7 @@ async function proceedToAdmin(){
   document.getElementById('adminPage').style.display='block';
   const displayName=currentUser.displayName||currentUser.email;
   document.getElementById('userName').textContent=displayName;
-  const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 關主',staff:'👷 工作人員'};
+  const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 總關主',staff:'👷 策劃人員'};
   document.getElementById('userRoleLabel').textContent=roleLabels[currentRole]||currentRole;
   // 手機頂部bar
   const mobileUserEl=document.getElementById('mobileUserName');
@@ -1702,7 +1743,10 @@ async function proceedToAdmin(){
   // 顯示admin頁、隱藏手機導覽依角色控制
   document.getElementById('mobileBottomNav').style.display='';
   document.getElementById('mobileTopBar').style.display='';
-  if(currentUser.photoURL)document.getElementById('userAvatar').innerHTML=`<img src="${currentUser.photoURL}" alt=""/>`;
+  if(currentUser.photoURL&&currentUser.photoURL.startsWith('https://')){
+    const img=document.getElementById('userAvatar');
+    if(img){img.innerHTML='';const i=document.createElement('img');i.src=currentUser.photoURL;i.alt='';i.referrerPolicy='no-referrer';img.appendChild(i);}
+  }
   if(currentRole==='super')set(ref(db,`config/users/${currentUser.uid}`),{email:currentUser.email,name:currentUser.displayName||currentUser.email,role:'super',photoURL:currentUser.photoURL||'',lastLogin:serverTimestamp()});
   applyRolePermissions(currentRole);
   timeoutTimer=setInterval(()=>{if(Date.now()-loginTime>2*60*60*1000)document.getElementById('timeoutBar').style.display='flex';},60000);
@@ -1742,8 +1786,8 @@ function applyRolePermissions(role){
   const roleDesc={
     super:'👑 超級管理者・全部功能',
     host:'🎯 活動主帳號・管理+監控',
-    stagemaster:'🔑 關主・監控+求救+確認過關',
-    staff:'👷 工作人員・監控+求救'
+    stagemaster:'🔑 總關主・GPS查看+監控+驗證過關',
+    staff:'👷 策劃人員・監控+求救'
   };
   const bar=document.getElementById('roleInfoBar');
   if(bar)bar.textContent=roleDesc[role]||role;
@@ -1832,8 +1876,11 @@ async function forceLogoutAll(){
       try{
         // 寫入強制登出旗標，玩家端即時偵測到後自動登出
         await set(ref(db,'config/forceLogout'),{ts:Date.now(),by:currentUser.email||'admin'});
-        // 清除所有 sessions（分數、進度歸零），解除「隊伍已在闖關中」封鎖
-        await set(ref(db,'sessions'),null);
+        // 逐一刪除各 session（避開根節點 Rules 限制）
+        const allSessSnap=await get(ref(db,'sessions'));
+        if(allSessSnap.exists()){
+          await Promise.allSettled(Object.keys(allSessSnap.val()).map(k=>set(ref(db,`sessions/${k}`),null)));
+        }
         toast('✅ 所有隊伍已被強制重置！隊伍可重新登入從頭開始');
         loadSessions();
       }catch(e){toast('❌ 操作失敗：'+e.message);}
@@ -1844,6 +1891,31 @@ async function forceLogoutAll(){
 // 只重置特定隊伍（隊伍卡片用）
 window.forceLogoutTeam=forceLogoutTeam;
 window.showSkipStageDialog=showSkipStageDialog;
+window.monitorApproveStage=monitorApproveStage;
+window.monitorRejectStage=monitorRejectStage;
+
+// 監控頁直接確認過關（host/super/staff 都可用）
+async function monitorApproveStage(sessKey, stageIdx, teamName){
+  if(!confirm(`確認讓「${teamName}」通過此關？`))return;
+  try{
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmed`),true);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedAt`),serverTimestamp());
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedBy`),currentUser?.email||'管理者');
+    toast(`✅「${teamName}」已確認通過！`);
+    loadSessions();
+  }catch(e){toast('❌ 操作失敗：'+e.message);}
+}
+
+async function monitorRejectStage(sessKey, stageIdx, teamName){
+  if(!confirm(`確認退回「${teamName}」的過關申請？`))return;
+  try{
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/rejected`),true);
+    toast(`「${teamName}」已退回，請重新完成關卡`);
+    loadSessions();
+  }catch(e){toast('❌ 操作失敗：'+e.message);}
+}
 window.doSkipStage=doSkipStage;
 
 function showSkipStageDialog(sessKey, teamName, sessData){
@@ -1900,9 +1972,10 @@ async function doSkipStageChoice(sessKey, teamName, sessData, curIdx, isLast, mo
       // 最後一關：標記完賽
       await set(ref(db,`sessions/${sessKey}/status`),'finished');
       await set(ref(db,`sessions/${sessKey}/finishedAt`),serverTimestamp());
+      await set(ref(db,`sessions/${sessKey}/currentStage`),curIdx+1);// 觸發玩家端監聽
       toast(`✅「${teamName}」已協助完賽！`);
     } else {
-      // 前往下一關
+      // 前往下一關（更新 currentStage 觸發 listenStaffSkip）
       await set(ref(db,`sessions/${sessKey}/currentStage`),curIdx+1);
       toast(`✅「${teamName}」已${mode==='pass'?'強制過關':'跳過此關'}，進入第${curIdx+2}關！`);
     }
@@ -1925,21 +1998,25 @@ async function forceLogoutTeam(teamKey,teamName){
   if(!snap.exists()){toast('找不到該隊伍的紀錄');return;}
   let found=false;
   const jobs=[];
+  const keysToDelete=[];
   Object.entries(snap.val()).forEach(([k,s])=>{
     if(s.teamKey===teamKey){
-      // 標記強制登出（玩家端監聽到會自動登出）
+      // 先標記強制登出，讓玩家端可以收到訊號
       jobs.push(set(ref(db,`sessions/${k}/forceLogout`),true));
-      // 延遲 2 秒後刪除整個 session（讓玩家端有時間接收到登出訊號）
-      setTimeout(()=>{
-        set(ref(db,`sessions/${k}/status`),'left');
-      },2000);
+      keysToDelete.push(k);
       found=true;
     }
   });
   if(found){
     await Promise.allSettled(jobs);
-    toast(`✅「${teamName}」已被重置！可重新登入從頭開始`);
-    setTimeout(()=>loadSessions(),2500);
+    // 延遲 2.5 秒後真正刪除 session 資料（讓玩家端有時間接收到登出訊號）
+    setTimeout(async()=>{
+      for(const k of keysToDelete){
+        await set(ref(db,`sessions/${k}`),null).catch(()=>{});
+      }
+      loadSessions();
+    },2500);
+    toast(`✅「${teamName}」已被重置！所有紀錄已清除，可重新登入從頭開始`);
   } else {
     toast(`找不到「${teamName}」的闖關紀錄`);
   }
@@ -2171,17 +2248,47 @@ function renderMonitor(){
     card.querySelector('.t-score').textContent=scoreText;
     // 按鈕區（只在有session且正在闖關時顯示）
     if(sess&&sess.status==='playing'){
+      const sessKey=Object.entries(sessions).find(([k,s])=>s.teamKey===key&&s.status==='playing')?.[0];
+      const tName=cfg.name||`隊伍${i+1}`;
+      // 若此關卡正在等待關主確認，顯示確認按鈕
+      const curLog=(sess.stageLogs||{})[sess.currentStage||0];
+      if(curLog&&curLog.waitingConfirm&&!curLog.confirmed&&!curLog.rejected){
+        const confirmWrap=document.createElement('div');
+        confirmWrap.style.cssText='background:#e8f8f0;border:1.5px solid var(--green);border-radius:10px;padding:8px;margin-top:8px;text-align:center';
+        const confirmMsg=document.createElement('div');
+        confirmMsg.style.cssText='font-size:11px;color:#1a7a40;font-weight:700;margin-bottom:6px';
+        confirmMsg.textContent='⏳ 等待關主確認';
+        const confirmBtnRow=document.createElement('div');
+        confirmBtnRow.style.cssText='display:flex;gap:5px';
+        const approveBtn=document.createElement('button');
+        approveBtn.className='btn btn-success btn-sm';
+        approveBtn.style.cssText='flex:1;font-size:11px';
+        approveBtn.textContent='✅ 確認通過';
+        approveBtn.onclick=()=>monitorApproveStage(sessKey,sess.currentStage||0,tName);
+        const rejectBtn=document.createElement('button');
+        rejectBtn.className='btn btn-danger btn-sm';
+        rejectBtn.style.cssText='flex:1;font-size:11px';
+        rejectBtn.textContent='❌ 退回';
+        rejectBtn.onclick=()=>monitorRejectStage(sessKey,sess.currentStage||0,tName);
+        confirmBtnRow.appendChild(approveBtn);confirmBtnRow.appendChild(rejectBtn);
+        confirmWrap.appendChild(confirmMsg);confirmWrap.appendChild(confirmBtnRow);
+        // 若有照片，加入連結
+        if(curLog.photoUrl){
+          const photoLink=document.createElement('a');
+          photoLink.href=curLog.photoUrl;photoLink.target='_blank';
+          photoLink.style.cssText='font-size:10px;color:var(--primary);display:block;margin-top:4px';
+          photoLink.textContent='📷 查看照片';
+          confirmWrap.appendChild(photoLink);
+        }
+        card.appendChild(confirmWrap);
+      }
       const btnWrap=document.createElement('div');
       btnWrap.style.cssText='display:flex;gap:5px;margin-top:8px';
-      // 協助過關按鈕
       const helpBtn=document.createElement('button');
       helpBtn.className='btn btn-warn btn-sm';
       helpBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px';
       helpBtn.textContent='⏭️ 協助過關';
-      const sessKey=Object.entries(sessions).find(([k,s])=>s.teamKey===key&&s.status==='playing')?.[0];
-      const tName=cfg.name||`隊伍${i+1}`;
       helpBtn.onclick=()=>showSkipStageDialog(sessKey,tName,sess);
-      // 重置按鈕
       const resetBtn=document.createElement('button');
       resetBtn.className='btn btn-danger btn-sm';
       resetBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px';
@@ -2294,6 +2401,8 @@ function openStageModal(){
   // 重置是非題
   const tfTrue=document.getElementById('tfAnswerTrue');if(tfTrue)tfTrue.checked=true;
   const tfReq=document.getElementById('fTFRequirePhoto');if(tfReq)tfReq.checked=false;
+  const ff=document.getElementById('fFixedFirst');if(ff)ff.checked=false;
+  const fl=document.getElementById('fFixedLast');if(fl)fl.checked=false;
   ['fTitle','fDesc','fLocationHint','fHint1','fHint2','fPhotoDesc','fPasscode','fPassStageMasterPass','fConfirmTask','fQRTask','fStageMasterPass','fQRMasterPass','fOverlayTask','fOverlayAIDesc','fOverlayMasterPass','fStoryIntro','fStoryOutro','fNextHint'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const oImgPrev=document.getElementById('overlayImgPreview');if(oImgPrev)oImgPrev.classList.add('hidden');
   const oImgPh=document.getElementById('overlayImgPlaceholder');if(oImgPh)oImgPh.classList.remove('hidden');
@@ -2322,6 +2431,8 @@ function editStage(key){
   const fi=document.getElementById('fStoryIntro');if(fi)fi.value=s.storyIntro||'';
   const fo=document.getElementById('fStoryOutro');if(fo)fo.value=s.storyOutro||'';
   const fn=document.getElementById('fNextHint');if(fn)fn.value=s.nextHint||'';
+  const ffEl=document.getElementById('fFixedFirst');if(ffEl)ffEl.checked=s.fixedFirst||false;
+  const flEl=document.getElementById('fFixedLast');if(flEl)flEl.checked=s.fixedLast||false;
   // 類型相關
   const type=s.stageType||'quiz';
   selectStageType(type);
@@ -2511,6 +2622,8 @@ async function saveStage(){
       storyIntro:(document.getElementById('fStoryIntro')?.value||'').trim(),
       storyOutro:(document.getElementById('fStoryOutro')?.value||'').trim(),
       nextHint:(document.getElementById('fNextHint')?.value||'').trim(),
+      fixedFirst:document.getElementById('fFixedFirst')?.checked||false,
+      fixedLast:document.getElementById('fFixedLast')?.checked||false,
       updatedAt:serverTimestamp(),
     };
     // 類型專屬資料
@@ -2685,18 +2798,21 @@ function renderTeamSettings(){
     const card=document.createElement('div');card.className='team-setting-card';card.style.borderLeftColor=t.color||defaultColors[i];card.setAttribute('data-team',key);
     card.innerHTML=`<label>隊伍 ${i+1} 名稱</label><input type="text" id="tName${key}" placeholder="${defaultEmojis[i]} ${defaultNames[i]}"/>
       <div class="form-row" style="margin-top:7px"><div><label>密碼</label><input type="text" id="tPass${key}" placeholder="隊伍密碼"/></div>
-      <div><label>顏色</label><input type="color" id="tColor${key}" value="${t.color||defaultColors[i]}" onchange="document.querySelector('[data-team=${key}]').style.borderLeftColor=this.value"/></div></div>`;
+      <div><label>顏色</label><input type="color" id="tColor${key}" value="${t.color||defaultColors[i]}" onchange="document.querySelector('[data-team=${key}]').style.borderLeftColor=this.value"/></div></div>
+      <div style="margin-top:7px"><label style="display:flex;align-items:center;gap:4px">🗺️ 自訂跑關順序 <span style="font-size:10px;color:var(--text-light);font-weight:400">（填關卡順序號碼，逗號分隔，例：3,1,2）</span></label>
+      <input type="text" id="tOrder${key}" placeholder="留空則依路線模式（隨機/固定）" style="font-size:12px"/></div>`;
     grid.appendChild(card);
     document.getElementById(`tName${key}`).value=t.name||`${defaultEmojis[i]} ${defaultNames[i]}`;
     document.getElementById(`tPass${key}`).value=t.password||'';
     document.getElementById(`tColor${key}`).value=t.color||defaultColors[i];
+    document.getElementById(`tOrder${key}`).value=t.customOrder||'';
   }
 }
 
 async function saveSettings(){
   const count=parseInt(document.getElementById('settingTeamCount').value)||4;
   const teams={};
-  for(let i=0;i<count;i++){const key=`team${i+1}`;teams[key]={name:document.getElementById(`tName${key}`).value.trim()||`隊伍${i+1}`,password:document.getElementById(`tPass${key}`).value.trim()||'1234',color:document.getElementById(`tColor${key}`).value};}
+  for(let i=0;i<count;i++){const key=`team${i+1}`;teams[key]={name:document.getElementById(`tName${key}`).value.trim()||`隊伍${i+1}`,password:document.getElementById(`tPass${key}`).value.trim()||'1234',color:document.getElementById(`tColor${key}`).value,customOrder:document.getElementById(`tOrder${key}`)?.value.trim()||''};}
   let finalLogoUrl=logoUrl||settingsData.logoUrl||'';
   if(logoFile){try{const path=`logos/logo_${Date.now()}.${logoFile.name.split('.').pop()}`;const snap=await uploadBytes(sRef(storage,path),logoFile);finalLogoUrl=await getDownloadURL(snap.ref);logoFile=null;logoUrl=finalLogoUrl;}catch(e){toast('⚠️ LOGO上傳失敗');}}
   let finalBannerUrl=bannerUrl||settingsData.bannerUrl||'';
@@ -2861,7 +2977,7 @@ async function loadUsers(){
     const snap=await get(ref(db,'config/users'));const users=snap.val()||{};
     if(!Object.keys(users).length){list.innerHTML='<div class="text-muted text-sm">尚無人員</div>';return;}
     list.innerHTML='';
-    const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 關主',staff:'👷 工作人員'};
+    const roleLabels={super:'👑 超級管理者',host:'🎯 活動主帳號',stagemaster:'🔑 總關主',staff:'👷 策劃人員'};
     const roleClass={super:'super',host:'host',stagemaster:'stagemaster',staff:'staff'};
     Object.entries(users).forEach(([uid,u])=>{
       const isSelf=currentUser&&uid===currentUser.uid;const isSuper=u.role==='super';
@@ -2873,8 +2989,8 @@ async function loadUsers(){
         <div class="user-item-info"><div class="user-item-name"></div><div class="user-item-email"></div></div>
         <div class="user-item-actions"><span class="role-tag ${roleClass[u.role]||'staff'}"></span>
         ${!isSelf&&!isSuper&&(currentRole==='super'||currentRole==='host')&&u.role!=='super'?`<select class="role-select" onchange="updateUserRole('${uid}',this.value)">
-          <option value="staff" ${u.role==='staff'?'selected':''}>👷 工作人員</option>
-          <option value="stagemaster" ${u.role==='stagemaster'?'selected':''}>🔑 關主</option>
+          <option value="staff" ${u.role==='staff'?'selected':''}>👷 策劃人員</option>
+          <option value="stagemaster" ${u.role==='stagemaster'?'selected':''}>🔑 總關主</option>
           ${currentRole==='super'?`<option value="host" ${u.role==='host'?'selected':''}>🎯 主帳號</option>`:''}
         </select><button class="btn btn-danger btn-sm" onclick="removeUser('${uid}')">移除</button>`:''}
         </div>`;
@@ -2903,8 +3019,13 @@ async function addUser(){
   loadUsers();
 }
 async function removeUser(uid){
+  // 先取得目標角色
+  const checkSnap=await get(ref(db,`config/users/${uid}`));
+  const targetRole=checkSnap.exists()?checkSnap.val().role:'';
+  // host 不能移除其他 host，任何人不能移除 super
+  if(targetRole==='super'){toast('⛔ 無法移除超級管理者');return;}
+  if(currentRole==='host'&&targetRole==='host'){toast('⚠️ 活動主帳號無法移除其他主帳號');return;}
   if(!confirm('確定要移除此人員嗎？'))return;
-  // 同時刪除 config/users 和 emailWhitelist
   const snap=await get(ref(db,`config/users/${uid}`));
   if(snap.exists()){
     const u=snap.val();
@@ -2918,8 +3039,11 @@ async function removeUser(uid){
   loadUsers();
 }
 async function updateUserRole(uid,role){
+  // host 不能設定 host 或 super 角色
+  if(currentRole==='host'&&(role==='host'||role==='super')){
+    toast('⚠️ 活動主帳號無法指定主帳號或超級管理者角色');return;
+  }
   await set(ref(db,`config/users/${uid}/role`),role);
-  // 同步更新 emailWhitelist
   const snap=await get(ref(db,`config/users/${uid}`));
   if(snap.exists()&&snap.val().email){
     const emailHash=await sha256(snap.val().email.toLowerCase());
@@ -2997,6 +3121,94 @@ function exportJSON(){
   const safeStages={};Object.entries(stagesData).forEach(([k,v])=>{const{answerIndex,...safe}=v;safeStages[k]=safe;});
   downloadFile('解謎紀錄.json',JSON.stringify({exportedAt:new Date().toISOString(),sessions,stages:safeStages},null,2),'application/json');toast('✅ JSON已下載');
 }
+// ── 單獨匯出關卡設定 ──
+async function exportStagesJSON(){
+  const snap=await get(ref(db,'stages'));
+  if(!snap.exists()){toast('尚無關卡資料');return;}
+  const stages=snap.val();
+  // 移除 answerIndex（答案保密）
+  const safeStages={};
+  Object.entries(stages).forEach(([k,v])=>{
+    const{answerIndex,...safe}=v;
+    safeStages[k]=safe;
+  });
+  const data={exportedAt:new Date().toISOString(),type:'stages',stages:safeStages};
+  downloadFile('關卡設定_'+new Date().toLocaleDateString('zh-TW')+'.json',
+    JSON.stringify(data,null,2),'application/json');
+  toast('✅ 關卡設定已匯出');
+}
+window.exportStagesJSON=exportStagesJSON;
+
+// ── 單獨匯出活動設定 ──
+async function exportSettingsJSON(){
+  const snap=await get(ref(db,'config/settings'));
+  const data={exportedAt:new Date().toISOString(),type:'settings',settings:snap.val()||{}};
+  downloadFile('活動設定_'+new Date().toLocaleDateString('zh-TW')+'.json',
+    JSON.stringify(data,null,2),'application/json');
+  toast('✅ 活動設定已匯出');
+}
+window.exportSettingsJSON=exportSettingsJSON;
+
+// ── 匯入關卡設定 ──
+async function importStagesJSON(){
+  const file=document.getElementById('importStagesFile').files[0];
+  if(!file){toast('請先選擇 JSON 檔案');return;}
+  if(!confirm('⚠️ 確定要匯入關卡設定嗎？\n\n這將覆蓋現有的所有關卡！\n建議先匯出備份。'))return;
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    let stages=null;
+    if(data.type==='stages'&&data.stages){
+      stages=data.stages;
+    } else if(data.stages){
+      stages=data.stages;// 相容完整JSON匯出
+    } else {
+      // 直接是 stages 物件
+      stages=data;
+    }
+    if(!stages||typeof stages!=='object'){toast('❌ 格式錯誤，找不到關卡資料');return;}
+    // 重新計算 answerHash
+    let count=0;
+    for(const[k,s] of Object.entries(stages)){
+      if(s.answerIndex!==undefined){
+        s.answerHash=await sha256(`${k}_${s.answerIndex}`);
+      }
+      await set(ref(db,`stages/${k}`),s);
+      count++;
+    }
+    toast(`✅ 已匯入 ${count} 個關卡！`);
+    loadStages();
+    document.getElementById('importStagesFile').value='';
+  }catch(e){toast('❌ 匯入失敗：'+e.message);console.error(e);}
+}
+window.importStagesJSON=importStagesJSON;
+
+// ── 匯入活動設定 ──
+async function importSettingsJSON(){
+  const file=document.getElementById('importSettingsFile').files[0];
+  if(!file){toast('請先選擇 JSON 檔案');return;}
+  if(!confirm('⚠️ 確定要匯入活動設定嗎？\n\n這將覆蓋現有的活動設定（含隊伍、分數、主題等）！'))return;
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    let settings=null;
+    if(data.type==='settings'&&data.settings){
+      settings=data.settings;
+    } else if(data.settings){
+      settings=data.settings;
+    } else {
+      settings=data;
+    }
+    if(!settings||typeof settings!=='object'){toast('❌ 格式錯誤，找不到設定資料');return;}
+    await set(ref(db,'config/settings'),settings);
+    settingsData=settings;
+    toast('✅ 活動設定已匯入！');
+    loadSettings();
+    document.getElementById('importSettingsFile').value='';
+  }catch(e){toast('❌ 匯入失敗：'+e.message);console.error(e);}
+}
+window.importSettingsJSON=importSettingsJSON;
+
 function downloadFile(name,content,type){const blob=new Blob(['\uFEFF'+content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
 </script>
 </body>
