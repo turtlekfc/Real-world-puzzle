@@ -1019,7 +1019,7 @@ function showWaitScreen(cfg,teamCfg){
   document.getElementById('waitTeamName').textContent=state.teamName;
   document.getElementById('infoTeamName').textContent=state.teamName;
   document.getElementById('infoStageCount').textContent=`${state.stages.length} 關`;
-  document.getElementById('infoHelpTimes').textContent=`${cfg.helpMaxTimes??2} 次`;
+  document.getElementById('infoHelpTimes').textContent=`${cfg.helpMaxTimes||2} 次`;
   // LOGO
   if(cfg.logoUrl){const img=document.getElementById('waitHeaderLogo');img.src=cfg.logoUrl;img.classList.remove('hidden');}
   // 故事
@@ -1197,7 +1197,7 @@ function renderStage(){
   const letters=['A','B','C','D'];
   const sc=state.scoring;
   const cfg=state.settings;
-  const maxHelp=cfg.helpMaxTimes??2;
+  const maxHelp=cfg.helpMaxTimes||2;
   const helpRemain=Math.max(0,maxHelp-state.helpUsed);
   const maxHintPerStage=parseInt(cfg.hintAfter)||2;// 從設定讀取，預設2次
   const showRankBtn=cfg.showRanking!==false;
@@ -1352,12 +1352,12 @@ function renderStage(){
       <div class="q-desc" id="stageDesc"></div>
       <div id="hintArea"></div>
       <div class="overlay-hint" id="overlayTaskDesc"></div>
-      <!-- 相機區域 -->
+      ${"<!-- 相機區域 -->"}
       <div class="overlay-camera-wrap" id="overlayCameraWrap">
         <video class="overlay-video" id="overlayVideo" autoplay playsinline muted></video>
         <img id="overlayPNG" class="overlay-png hidden" alt="套圖"/>
       </div>
-      <!-- 拍照結果 -->
+      ${"<!-- 拍照結果 -->"}
       <canvas id="overlayCanvas" style="display:none"></canvas>
       <img id="overlayResult" class="overlay-result" alt="拍照結果"/>
       <div class="photo-verify-status" id="photoVerifyStatus"></div>
@@ -1368,7 +1368,7 @@ function renderStage(){
           <button class="btn-retake" onclick="overlayRetake()">重新拍照</button>
         </div>
       </div>
-      <!-- 控制列 -->
+      ${"<!-- 控制列 -->"}
       <div id="overlayControls">
         <button class="overlay-shutter" id="overlayShutterBtn" onclick="overlayShoot()" title="拍照">📷</button>
         <div class="overlay-hint">對準後按下拍照鍵</div>
@@ -1396,7 +1396,7 @@ function renderStage(){
       <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
       <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto()"/>
       `:''}
-      <!-- QR Code 顯示區 -->
+      ${"<!-- QR Code 顯示區 -->"}
       <div style="text-align:center;margin-bottom:12px">
         <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">📱 出示此 QR Code 給關主掃描</div>
         <div id="qrCodeContainer" style="display:inline-block;padding:12px;background:white;border-radius:12px;border:2px solid #c0a0f0;box-shadow:0 2px 12px rgba(124,92,191,0.2)"></div>
@@ -2545,7 +2545,7 @@ function closeRank(){document.getElementById('rankOverlay').classList.add('hidde
 
 function showHelp(){
   pauseBGM();// 求救彈窗暫停音樂
-  const sc=state.scoring;const maxHelp=state.settings.helpMaxTimes??2;
+  const sc=state.scoring;const maxHelp=state.settings.helpMaxTimes||2;
   const remain=Math.max(0,maxHelp-state.helpUsed);
   if(remain<=0){alert('求救次數已用完！');return;}
   // 冷卻時間檢查
@@ -2577,7 +2577,7 @@ async function sendHelp(){
   await set(helpRef,{msg,stageIdx:state.currentIdx,stageName:state.stages[state.currentIdx]?.title||'',ts:Date.now(),answered:false,reply:'',teamName:state.teamName,teamKey:state.teamKey});
   state._lastHelpTime=Date.now();// 記錄求救時間（冷卻用）
   closeHelp();
-  const remain=Math.max(0,(state.settings.helpMaxTimes??2)-state.helpUsed);
+  const remain=Math.max(0,(state.settings.helpMaxTimes||2)-state.helpUsed);
   const btn=document.getElementById('helpBtn');if(btn){btn.textContent=`🆘 求救（${remain}次）`;if(remain<=0)btn.disabled=true;}
   const toast=document.createElement('div');toast.className='reply-toast';toast.textContent='✅ 求救已送出！等待小幫手回覆...';document.body.appendChild(toast);setTimeout(()=>toast.remove(),3000);
 }

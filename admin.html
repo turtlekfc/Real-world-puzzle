@@ -1806,6 +1806,13 @@ function applyRolePermissions(role){
     document.querySelectorAll('.nav-group-label').forEach(el=>{
       if(el.textContent.includes('設定'))el.style.display='none';
     });
+    // 隱藏所有儲存/刪除/新增按鈕
+    setTimeout(()=>{
+      document.querySelectorAll('.btn-primary,.btn-danger,.btn-warn').forEach(btn=>{
+        const txt=btn.textContent||'';
+        if(txt.includes('儲存')||txt.includes('新增')||txt.includes('刪除')||txt.includes('清除'))btn.style.display='none';
+      });
+    },500);
   } else {
     // staff（策劃人員） / stagemaster（總關主）：只顯示監控類
     showEl(monitorItems);hideEl(manageItems);hideEl(adminItems);
@@ -2638,6 +2645,7 @@ function handleModalImg(){
   reader.readAsDataURL(file);
 }
 async function saveStage(){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
   const title=document.getElementById('fTitle').value.trim();if(!title){toast('請輸入關卡標題！');return;}
   const stageType=document.getElementById('fStageType').value||'quiz';
   // 類型驗證
@@ -2731,25 +2739,26 @@ async function saveStage(){
       }
       data.overlayImageUrl=overlayImageUrl;
     }
-    if(stageType==='quiz'||stageType==='truefalse'||editingStageKey){
-      if(stageType==='quiz'||stageType==='truefalse'){
-        const keyForHash=editingStageKey||('tmp_'+Date.now());
-        data.answerHash=await sha256(`${keyForHash}_${data.answerIndex}`);
-      }
-    }
+    // answerHash：quiz 和 truefalse 都需要計算，且必須用最終的 Firebase key
     if(editingStageKey){
-      if(stageType==='quiz')data.answerHash=await sha256(`${editingStageKey}_${data.answerIndex}`);
+      // 編輯：用現有 key
+      if(stageType==='quiz'||stageType==='truefalse'){
+        data.answerHash=await sha256(`${editingStageKey}_${data.answerIndex}`);
+      }
       await set(ref(db,`stages/${editingStageKey}`),data);toast('✅ 關卡已更新！');
     } else {
+      // 新增：先 push 取得 Firebase key，再計算 hash
       const r=push(ref(db,'stages'));
-      if(stageType==='quiz')data.answerHash=await sha256(`${r.key}_${data.answerIndex}`);
+      if(stageType==='quiz'||stageType==='truefalse'){
+        data.answerHash=await sha256(`${r.key}_${data.answerIndex}`);
+      }
       await set(r,data);toast('✅ 關卡已新增！');
     }
     closeStageModal();loadStages();
   }catch(e){toast('❌ 儲存失敗：'+e.message);console.error(e);}
   finally{btn.disabled=false;btn.textContent='💾 儲存關卡';}
 }
-async function deleteStage(key){if(!confirm('確定要刪除？'))return;await remove(ref(db,`stages/${key}`));toast('🗑️ 關卡已刪除');loadStages();}
+async function deleteStage(key){if(currentRole==='viewer'){toast('⛔ 檢視者無法刪除');return;}if(!confirm('確定要刪除？'))return;await remove(ref(db,`stages/${key}`));toast('🗑️ 關卡已刪除');loadStages();}
 
 // ── 照片（含刪除）──
 async function loadPhotos(){
@@ -2867,6 +2876,7 @@ function renderTeamSettings(){
 }
 
 async function saveSettings(){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
   const count=parseInt(document.getElementById('settingTeamCount').value)||4;
   const teams={};
   for(let i=0;i<count;i++){const key=`team${i+1}`;teams[key]={name:document.getElementById(`tName${key}`).value.trim()||`隊伍${i+1}`,password:document.getElementById(`tPass${key}`).value.trim()||'1234',color:document.getElementById(`tColor${key}`).value,customOrder:document.getElementById(`tOrder${key}`)?.value.trim()||''};}
@@ -2985,6 +2995,7 @@ function updateScorePreview(){
 }
 
 async function saveScoring(){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
   const sc={baseScore:parseInt(document.getElementById('sc_baseScore').value)||100,timeBonus:parseInt(document.getElementById('sc_timeBonus').value)||50,completionBonus:parseInt(document.getElementById('sc_completionBonus').value)||200,rankBonus:[parseInt(document.getElementById('sc_rank1').value)||100,parseInt(document.getElementById('sc_rank2').value)||70,parseInt(document.getElementById('sc_rank3').value)||50,parseInt(document.getElementById('sc_rank4').value)||30],wrongPenalty:parseInt(document.getElementById('sc_wrongPenalty').value)||10,hintPenalty:parseInt(document.getElementById('sc_hintPenalty').value)||5,helpPenalty:parseInt(document.getElementById('sc_helpPenalty').value)||30,skipPhotoPenalty:parseInt(document.getElementById('sc_skipPhotoPenalty').value)||20};
   await set(ref(db,'config/settings/scoring'),sc);if(settingsData)settingsData.scoring=sc;
   updateScorePreview();toast('✅ 分數設定已儲存！');
@@ -3022,7 +3033,7 @@ function initTheme(){
   THEMES.forEach((t,i)=>{const sw=document.createElement('div');sw.className='swatch'+(settingsData.themeIndex===i?' active':'');sw.style.background=`linear-gradient(135deg,${t.c1},${t.c3})`;sw.title=t.name;sw.onclick=()=>selectTheme(i);grid.appendChild(sw);});
 }
 function selectTheme(i){document.querySelectorAll('.swatch').forEach((s,j)=>s.classList.toggle('active',j===i));settingsData._pendingTheme=i;const t=THEMES[i];document.getElementById('themePreview').style.background=`linear-gradient(135deg,${t.c1},${t.c3})`;document.getElementById('themePreview').textContent=t.name+' 主題預覽';}
-async function saveTheme(){const i=settingsData._pendingTheme??settingsData.themeIndex??0;const t=THEMES[i];await set(ref(db,'config/settings/theme'),{primary:t.c1,dark:t.c2,light:t.c3,index:i});applyTheme(t.c1,t.c2,t.c3);toast('✅ 主題已套用！');}
+async function saveTheme(){const i=(settingsData._pendingTheme!=null?settingsData._pendingTheme:(settingsData.themeIndex!=null?settingsData.themeIndex:0));const t=THEMES[i];await set(ref(db,'config/settings/theme'),{primary:t.c1,dark:t.c2,light:t.c3,index:i});applyTheme(t.c1,t.c2,t.c3);toast('✅ 主題已套用！');}
 function previewCustomTheme(){const c1=document.getElementById('customColor1').value;const c3=document.getElementById('customColor3').value;document.getElementById('themePreview').style.background=`linear-gradient(135deg,${c1},${c3})`;}
 async function applyCustomTheme(){const c1=document.getElementById('customColor1').value;const c2=document.getElementById('customColor2').value;const c3=document.getElementById('customColor3').value;await set(ref(db,'config/settings/theme'),{primary:c1,dark:c2,light:c3,index:-1});applyTheme(c1,c2,c3);toast('✅ 自訂主題已套用！');}
 function applyTheme(c1,c2,c3){const r=document.documentElement.style;r.setProperty('--primary',c1);r.setProperty('--primary-dark',c2);r.setProperty('--primary-light',c3);}
