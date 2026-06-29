@@ -228,11 +228,11 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .finish-rank-title{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .finish-msg{font-size:13px;color:var(--text-light);line-height:1.7}
 /* 音樂控制 */
-.music-btn{position:fixed;top:12px;right:12px;z-index:200;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:none;align-items:center;justify-content:center;transition:all 0.2s}
+.music-btn{position:fixed;top:12px;right:12px;z-index:200;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);align-items:center;justify-content:center;transition:all 0.2s}
 .music-btn:active{transform:scale(0.9)}
-.music-btn.visible{display:flex}
-.music-vol{position:fixed;top:54px;right:8px;z-index:200;background:white;border-radius:12px;padding:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);display:none;flex-direction:column;align-items:center;gap:4px}
-.music-vol.show{display:flex}
+
+
+
 .music-vol input[type=range]{writing-mode:vertical-lr;direction:rtl;width:24px;height:80px;cursor:pointer;accent-color:var(--primary)}
 /* 故事片段 */
 .story-popup{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:150;display:flex;align-items:flex-end;justify-content:center;padding:0}
@@ -406,12 +406,14 @@ select:focus,input:focus{border-color:var(--primary-light)}
   </div>
 </div>
 
-<!-- 音樂控制按鈕 -->
-<button class="music-btn" id="musicBtn" onclick="toggleMusicMenu()" title="音樂控制">🎵</button>
-<div class="music-vol" id="musicVol">
-  <div style="font-size:9px;color:#888;font-weight:700">音量</div>
-  <input type="range" id="musicVolSlider" min="0" max="100" value="40" oninput="setMusicVolume(this.value)"/>
-  <div style="font-size:9px;color:#888" id="musicVolLabel">40%</div>
+<!-- 音樂控制 -->
+<div id="musicControl" style="position:fixed;top:12px;right:12px;z-index:200;display:none;align-items:center;gap:8px">
+  <div id="musicVol" style="background:white;border-radius:12px;padding:6px 10px;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;gap:8px">
+    <span style="font-size:11px;color:#888">🔊</span>
+    <input type="range" id="musicVolSlider" min="0" max="100" value="40" oninput="setMusicVolume(this.value)" style="width:70px;cursor:pointer;accent-color:var(--primary)"/>
+    <span style="font-size:10px;color:#888;width:28px" id="musicVolLabel">40%</span>
+  </div>
+  <button class="music-btn visible" id="musicBtn" onclick="toggleMute()" title="靜音/播放" style="display:flex">🎵</button>
 </div>
 
 <!-- 故事彈窗 -->
@@ -1039,6 +1041,7 @@ async function doLogin() {
       listenSessionForceLogout();
       listenStaffSkip();
       listenSkipGPS();
+      initMusic();// 確保音樂按鈕顯示
       renderStage();
       // 若此關已通過GPS（有 arrivedAt），直接顯示題目
       const curStageLog=(resumeSession.stageLogs||{})[resumeSession.currentStage||0];
@@ -1806,8 +1809,13 @@ let _bgmPaused=false; // 彈窗期間暫停
 
 function initMusic(){
   // 第一次用戶互動後才能播放（瀏覽器限制）
-  const btn=document.getElementById('musicBtn');
-  if(btn)btn.classList.add('visible');
+  const ctrl=document.getElementById('musicControl');
+  if(ctrl)ctrl.style.display='flex';
+  // 同步滑桿值
+  const slider=document.getElementById('musicVolSlider');
+  if(slider){slider.value=Math.round(_musicVolume*100);}
+  const label=document.getElementById('musicVolLabel');
+  if(label)label.textContent=Math.round(_musicVolume*100)+'%';
 }
 
 function playBGM(track, fadeIn=true){
@@ -1864,27 +1872,15 @@ function playSFX(type){
 
 function setMusicVolume(val){
   _musicVolume=val/100;
-  if(_bgm&&!_musicMuted)_bgm.volume=_musicVolume;
+  if(_bgm)_bgm.volume=_musicMuted?0:_musicVolume;
   const label=document.getElementById('musicVolLabel');
-  if(label)label.textContent=val+'%';
+  if(label)label.textContent=_musicMuted?'靜音':val+'%';
+  if(_musicMuted){_musicMuted=false;const btn=document.getElementById('musicBtn');if(btn)btn.textContent='🎵';}
 }
 window.setMusicVolume=setMusicVolume;
 
-function toggleMusicMenu(){
-  const vol=document.getElementById('musicVol');
-  if(!vol)return;
-  const showing=vol.classList.contains('show');
-  if(showing){
-    vol.classList.remove('show');
-  } else {
-    vol.classList.add('show');
-    // 點外面關閉
-    setTimeout(()=>{
-      const close=()=>{vol.classList.remove('show');document.removeEventListener('click',close);};
-      document.addEventListener('click',close);
-    },50);
-  }
-}
+// toggleMusicMenu 已改為音量列直接顯示，此函數保留相容性
+function toggleMusicMenu(){ toggleMute(); }
 window.toggleMusicMenu=toggleMusicMenu;
 
 function toggleMute(){
@@ -1892,6 +1888,9 @@ function toggleMute(){
   if(_bgm)_bgm.volume=_musicMuted?0:_musicVolume;
   const btn=document.getElementById('musicBtn');
   if(btn)btn.textContent=_musicMuted?'🔇':'🎵';
+  // 靜音後顯示提示
+  const label=document.getElementById('musicVolLabel');
+  if(label)label.textContent=_musicMuted?'靜音':Math.round(_musicVolume*100)+'%';
 }
 window.toggleMute=toggleMute;
 
@@ -1972,28 +1971,58 @@ function overlayShoot(){
     const retryBtn=document.getElementById('overlayRetryBtn');
     if(retryBtn)retryBtn.classList.remove('hidden');
     stopOverlayCamera();
-    // 依驗證方式處理
+    // 拍照完成後：顯示預覽，並根據驗證方式顯示確認按鈕
     const stage=state.stages[state.currentIdx];
     const verifyType=stage.overlayVerify||'ai';
+    const statusEl=document.getElementById('photoVerifyStatus');
+    if(statusEl){statusEl.style.display='none';statusEl.textContent='';}
+    // 顯示「送出辨識」或「通知關主」按鈕
+    let submitOverlayBtn=document.getElementById('submitOverlayBtn');
+    if(!submitOverlayBtn){
+      submitOverlayBtn=document.createElement('button');
+      submitOverlayBtn.id='submitOverlayBtn';
+      submitOverlayBtn.style.cssText='width:100%;padding:12px;background:linear-gradient(90deg,var(--primary),#3a8fd8);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;display:block';
+      const resultEl=document.getElementById('overlayResult');
+      if(resultEl&&resultEl.parentNode)resultEl.parentNode.insertBefore(submitOverlayBtn,resultEl.nextSibling);
+    }
+    submitOverlayBtn.style.display='block';
     if(verifyType==='ai'&&state.settings.geminiKey&&stage.overlayAIDesc){
-      const reader=new FileReader();
-      reader.onload=async e=>{
-        try{
-          const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
-          if(passed)setTimeout(()=>passPhotoStage(),800);
-        }catch(err){
-          console.warn('AI驗證錯誤:',err);
-          const statusEl=document.getElementById('photoVerifyStatus');
-          if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用，請繼續作答';}
-        }
+      submitOverlayBtn.textContent='📤 送出 AI 辨識';
+      submitOverlayBtn.onclick=async()=>{
+        submitOverlayBtn.disabled=true;
+        submitOverlayBtn.textContent='🔍 AI 辨識中...';
+        const reader=new FileReader();
+        reader.onload=async e=>{
+          try{
+            const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
+            if(passed){
+              submitOverlayBtn.style.display='none';
+              setTimeout(()=>passPhotoStage(),800);
+            } else {
+              submitOverlayBtn.disabled=false;
+              submitOverlayBtn.textContent='📤 重新送出辨識';
+            }
+          }catch(err){
+            console.warn('AI驗證錯誤:',err);
+            submitOverlayBtn.disabled=false;
+            submitOverlayBtn.textContent='📤 重新送出辨識';
+            if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用';}
+          }
+        };
+        reader.readAsDataURL(state.photoFile||blob);
       };
-      reader.readAsDataURL(blob);
     } else if(verifyType==='confirm'){
-      // 關主確認模式：上傳照片後通知關主
-      overlayNotifyConfirm();
+      submitOverlayBtn.textContent='✋ 送出，通知關主確認';
+      submitOverlayBtn.onclick=()=>{
+        submitOverlayBtn.style.display='none';
+        overlayNotifyConfirm();
+      };
     } else {
-      // 沒有AI Key，直接過關
-      passPhotoStage();
+      submitOverlayBtn.textContent='📤 確認送出';
+      submitOverlayBtn.onclick=()=>{
+        submitOverlayBtn.style.display='none';
+        passPhotoStage();
+      };
     }
   },'image/jpeg',0.88);
 }
@@ -2008,6 +2037,7 @@ function overlayRetake(){
   const retryBtn=document.getElementById('overlayRetryBtn');if(retryBtn)retryBtn.classList.add('hidden');
   const statusEl=document.getElementById('photoVerifyStatus');if(statusEl)statusEl.style.display='none';
   const skipArea=document.getElementById('skipPhotoArea');if(skipArea)skipArea.classList.add('hidden');
+  const submitBtn=document.getElementById('submitOverlayBtn');if(submitBtn)submitBtn.style.display='none';
   startOverlayCamera();
 }
 window.overlayRetake=overlayRetake;
@@ -2436,6 +2466,7 @@ function skipPhotoVerify(){
 function retakePhoto(){
   const skipArea=document.getElementById('skipPhotoArea');if(skipArea)skipArea.classList.add('hidden');
   const statusEl=document.getElementById('photoVerifyStatus');if(statusEl)statusEl.style.display='none';
+  const warnEl=document.getElementById('photoWarnMsg');if(warnEl)warnEl.style.display='none';
   const preview=document.getElementById('photoPreview');if(preview)preview.style.display='none';
   const area=document.getElementById('photoArea');if(area)area.style.display='';
   const retakeBtn=document.getElementById('photoRetakeBtn');if(retakeBtn)retakeBtn.style.display='none';

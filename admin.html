@@ -364,6 +364,9 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div class="mobile-nav-item" onclick="showTab('export')" id="mnav-export">
       <span class="m-icon">📤</span><span class="m-label">匯出</span>
     </div>
+    <div class="mobile-nav-item" onclick="showTab('preview')" id="mnav-preview" style="display:none">
+      <span class="m-icon">📖</span><span class="m-label">說明書</span>
+    </div>
     <div class="mobile-nav-item" onclick="showTab('map')" id="mnav-map">
       <span class="m-icon">🗺️</span><span class="m-label">GPS</span>
     </div>
@@ -472,6 +475,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div class="nav-item" onclick="showTab('users')" id="nav-users"><span class="nav-icon">👥</span>帳號管理</div>
     <div class="nav-item" onclick="showTab('stats')" id="nav-stats"><span class="nav-icon">📈</span>活動統計</div>
     <div class="nav-item" onclick="showTab('export')" id="nav-export" style="display:none"><span class="nav-icon">📤</span>匯出紀錄</div>
+    <div class="nav-item" onclick="showTab('preview')" id="nav-preview" style="display:none"><span class="nav-icon">📖</span>關卡說明書</div>
     <div class="sidebar-bottom">
       <button class="btn btn-ghost btn-sm btn-block" onclick="doLogout()">登出</button>
     </div>
@@ -481,6 +485,25 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div class="timeout-bar" id="timeoutBar">
       ⚠️ 登入已超過 2 小時
       <button onclick="doLogout()" class="btn btn-warn btn-sm">立即登出</button>
+    </div>
+
+    <!-- 關卡說明書（檢視者專用） -->
+    <div id="tab-preview" class="tab-content">
+      <div class="page-header">
+        <div class="page-header-left"><h1>📖 關卡說明書</h1><p>所有關卡的完整內容，可匯出 / 列印</p></div>
+        <div class="flex gap-8" style="flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="loadPreview()">🔄 重新整理</button>
+          <button class="btn btn-primary btn-sm" onclick="exportStagesBook()">⬇️ 匯出 HTML 說明書</button>
+          <button class="btn btn-ghost btn-sm" onclick="printStagesBook()">🖨️ 列印</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:10px;background:#f0f6fa;border:none">
+        <div style="font-size:12px;color:var(--text-light);line-height:1.8">
+          📌 說明書包含：所有關卡標題、說明、GPS座標、提示、故事文字<br>
+          🔒 不包含：正確答案、關主密碼、AI辨識描述（保密）
+        </div>
+      </div>
+      <div id="previewContainer"><div class="text-muted text-sm" style="padding:20px;text-align:center">點擊「重新整理」載入關卡說明書</div></div>
     </div>
 
     <!-- 監控 -->
@@ -1823,19 +1846,23 @@ function applyRolePermissions(role){
     showEl([...mMonitor,...mManage,...mAdmin]);
     hideEl(['nav-export','mnav-export']);// 匯出只有 super
   } else if(role==='viewer'){
-    // 檢視者：只能看監控（唯讀）和關卡內容
-    showEl(['nav-monitor','nav-stages']);
-    hideEl([...monitorItems.filter(x=>x!=='nav-monitor'),...manageItems.filter(x=>x!=='nav-stages'),...adminItems]);
-    showEl(['mnav-monitor','mnav-stages']);
-    hideEl([...mMonitor.filter(x=>x!=='mnav-monitor'),...mManage.filter(x=>x!=='mnav-stages'),...mAdmin]);
+    // 檢視者：只能看「關卡說明書」和「即時監控（唯讀）」
+    // 隱藏全部，再只顯示需要的
+    hideEl([...monitorItems,...manageItems,...adminItems]);
+    hideEl([...mMonitor,...mManage,...mAdmin]);
+    showEl(['nav-preview','nav-monitor']);
+    showEl(['mnav-preview','mnav-monitor']);
     document.querySelectorAll('.nav-group-label').forEach(el=>{
-      if(el.textContent.includes('設定'))el.style.display='none';
+      el.style.display='none';
     });
-    // 隱藏所有儲存/刪除/新增按鈕
+    // 500ms 後隱藏所有操作按鈕（確保 DOM 已渲染）
     setTimeout(()=>{
-      document.querySelectorAll('.btn-primary,.btn-danger,.btn-warn').forEach(btn=>{
+      document.querySelectorAll('.btn-primary,.btn-danger,.btn-warn,.btn-success').forEach(btn=>{
         const txt=btn.textContent||'';
-        if(txt.includes('儲存')||txt.includes('新增')||txt.includes('刪除')||txt.includes('清除'))btn.style.display='none';
+        if(txt.includes('儲存')||txt.includes('新增')||txt.includes('刪除')||
+           txt.includes('清除')||txt.includes('重置')||txt.includes('廣播')||
+           txt.includes('開始')||txt.includes('結束')||txt.includes('暫停'))
+          btn.style.display='none';
       });
     },500);
   } else {
@@ -1864,6 +1891,9 @@ async function doLogout(){clearInterval(timeoutTimer);await signOut(auth);curren
 
 function showTab(name){
   const hostOnly=['stages','settings','story','scoring','ranking','theme','export','stats'];
+  const viewerOnly=['preview','monitor'];
+  // viewer 只能看說明書和監控
+  if(currentRole==='viewer'&&!viewerOnly.includes(name)){toast('⛔ 檢視者無法使用此功能');return;}
   // users：host 可以管理 staff/stagemaster，super 可以管理所有人
   if(hostOnly.includes(name)&&(currentRole==='staff'||currentRole==='stagemaster')){toast('⛔ 您沒有此功能的權限');return;}
   if(name==='users'&&currentRole==='staff'){toast('⛔ 您沒有此功能的權限');return;}
@@ -1875,6 +1905,7 @@ function showTab(name){
   const navEl=document.getElementById('nav-'+name);if(navEl)navEl.classList.add('active');
   const mnavEl=document.getElementById('mnav-'+name);if(mnavEl)mnavEl.classList.add('active');
   if(name==='stages')loadStages();
+  if(name==='preview')loadPreview();
   if(name==='photos')loadPhotos();
   if(name==='export')loadExport();
   if(name==='map')loadGPSLog();
@@ -3308,6 +3339,215 @@ async function importSettingsJSON(){
   }catch(e){toast('❌ 匯入失敗：'+e.message);console.error(e);}
 }
 window.importSettingsJSON=importSettingsJSON;
+
+// ── 關卡說明書 ──
+window.loadPreview=loadPreview;
+window.exportStagesBook=exportStagesBook;
+window.printStagesBook=printStagesBook;
+
+async function loadPreview(){
+  const container=document.getElementById('previewContainer');
+  if(!container)return;
+  container.innerHTML='<div class="spinner" style="margin:20px auto"></div>';
+  try{
+    const [stageSnap,settSnap]=await Promise.all([
+      get(ref(db,'stages')),
+      get(ref(db,'config/settings'))
+    ]);
+    const stages=stageSnap.val()||{};
+    const settings=settSnap.val()||{};
+    const sorted=Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
+    if(!sorted.length){container.innerHTML='<div class="text-muted text-sm" style="padding:20px;text-align:center">尚未建立任何關卡</div>';return;}
+    container.innerHTML='';
+    // 活動標題
+    const header=document.createElement('div');
+    header.style.cssText='text-align:center;padding:16px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:white;border-radius:14px;margin-bottom:16px';
+    header.innerHTML='<div style="font-size:20px;font-weight:700">'+escHtml(settings.activityName||'實境解謎')+'</div><div style="font-size:13px;opacity:0.8;margin-top:4px">關卡說明書・共 '+sorted.length+' 關</div>';
+    container.appendChild(header);
+
+    const typeLabels={quiz:'📝 選擇題',truefalse:'⭕ 是非題',photo:'📷 照片關卡',password:'🔑 密碼過關',confirm:'👆 關主確認',qrcode:'📱 QR Code',overlay:'🖼️ 套圖拍照'};
+
+    sorted.forEach(([key,s],i)=>{
+      const card=document.createElement('div');
+      card.style.cssText='background:white;border-radius:12px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,0.07);margin-bottom:12px;border-left:5px solid var(--primary-light)';
+      const typeLabel=typeLabels[s.stageType||'quiz']||s.stageType;
+      let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+      html+='<div style="width:32px;height:32px;border-radius:50%;background:var(--primary-pale);color:var(--primary);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(s.order||i+1)+'</div>';
+      html+='<div style="flex:1"><div style="font-size:16px;font-weight:700"></div>';
+      html+='<div style="font-size:11px;color:var(--text-light);margin-top:2px">'+typeLabel+'</div></div></div>';
+      if(s.description)html+='<div style="font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:8px 12px"></div>';
+      // 選項（選擇題顯示但隱藏答案）
+      if((s.stageType==='quiz')&&s.options&&s.options.length){
+        html+='<div style="margin-bottom:8px">';
+        const letters=['A','B','C','D'];
+        s.options.forEach((opt,j)=>{
+          html+=`<div style="font-size:12px;padding:4px 8px;margin-bottom:3px;border-radius:6px;background:#f0f4fa"><span style="font-weight:700;color:var(--primary)">${letters[j]}</span>. </div>`;
+        });
+        html+='</div>';
+      }
+      // GPS
+      if(s.lat&&s.lng)html+='<div style="font-size:12px;color:var(--green);background:#e8f8f0;border-radius:8px;padding:6px 10px;margin-bottom:6px">📍 GPS：'+s.lat.toFixed(5)+', '+s.lng.toFixed(5)+' （範圍 '+( s.radius||80)+'m）</div>';
+      if(s.locationHint)html+='<div style="font-size:12px;color:#5a8aaa;margin-bottom:6px">📍 到達說明：</div>';
+      // 提示
+      if(s.hints&&(s.hints.h1||s.hints.h2)){
+        html+='<div style="font-size:12px;color:#b06000;background:#fff8e0;border-radius:8px;padding:6px 10px;margin-bottom:6px">';
+        if(s.hints.h1)html+='💡 提示1：<br>';
+        if(s.hints.h2)html+='💡 提示2：<br>';
+        html+='</div>';
+      }
+      // 故事
+      if(s.storyIntro)html+='<div style="font-size:12px;color:var(--purple);background:#f0e8ff;border-radius:8px;padding:6px 10px;margin-bottom:6px">📖 開場故事：</div>';
+      if(s.storyOutro)html+='<div style="font-size:12px;color:var(--purple);background:#f0e8ff;border-radius:8px;padding:6px 10px;margin-bottom:6px">🎉 過關故事：</div>';
+      if(s.nextHint)html+='<div style="font-size:12px;color:var(--primary);background:var(--primary-pale);border-radius:8px;padding:6px 10px;margin-bottom:6px">🗺️ 位置提示：</div>';
+      // 固定首尾
+      const tags=[];
+      if(s.fixedFirst)tags.push('🏁 固定第一關');
+      if(s.fixedLast)tags.push('🏆 固定最後一關');
+      if(tags.length)html+='<div style="font-size:11px;color:var(--coral)">'+tags.join(' ・ ')+'</div>';
+      html+='</div>';
+      card.innerHTML=html;
+      // 安全填入文字
+      const titleEl=card.querySelector('div>div>div');
+      if(titleEl)titleEl.textContent=s.title||'（未命名）';
+      const descEl=card.querySelectorAll('div')[card.querySelectorAll('div').length>5?5:0];
+      // 逐一填入需要 textContent 的欄位
+      const allDivs=[...card.querySelectorAll('div')];
+      const descDiv=allDivs.find(d=>d.style.cssText&&d.style.cssText.includes('f8fafc'));
+      if(descDiv)descDiv.textContent=s.description||'';
+      // 選項
+      if(s.options)s.options.forEach((opt,j)=>{
+        const optDiv=allDivs.find(d=>d.textContent&&d.textContent.startsWith(['A','B','C','D'][j]+'. '));
+        if(optDiv)optDiv.innerHTML='<span style="font-weight:700;color:var(--primary)">'+['A','B','C','D'][j]+'</span>. '+escHtml(opt);
+      });
+      // 填入其他文字欄位
+      const locationDiv=allDivs.find(d=>d.textContent&&d.textContent.startsWith('📍 到達說明：'));
+      if(locationDiv)locationDiv.textContent='📍 到達說明：'+(s.locationHint||'');
+      const hint1Div=allDivs.find(d=>d.textContent&&d.textContent.includes('提示1：'));
+      if(hint1Div){hint1Div.textContent='';if(s.hints&&s.hints.h1){const d1=document.createElement('div');d1.textContent='💡 提示1：'+s.hints.h1;hint1Div.appendChild(d1);}if(s.hints&&s.hints.h2){const d2=document.createElement('div');d2.textContent='💡 提示2：'+s.hints.h2;hint1Div.appendChild(d2);}}
+      const introDiv=allDivs.find(d=>d.textContent&&d.textContent.startsWith('📖 開場故事：'));
+      if(introDiv)introDiv.textContent='📖 開場故事：'+(s.storyIntro||'');
+      const outroDiv=allDivs.find(d=>d.textContent&&d.textContent.startsWith('🎉 過關故事：'));
+      if(outroDiv)outroDiv.textContent='🎉 過關故事：'+(s.storyOutro||'');
+      const nextDiv=allDivs.find(d=>d.textContent&&d.textContent.startsWith('🗺️ 位置提示：'));
+      if(nextDiv)nextDiv.textContent='🗺️ 位置提示：'+(s.nextHint||'');
+      container.appendChild(card);
+    });
+  }catch(e){container.innerHTML='<div class="text-muted text-sm" style="color:var(--coral)">載入失敗：'+escHtml(e.message)+'</div>';}
+}
+
+function escHtml(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function exportStagesBook(){
+  // 方案A：匯出完整 HTML 說明書
+  const [stageSnap,settSnap]=await Promise.all([
+    get(ref(db,'stages')),
+    get(ref(db,'config/settings'))
+  ]);
+  const stages=stageSnap.val()||{};
+  const settings=settSnap.val()||{};
+  const sorted=Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
+  const typeLabels={quiz:'📝 選擇題',truefalse:'⭕ 是非題',photo:'📷 照片關卡',password:'🔑 密碼過關',confirm:'👆 關主確認',qrcode:'📱 QR Code',overlay:'🖼️ 套圖拍照'};
+  const now=new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'});
+  let html=`<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escHtml(settings.activityName||'實境解謎')} 關卡說明書</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC',Microsoft JhengHei,sans-serif;background:#f0f6fa;color:#1a3a5c;padding:20px;font-size:15px}
+.cover{background:linear-gradient(135deg,#0d4f7a,#1a6fa3);color:white;border-radius:16px;padding:32px;text-align:center;margin-bottom:24px}
+.cover h1{font-size:26px;font-weight:700;margin-bottom:8px}
+.cover .sub{font-size:14px;opacity:0.8}
+.card{background:white;border-radius:12px;padding:16px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);margin-bottom:14px;border-left:5px solid #2a9fd6;page-break-inside:avoid}
+.stage-num{display:inline-block;width:32px;height:32px;border-radius:50%;background:#e0f2fb;color:#1a6fa3;font-weight:700;font-size:14px;text-align:center;line-height:32px;margin-right:10px;vertical-align:middle}
+.stage-title{font-size:17px;font-weight:700;vertical-align:middle}
+.type-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:8px;background:#e0f2fb;color:#1a6fa3;margin-left:8px;vertical-align:middle}
+.section{margin-top:10px;font-size:13px;line-height:1.7}
+.section-label{font-weight:700;color:#5a8aaa;margin-bottom:3px}
+.gps-box{background:#e8f8f0;border-radius:8px;padding:7px 12px;margin:8px 0;font-size:12px;color:#1a7a40}
+.hint-box{background:#fff8e0;border-radius:8px;padding:7px 12px;margin:8px 0;font-size:12px;color:#b06000}
+.story-box{background:#f0e8ff;border-radius:8px;padding:7px 12px;margin:8px 0;font-size:12px;color:#5b3f9e;line-height:1.8}
+.opt{padding:4px 8px;margin:3px 0;border-radius:6px;background:#f0f4fa;font-size:12px}
+.opt-letter{font-weight:700;color:#1a6fa3}
+.note{font-size:11px;color:#999;margin-top:4px}
+.footer{text-align:center;color:#aaa;font-size:11px;margin-top:24px;padding-top:12px;border-top:1px solid #eee}
+@media print{
+  body{background:white;padding:0}
+  .card{box-shadow:none;border:1px solid #e0e0e0}
+  .cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style></head><body>
+<div class="cover">
+  <h1>🐚 ${escHtml(settings.activityName||'實境解謎')}</h1>
+  <div class="sub">關卡說明書・共 ${sorted.length} 關・匯出於 ${now}</div>
+  ${settings.subtitle?'<div class="sub" style="margin-top:4px">'+escHtml(settings.subtitle)+'</div>':''}
+</div>`;
+
+  sorted.forEach(([key,s],i)=>{
+    const typeLabel=typeLabels[s.stageType||'quiz']||s.stageType||'';
+    html+=`
+<div class="card">`;
+    html+=`<div><span class="stage-num">${escHtml(String(s.order||i+1))}</span><span class="stage-title">${escHtml(s.title||'（未命名）')}</span><span class="type-tag">${typeLabel}</span>`;
+    if(s.fixedFirst)html+=`<span class="type-tag" style="background:#fff0ee;color:#c03020">🏁 固定第一關</span>`;
+    if(s.fixedLast)html+=`<span class="type-tag" style="background:#fff0ee;color:#c03020">🏆 固定最後一關</span>`;
+    html+=`</div>`;
+    if(s.description)html+=`<div class="section"><div class="section-label">題目說明</div><div>${escHtml(s.description)}</div></div>`;
+    // 選項（不含答案）
+    if(s.stageType==='quiz'&&s.options&&s.options.length){
+      html+=`<div class="section"><div class="section-label">選項</div>`;
+      const letters=['A','B','C','D'];
+      s.options.forEach((opt,j)=>{html+=`<div class="opt"><span class="opt-letter">${letters[j]}.</span> ${escHtml(opt)}</div>`;});
+      html+=`<div class="note">🔒 正確答案由系統驗證，不顯示</div></div>`;
+    }
+    if(s.stageType==='truefalse')html+=`<div class="section"><div class="section-label">作答方式</div>玩家選擇「○ 對（是）」或「✕ 錯（否）」<div class="note">🔒 正確答案由系統驗證，不顯示</div></div>`;
+    if(s.stageType==='photo')html+=`<div class="section"><div class="section-label">關卡說明</div>玩家需拍照，AI 自動辨識通過後過關</div>`;
+    if(s.stageType==='password')html+=`<div class="section"><div class="section-label">過關方式</div>玩家需輸入密碼（由關主口頭告知）<div class="note">🔒 密碼不顯示</div></div>`;
+    if(s.stageType==='confirm')html+=`<div class="section"><div class="section-label">任務說明</div>${escHtml(s.confirmTask||'完成任務後通知關主確認')}</div>`;
+    if(s.stageType==='qrcode')html+=`<div class="section"><div class="section-label">任務說明</div>${escHtml(s.qrTask||'完成任務後出示 QR Code')}</div>`;
+    if(s.stageType==='overlay')html+=`<div class="section"><div class="section-label">套圖任務</div>${escHtml(s.overlayTask||'對準後拍照')}</div>`;
+    // GPS
+    if(s.lat&&s.lng){
+      html+=`<div class="gps-box">📍 GPS座標：${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}（範圍 ${s.radius||80}m）`;
+      if(s.locationHint)html+=`<br>📍 到達說明：${escHtml(s.locationHint)}`;
+      html+=`</div>`;
+    } else if(s.locationHint){
+      html+=`<div class="gps-box">📍 位置說明：${escHtml(s.locationHint)}</div>`;
+    }
+    // 提示
+    if(s.hints&&(s.hints.h1||s.hints.h2)){
+      html+=`<div class="hint-box">`;
+      if(s.hints.h1)html+=`💡 提示1：${escHtml(s.hints.h1)}<br>`;
+      if(s.hints.h2)html+=`💡 提示2：${escHtml(s.hints.h2)}`;
+      html+=`</div>`;
+    }
+    // 故事
+    if(s.storyIntro)html+=`<div class="story-box">📖 開場故事：${escHtml(s.storyIntro).replace(/
+/g,'<br>')}</div>`;
+    if(s.storyOutro)html+=`<div class="story-box">🎉 過關故事：${escHtml(s.storyOutro).replace(/
+/g,'<br>')}</div>`;
+    if(s.nextHint)html+=`<div class="story-box" style="background:#e8f4ff;color:#1a6fa3">🗺️ 本關位置提示：${escHtml(s.nextHint)}</div>`;
+    html+=`</div>`;
+  });
+  html+=`<div class="footer">📄 ${escHtml(settings.activityName||'實境解謎')} 關卡說明書 ・ 由活動管理系統自動產生</div></body></html>`;
+  downloadFile(`關卡說明書_${now.replace(/\//g,'-')}.html`,html,'text/html;charset=utf-8');
+  toast('✅ 關卡說明書已匯出！');
+}
+
+function printStagesBook(){
+  loadPreview().then(()=>{
+    setTimeout(()=>{
+      // 開啟列印預覽
+      const container=document.getElementById('previewContainer');
+      if(!container)return;
+      const win=window.open('','_blank');
+      win.document.write('<html><head><title>關卡說明書</title><style>body{font-family:Microsoft JhengHei,sans-serif;padding:20px} .card{border:1px solid #eee;border-radius:8px;padding:14px;margin:10px 0;page-break-inside:avoid}</style></head><body>');
+      win.document.write(container.innerHTML);
+      win.document.write('</body></html>');
+      win.document.close();
+      win.print();
+    },800);
+  });
+}
 
 function downloadFile(name,content,type){const blob=new Blob(['\uFEFF'+content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
 </script>
