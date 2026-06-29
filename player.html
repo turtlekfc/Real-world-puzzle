@@ -507,7 +507,7 @@ signInAnonymously(auth).then(async ()=>{
   console.log('匿名登入成功，開始載入設定');
   // ── 嘗試從 sessionStorage 自動恢復登入 ──
   const saved=sessionStorage.getItem('playerLogin');
-  if(saved){
+  if(saved&&saved.trim()){
     try{
       const {teamKey}=JSON.parse(saved);
       if(teamKey){
@@ -545,16 +545,18 @@ signInAnonymously(auth).then(async ()=>{
 }).catch(e=>{
   console.warn('匿名登入失敗:',e);
   const hintEl=document.getElementById('loadingHint');
-  if(hintEl){
-    hintEl.style.color='var(--coral)';
-    if(e.code==='auth/network-request-failed'){
-      hintEl.textContent='⚠️ 網路連線失敗，請確認網路後重新整理';
-    } else {
-      hintEl.textContent='⚠️ 請用 Chrome 或 Safari（一般視窗，非無痕）開啟';
-    }
-  }
   const loginBtn=document.getElementById('loginBtn');
-  if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='無法連線';}
+  if(hintEl){hintEl.style.color='var(--coral)';}
+  if(e.code==='auth/network-request-failed'){
+    if(hintEl)hintEl.textContent='⚠️ 網路連線失敗，請確認網路後重新整理';
+    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='🔄 重新整理';loginBtn.onclick=()=>location.reload();}
+  } else if(e.code==='auth/too-many-requests'){
+    if(hintEl)hintEl.textContent='⚠️ 請求次數過多，請稍後重試';
+    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='🔄 重試';loginBtn.onclick=()=>location.reload();}
+  } else {
+    if(hintEl)hintEl.textContent=`⚠️ 請用 Chrome 或 Safari（一般視窗，非無痕）開啟（${e.code||e.message||''}）`;
+    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='🔄 重新整理';loginBtn.onclick=()=>location.reload();}
+  }
 });
 
 async function sha256(str) {
@@ -619,7 +621,24 @@ async function initLogin() {
     }
     teamSel.disabled=false;loginBtn.disabled=false;loginBtn.textContent='🐚 開始登入！';hintEl.textContent='';
   } catch(e) {
-    hintEl.textContent='⚠️ 載入失敗，3秒後重試...';setTimeout(initLogin,3000);
+    console.error('initLogin 失敗:', e);
+    if(e&&(e.code==='PERMISSION_DENIED'||e.message&&e.message.includes('PERMISSION_DENIED'))){
+      hintEl.style.color='var(--coral)';
+      hintEl.textContent='⚠️ Firebase 權限不足，請確認 Database Rules 允許匿名讀取 config/settings';
+      loginBtn.disabled=false;
+      loginBtn.textContent='🔄 重試';
+      loginBtn.onclick=()=>{ loginBtn.onclick=null; loginBtn.disabled=true; hintEl.style.color=''; hintEl.textContent=''; initLogin(); };
+    } else if(e&&(e.code==='auth/network-request-failed'||(e.message&&e.message.toLowerCase().includes('network')))){
+      hintEl.style.color='var(--coral)';
+      hintEl.textContent='⚠️ 網路連線失敗，請確認網路後點此重試';
+      loginBtn.disabled=false;
+      loginBtn.textContent='🔄 重新載入';
+      loginBtn.onclick=()=>{ loginBtn.onclick=null; loginBtn.disabled=true; hintEl.style.color=''; hintEl.textContent=''; initLogin(); };
+    } else {
+      hintEl.style.color='var(--coral)';
+      hintEl.textContent='⚠️ 載入失敗：'+(e.message||e.code||'未知錯誤')+' — 3秒後自動重試';
+      setTimeout(()=>{ hintEl.style.color=''; hintEl.textContent=''; initLogin(); },3000);
+    }
   }
 }
 // initLogin() 已移到 signInAnonymously.then() 裡面執行
@@ -1109,7 +1128,7 @@ function shuffleForTeam(arr,teamKey){
   let savedOrder=null;
   try{
     const saved=sessionStorage.getItem(storageKey);
-    if(saved)savedOrder=JSON.parse(saved);
+    if(saved&&saved.trim())savedOrder=JSON.parse(saved);
   }catch(e){}
 
   const a=[...arr];
@@ -1899,8 +1918,14 @@ function overlayShoot(){
     if(verifyType==='ai'&&state.settings.geminiKey&&stage.overlayAIDesc){
       const reader=new FileReader();
       reader.onload=async e=>{
-        const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
-        if(passed)setTimeout(()=>passPhotoStage(),800);
+        try{
+          const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
+          if(passed)setTimeout(()=>passPhotoStage(),800);
+        }catch(err){
+          console.warn('AI驗證錯誤:',err);
+          const statusEl=document.getElementById('photoVerifyStatus');
+          if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用，請繼續作答';}
+        }
       };
       reader.readAsDataURL(blob);
     } else if(verifyType==='confirm'){
@@ -2158,20 +2183,27 @@ async function submitPhotoForAI(){
   // 轉成 base64
   const reader=new FileReader();
   reader.onload=async e=>{
-    if(state.settings.geminiKey&&stage.photoDescription){
-      const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
-      if(passed){
-        if(submitBtn)submitBtn.style.display='none';
-        setTimeout(()=>passPhotoStage(),800);
+    try{
+      if(state.settings.geminiKey&&stage.photoDescription){
+        const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
+        if(passed){
+          if(submitBtn)submitBtn.style.display='none';
+          setTimeout(()=>passPhotoStage(),800);
+        } else {
+          // 辨識失敗：顯示重拍按鈕，解鎖送出按鈕
+          if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
+          if(retakeBtn)retakeBtn.style.display='block';
+        }
       } else {
-        // 辨識失敗：顯示重拍按鈕，解鎖送出按鈕
-        if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
-        if(retakeBtn)retakeBtn.style.display='block';
+        // 無AI Key：直接過關
+        if(submitBtn)submitBtn.style.display='none';
+        setTimeout(()=>passPhotoStage(),500);
       }
-    } else {
-      // 無AI Key：直接過關
-      if(submitBtn)submitBtn.style.display='none';
-      setTimeout(()=>passPhotoStage(),500);
+    }catch(err){
+      console.warn('AI驗證錯誤:',err);
+      if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
+      const statusEl=document.getElementById('photoVerifyStatus');
+      if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用，請重試';}
     }
   };
   reader.readAsDataURL(state.photoFile);
@@ -2292,7 +2324,10 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
         body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType,data:imageData}},{text:prompt}]}]})
       });
       if(res.status===429||res.status===403){lastError=res.status;continue;}// 超限，換KEY
-      const data=await res.json();
+      if(!res.ok){lastError=res.status;continue;}// 其他錯誤狀態，換KEY或略過
+      const rawText=await res.text();
+      if(!rawText||!rawText.trim()){continue;}// 空回應，略過
+      let data;try{data=JSON.parse(rawText);}catch(jsonErr){continue;}// 非JSON回應，略過
       const text=(data&&data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text||'');
       const pass=text.includes('結果：符合');
       if(pass){
@@ -2561,7 +2596,9 @@ function showHelp(){
   document.getElementById('helpOverlay').classList.remove('hidden');
 }
 function closeHelp(){
-  resumeBGM();// 關閉求救恢復音樂document.getElementById('helpOverlay').classList.add('hidden');}
+  resumeBGM();// 關閉求救恢復音樂
+  document.getElementById('helpOverlay').classList.add('hidden');
+}
 async function sendHelp(){
   const msg=document.getElementById('helpMsg').value.trim();
   if(!msg){alert('請說明你遇到的問題！');return;}
