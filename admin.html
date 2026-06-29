@@ -467,7 +467,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
     <div class="nav-item" onclick="showTab('theme')" id="nav-theme"><span class="nav-icon">🎨</span>主題換膚</div>
     <div class="nav-item" onclick="showTab('users')" id="nav-users"><span class="nav-icon">👥</span>帳號管理</div>
     <div class="nav-item" onclick="showTab('stats')" id="nav-stats"><span class="nav-icon">📈</span>活動統計</div>
-    <div class="nav-item" onclick="showTab('export')" id="nav-export"><span class="nav-icon">📤</span>匯出紀錄</div>
+    <div class="nav-item" onclick="showTab('export')" id="nav-export" style="display:none"><span class="nav-icon">📤</span>匯出紀錄</div>
     <div class="sidebar-bottom">
       <button class="btn btn-ghost btn-sm btn-block" onclick="doLogout()">登出</button>
     </div>
@@ -591,6 +591,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <div class="form-group">
           <label>🔒 關卡圖片浮水印文字（留空則不加）</label>
           <input type="text" id="settingWatermark" placeholder="例：官方題目 禁止截圖 © 新屋海螺館"/>
+          </div>
+          <div class="form-group">
+            <label>👁️ 檢視者密碼 <span style="font-size:11px;color:var(--text-light);font-weight:400">（廠商/顧問唯讀登入，留空則不開放）</span></label>
+            <input type="text" id="settingViewerPass" placeholder="例：觀摩2025" autocomplete="off"/>
+          </div>
+          <div style="display:none"><!-- placeholder for closing form-group -->
           <div style="font-size:11px;color:var(--text-light);margin-top:4px">上傳關卡圖片時自動疊加在圖片上，防止玩家截圖作弊</div>
         </div>
         <div class="form-row">
@@ -865,23 +871,25 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
             <th>功能</th>
             <th>👑 超級管理者</th>
             <th>🎯 活動主帳號</th>
-            <th>🔑 總關主</th>
             <th>👷 策劃人員</th>
+            <th>🔑 總關主</th>
+            <th>👁️ 檢視者</th>
           </tr></thead>
           <tbody>
-            <tr><td>帳號管理</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>活動設定/LOGO/Banner</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>故事與規則編輯</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>分數設定</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>關卡管理（新增/編輯）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>主題換膚</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>匯出紀錄</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>開始/暫停活動</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
-            <tr><td>即時監控（排行/進度）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
-            <tr><td>求救管理（回覆）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
-            <tr><td>照片審核/刪除</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
-            <tr><td>廣播訊息</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
-            <tr><td>GPS紀錄查看</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td></tr>
+            <tr><td>帳號管理</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>活動設定/LOGO/Banner</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>關卡管理（新增/編輯）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>匯出紀錄</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>開始/暫停活動</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>即時監控（排行/進度）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅ 唯讀</td></tr>
+            <tr><td>求救管理（回覆）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>關主確認/協助過關</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>廣播訊息</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>照片審核</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>照片刪除</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>GPS紀錄查看</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>關卡內容檢視</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--green)">✅ 唯讀</td></tr>
+            <tr><td>故事/規則/分數設定</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
           </tbody>
         </table>
         </div>
@@ -1358,6 +1366,19 @@ async function signInWithStageMasterPass(){
         foundIdx = i;
       }
     });
+    // 檢查是否為檢視者密碼
+    const viewerPass=(settingsData.viewerPass||'').trim();
+    if(!found&&viewerPass&&pass===viewerPass){
+      currentRole='viewer';
+      applyRolePermissions('viewer');
+      document.getElementById('loginPage').style.display='none';
+      document.getElementById('adminPage').style.display='block';
+      const bar=document.getElementById('roleInfoBar');
+      if(bar)bar.textContent='👁️ 檢視者・唯讀模式';
+      toast('✅ 歡迎！以檢視者身份登入');
+      document.getElementById('stageMasterPassInput').value='';
+      return;
+    }
     if(!found){errEl.textContent='❌ 密碼錯誤，請再試一次';return;}
 
     // 登入成功
@@ -1767,16 +1788,28 @@ function applyRolePermissions(role){
   const hideEl=ids=>ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
 
   if(role==='super'){
+    // 超級管理者：全部功能含匯出、照片刪除
     showEl([...monitorItems,...manageItems,...adminItems]);
     showEl([...mMonitor,...mManage,...mAdmin]);
   } else if(role==='host'){
+    // 活動主帳號：管理+監控，但無匯出、無照片刪除
     showEl([...monitorItems,...manageItems,...adminItems]);
     showEl([...mMonitor,...mManage,...mAdmin]);
+    hideEl(['nav-export','mnav-export']);// 匯出只有 super
+  } else if(role==='viewer'){
+    // 檢視者：只能看監控（唯讀）和關卡內容
+    showEl(['nav-monitor','nav-stages']);
+    hideEl([...monitorItems.filter(x=>x!=='nav-monitor'),...manageItems.filter(x=>x!=='nav-stages'),...adminItems]);
+    showEl(['mnav-monitor','mnav-stages']);
+    hideEl([...mMonitor.filter(x=>x!=='mnav-monitor'),...mManage.filter(x=>x!=='mnav-stages'),...mAdmin]);
+    document.querySelectorAll('.nav-group-label').forEach(el=>{
+      if(el.textContent.includes('設定'))el.style.display='none';
+    });
   } else {
-    // staff / stagemaster：只顯示監控類
+    // staff（策劃人員） / stagemaster（總關主）：只顯示監控類
     showEl(monitorItems);hideEl(manageItems);hideEl(adminItems);
     showEl(mMonitor);hideEl(mManage);hideEl(mAdmin);
-    // 隱藏桌面版群組標題「設定」
+    hideEl(['nav-export','mnav-export']);
     document.querySelectorAll('.nav-group-label').forEach(el=>{
       if(el.textContent.includes('設定'))el.style.display='none';
     });
@@ -1787,7 +1820,8 @@ function applyRolePermissions(role){
     super:'👑 超級管理者・全部功能',
     host:'🎯 活動主帳號・管理+監控',
     stagemaster:'🔑 總關主・GPS查看+監控+驗證過關',
-    staff:'👷 策劃人員・監控+求救'
+    staff:'👷 策劃人員・監控+求救',
+    viewer:'👁️ 檢視者・唯讀檢視'
   };
   const bar=document.getElementById('roleInfoBar');
   if(bar)bar.textContent=roleDesc[role]||role;
@@ -2719,9 +2753,13 @@ async function loadPhotos(){
     const div=document.createElement('div');div.className='photo-thumb';
     const img=document.createElement('img');img.alt='照片';img.src=p.url;img.onclick=()=>window.open(p.url,'_blank');
     const bar=document.createElement('div');bar.className='photo-info-bar';bar.textContent=`${p.team}·第${p.stage}關`;
-    const delBtn=document.createElement('button');delBtn.className='photo-delete-btn';delBtn.textContent='🗑️ 刪除';
-    delBtn.onclick=()=>deletePhoto(p.sessKey,p.stageIdx,p.url,div);
-    div.appendChild(img);div.appendChild(bar);div.appendChild(delBtn);grid.appendChild(div);
+    div.appendChild(img);div.appendChild(bar);
+    if(currentRole==='super'){
+      const delBtn=document.createElement('button');delBtn.className='photo-delete-btn';delBtn.textContent='🗑️ 刪除';
+      delBtn.onclick=()=>deletePhoto(p.sessKey,p.stageIdx,p.url,div);
+      div.appendChild(delBtn);
+    }
+    grid.appendChild(div);
   });
   container.innerHTML='';container.appendChild(grid);
 }
@@ -2779,6 +2817,7 @@ async function loadSettings(){
   if(s.geminiKey)document.getElementById('settingGeminiKey').value=s.geminiKey;
   if(s.geminiKey2)document.getElementById('settingGeminiKey2').value=s.geminiKey2;
   if(s.watermark!=null)document.getElementById('settingWatermark').value=s.watermark||'';
+  const svp=document.getElementById('settingViewerPass');if(svp)svp.value=s.viewerPass||'';
   if(s.activityEndTime){const dt=new Date(s.activityEndTime);const local=new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById('settingEndTime').value=local;}
   if(s.logoUrl){logoUrl=s.logoUrl;const img=document.getElementById('logoPreviewImg');img.src=s.logoUrl;img.classList.remove('hidden');document.getElementById('logoPlaceholder').classList.add('hidden');document.getElementById('removeLogoBtn').style.display='';}
   if(s.bannerUrl){bannerUrl=s.bannerUrl;const img=document.getElementById('bannerPreviewImg');img.src=s.bannerUrl;img.classList.remove('hidden');document.getElementById('bannerPlaceholder').classList.add('hidden');document.getElementById('removeBannerBtn').style.display='';}
@@ -2841,6 +2880,7 @@ async function saveSettings(){
     geminiKey:newGeminiKey||settingsData.geminiKey||'',
     geminiKey2:newGeminiKey2||settingsData.geminiKey2||'',
     watermark:safeRead('settingWatermark'),
+    viewerPass:safeRead('settingViewerPass'),
     activityEndTime:endTimeMs,
     // 保留所有不在此頁面的設定（避免覆蓋）
     storyTitle:settingsData.storyTitle,

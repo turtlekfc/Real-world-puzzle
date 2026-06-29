@@ -547,7 +547,7 @@ let state = {
   currentIdx:0, stageSeconds:0, totalSeconds:0,
   gameStartTime:null, timerInterval:null, countdownInterval:null,
   selectedOption:null, tfAnswer:null, totalAttempts:0, stageAttempts:0,
-  photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null,
+  photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastStage:0, _staffSkipping:false,
   settings:{}, scoring:{}, gpsLogCount:0,
   score:0, helpUsed:0, hintUsed:0,
   photoFailCount:0, lastBroadcastId:null,
@@ -678,52 +678,63 @@ onValue(ref(db,'config/forceLogout'),snap=>{
 // 監聽工作人員協助過關
 function listenStaffSkip(){
   if(!state.sessionKey)return;
-  // 分別監聽 currentStage 和 status，避免監聽整個 session 造成衝突
-  let _lastKnownStage=state.currentIdx;
-  // 監聽 currentStage 變化
+  // 用 state._staffLastStage 記錄「已知的 Firebase currentStage 值」
+  // 玩家自己過關時也要同步更新這個值，避免誤判
+  state._staffLastStage=state.currentIdx;
+  state._staffSkipping=false;
   onValue(ref(db,`sessions/${state.sessionKey}/currentStage`),snap=>{
     if(!snap.exists())return;
     const newIdx=snap.val();
     if(newIdx===null||newIdx===undefined)return;
-    // 初次觸發時記錄當前值，不執行跳關
-    if(_lastKnownStage===state.currentIdx&&newIdx===state.currentIdx){
-      _lastKnownStage=newIdx;return;
-    }
-    if(newIdx!==state.currentIdx&&!state._staffSkipping){
+    // 若 Firebase 的值等於我們記錄的值，不觸發（初次載入或自己更新的）
+    if(newIdx===state._staffLastStage){return;}
+    // 若 Firebase 的值比 state.currentIdx 大，表示管理者跳關了
+    if(newIdx>state.currentIdx&&!state._staffSkipping){
       state._staffSkipping=true;
-      _lastKnownStage=newIdx;
-      // 取得最新分數
+      state._staffLastStage=newIdx;
       get(ref(db,`sessions/${state.sessionKey}/score`)).then(scoreSnap=>{
         const newScore=scoreSnap.val()||state.score;
-        // 取得 status 判斷是否完賽
         get(ref(db,`sessions/${state.sessionKey}/status`)).then(statusSnap=>{
           const isFinished=statusSnap.val()==='finished';
-          // 問題八：顯示彈窗，玩家需按確定才繼續
-          const overlay=document.createElement('div');
-          overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
-          const box=document.createElement('div');
-          box.style.cssText='background:white;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)';
-          const icon=document.createElement('div');icon.style.cssText='font-size:48px;margin-bottom:12px';icon.textContent=isFinished?'🏆':'⏭️';
-          const title=document.createElement('div');title.style.cssText='font-size:17px;font-weight:700;color:#1a7a40;margin-bottom:8px';
-          title.textContent=isFinished?'工作人員已協助完賽！':'工作人員協助跳過此關';
-          const msg=document.createElement('div');msg.style.cssText='font-size:13px;color:#5a8aaa;margin-bottom:18px;line-height:1.6';
-          msg.textContent=isFinished?'恭喜！請前往集合地點。':'已跳過此關卡，繼續前往下一關！';
-          const btn=document.createElement('button');
-          btn.style.cssText='width:100%;padding:13px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:13px;font-size:15px;font-weight:700;cursor:pointer';
-          btn.textContent='✅ 確定';
-          btn.onclick=()=>{
-            overlay.remove();
-            state._staffSkipping=false;
-            if(isFinished){state.score=newScore;showFinish();}
-            else{state.currentIdx=newIdx;state.score=newScore;state.hintUsed=0;document.getElementById('currentScore').textContent=`${state.score} 分`;renderStage();}
-          };
-          box.appendChild(icon);box.appendChild(title);box.appendChild(msg);box.appendChild(btn);
-          overlay.appendChild(box);document.body.appendChild(overlay);
+          showStaffSkipOverlay(isFinished,newIdx,newScore);
         });
       });
+    } else {
+      // 同步記錄（可能是其他合法更新）
+      state._staffLastStage=newIdx;
     }
   });
 }
+
+function showStaffSkipOverlay(isFinished,newIdx,newScore){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+  const box=document.createElement('div');
+  box.style.cssText='background:white;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3)';
+  const icon=document.createElement('div');icon.style.cssText='font-size:48px;margin-bottom:12px';icon.textContent=isFinished?'🏆':'⏭️';
+  const title=document.createElement('div');title.style.cssText='font-size:17px;font-weight:700;color:#1a7a40;margin-bottom:8px';
+  title.textContent=isFinished?'工作人員已協助完賽！':'工作人員協助跳過此關';
+  const msg=document.createElement('div');msg.style.cssText='font-size:13px;color:#5a8aaa;margin-bottom:18px;line-height:1.6';
+  msg.textContent=isFinished?'恭喜！請前往集合地點。':'已跳過此關卡，繼續前往下一關！';
+  const btn=document.createElement('button');
+  btn.style.cssText='width:100%;padding:13px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:13px;font-size:15px;font-weight:700;cursor:pointer';
+  btn.textContent='✅ 確定';
+  btn.onclick=()=>{
+    overlay.remove();
+    state._staffSkipping=false;
+    if(isFinished){state.score=newScore;showFinish();}
+    else{
+      state.currentIdx=newIdx;
+      state._staffLastStage=newIdx;// 同步更新，防止二次觸發
+      state.score=newScore;state.hintUsed=0;
+      document.getElementById('currentScore').textContent=`${state.score} 分`;
+      renderStage();
+    }
+  };
+  box.appendChild(icon);box.appendChild(title);box.appendChild(msg);box.appendChild(btn);
+  overlay.appendChild(box);document.body.appendChild(overlay);
+}
+window.showStaffSkipOverlay=showStaffSkipOverlay;
 window.listenStaffSkip=listenStaffSkip;
 
 function listenSessionForceLogout(){
@@ -1119,6 +1130,7 @@ function renderStage(){
   clearInterval(state.timerInterval);state.stageSeconds=0;
   state.timerInterval=setInterval(tickTimer,1000);
   set(ref(db,`sessions/${state.sessionKey}/currentStage`),state.currentIdx);
+  state._staffLastStage=state.currentIdx;// 同步更新，防止listenStaffSkip誤判
 
   const stageType=stage.stageType||'quiz';
   const hasGPS=!!(stage.lat&&stage.lng);
@@ -1351,6 +1363,7 @@ function renderStage(){
       <div class="gps-desc" id="gpsHint"></div>
       <button class="btn-gps" id="gpsBtn" onclick="checkGPS()">📡 驗證我的位置</button>
       <div class="gps-status" id="gpsStatus"></div>
+      <button onclick="skipGPSVerify()" style="margin-top:8px;width:100%;padding:9px;background:#f0f4ff;color:#1a6fa3;border:1.5px dashed #9ac4e8;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer">⏩ 跳過GPS驗證（扣 ${state.scoring.skipPhotoPenalty||20} 分）</button>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
         <button class="action-btn btn-help" id="gpsHelpBtn" onclick="showHelp()" style="max-width:180px" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
         <button class="action-btn btn-hint" id="gpsHintBtn" onclick="useHint()" style="max-width:180px" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
@@ -1419,6 +1432,30 @@ function renderStage(){
     listenForStageConfirm(state.currentIdx);
   }
 }
+
+// 跳過 GPS 驗證（扣分）
+async function skipGPSVerify(){
+  const penalty=state.scoring.skipPhotoPenalty||20;
+  if(!confirm(`確定要跳過GPS驗證嗎？
+將扣除 ${penalty} 分`))return;
+  state.score=Math.max(0,state.score-penalty);
+  set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  document.getElementById('currentScore').textContent=`${state.score} 分`;
+  // 記錄跳過GPS
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/gpsSkipped`),true);
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/arrivedAt`),serverTimestamp());
+  // 直接進入關卡（與 arriveAtStage 相同流程）
+  const gpsCard=document.getElementById('gpsCard');
+  const qCard=document.getElementById('questionCard');
+  if(gpsCard)gpsCard.style.display='none';
+  const stage=state.stages[state.currentIdx];
+  if(stage&&stage.storyIntro){
+    showStoryIntro(stage,()=>{if(qCard)qCard.style.display='';});
+  } else {
+    if(qCard)qCard.style.display='';
+  }
+}
+window.skipGPSVerify=skipGPSVerify;
 
 function checkGPS(){
   const stage=state.stages[state.currentIdx];
