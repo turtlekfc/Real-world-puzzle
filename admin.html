@@ -395,8 +395,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div style="flex:1;height:1px;background:#eee"></div>
     </div>
     <div id="stageMasterLoginArea">
-      <input type="password" id="stageMasterPassInput" placeholder="輸入關主密碼" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;outline:none;margin-bottom:10px" onkeydown="if(event.key==='Enter')signInWithStageMasterPass()"/>
-      <button onclick="signInWithStageMasterPass()" style="width:100%;padding:12px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button id="roleBtn-stagemaster" onclick="selectLoginRole('stagemaster')" style="flex:1;padding:9px;border:2px solid #3db87a;border-radius:10px;background:#eaf7ee;color:#1a7a40;font-size:13px;font-weight:700;cursor:pointer">🔑 總關主</button>
+        <button id="roleBtn-viewer" onclick="selectLoginRole('viewer')" style="flex:1;padding:9px;border:2px solid #e0e0e0;border-radius:10px;background:white;color:#888;font-size:13px;font-weight:700;cursor:pointer">👁️ 檢視者</button>
+      </div>
+      <input type="password" id="stageMasterPassInput" placeholder="輸入總關主密碼" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;outline:none;margin-bottom:10px" onkeydown="if(event.key==='Enter')signInWithStageMasterPass()"/>
+      <button onclick="signInWithStageMasterPass()" style="width:100%;padding:12px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer" id="smLoginBtn">
         🔑 總關主密碼登入
       </button>
     </div>
@@ -1340,34 +1344,19 @@ async function signInWithStageMasterPass(){
   const pass = document.getElementById('stageMasterPassInput').value.trim();
   const errEl = document.getElementById('loginErr');
   errEl.textContent = '';
-  if(!pass){errEl.textContent='請輸入關主密碼';return;}
+  if(!pass){errEl.textContent='請輸入密碼';return;}
 
-  // 讀取所有關卡，找對應密碼
-  try{
-    // 確保匿名登入完成後再讀取關卡（需要 auth）
-    try{ await signInAnonymously(auth); }catch(e){ /* 已登入則忽略 */ }
+  // 確保匿名登入完成
+  try{ await signInAnonymously(auth); }catch(e){ /* 已登入則忽略 */ }
 
-    const snap = await get(ref(db,'stages'));
-    if(!snap.exists()){errEl.textContent='⚠️ 尚未建立關卡';return;}
-    const stages = snap.val();
-    let found = null;
-    let foundKey = null;
-    let foundIdx = 0;
-    const sorted = Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
-    sorted.forEach(([k,s],i)=>{
-      // 支援 confirm、qrcode、password 三種類型的關主密碼
-      const matchConfirm = s.stageType==='confirm' && s.stageMasterPass && s.stageMasterPass===pass;
-      const matchQR = s.stageType==='qrcode' && s.qrMasterPass && s.qrMasterPass===pass;
-      const matchPass = s.stageType==='password' && s.stageMasterPass && s.stageMasterPass===pass;
-      if(matchConfirm||matchQR||matchPass){
-        found = s;
-        foundKey = k;
-        foundIdx = i;
-      }
-    });
-    // 檢查是否為檢視者密碼
-    const viewerPass=(settingsData.viewerPass||'').trim();
-    if(!found&&viewerPass&&pass===viewerPass){
+  // ── 檢視者路徑（每次都從 Firebase 即時讀取 viewerPass）──
+  if(_loginRole === 'viewer'){
+    try{
+      const settSnap = await get(ref(db,'config/settings/viewerPass'));
+      const viewerPass = (settSnap.val()||'').trim();
+      if(!viewerPass){errEl.textContent='⚠️ 尚未設定檢視者密碼（請聯絡管理者）';return;}
+      if(pass !== viewerPass){errEl.textContent='❌ 檢視者密碼錯誤';return;}
+      // 登入成功
       currentRole='viewer';
       applyRolePermissions('viewer');
       document.getElementById('loginPage').style.display='none';
@@ -1376,18 +1365,32 @@ async function signInWithStageMasterPass(){
       if(bar)bar.textContent='👁️ 檢視者・唯讀模式';
       toast('✅ 歡迎！以檢視者身份登入');
       document.getElementById('stageMasterPassInput').value='';
-      return;
+    }catch(e){
+      errEl.textContent='⚠️ 連線失敗：'+e.message;
     }
-    if(!found){errEl.textContent='❌ 密碼錯誤，請再試一次';return;}
+    return;
+  }
 
-    // 登入成功
+  // ── 總關主路徑 ──
+  try{
+    const snap = await get(ref(db,'stages'));
+    if(!snap.exists()){errEl.textContent='⚠️ 尚未建立關卡';return;}
+    const stages = snap.val();
+    let found = null, foundKey = null, foundIdx = 0;
+    const sorted = Object.entries(stages).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
+    sorted.forEach(([k,s],i)=>{
+      const matchConfirm = s.stageType==='confirm' && s.stageMasterPass && s.stageMasterPass===pass;
+      const matchQR = s.stageType==='qrcode' && s.qrMasterPass && s.qrMasterPass===pass;
+      const matchPass = s.stageType==='password' && s.stageMasterPass && s.stageMasterPass===pass;
+      if(matchConfirm||matchQR||matchPass){found=s;foundKey=k;foundIdx=i;}
+    });
+    if(!found){errEl.textContent='❌ 密碼錯誤，請再試一次';return;}
     smState = {stageKey:foundKey, stageIdx:foundIdx, stageName:found.title||`第${foundIdx+1}關`, stagePass:pass};
     document.getElementById('stageMasterPage').style.display='block';
     document.getElementById('loginPage').style.display='none';
-    document.getElementById('smTitle').textContent=`🔑 總關主頁面`;
+    document.getElementById('smTitle').textContent='🔑 總關主頁面';
     document.getElementById('smStageInfo').textContent=`負責：${smState.stageName}（第${foundIdx+1}關）`;
     smRefresh();
-    // 每30秒自動刷新
     setInterval(smRefresh, 30000);
   }catch(e){
     errEl.textContent='⚠️ 連線失敗：'+e.message;
@@ -1396,6 +1399,28 @@ async function signInWithStageMasterPass(){
 }
 
 window.signInWithStageMasterPass=signInWithStageMasterPass;
+
+let _loginRole = 'stagemaster'; // 預設為總關主
+
+function selectLoginRole(role){
+  _loginRole = role;
+  const smBtn = document.getElementById('roleBtn-stagemaster');
+  const vwBtn = document.getElementById('roleBtn-viewer');
+  const passInput = document.getElementById('stageMasterPassInput');
+  const loginBtn = document.getElementById('smLoginBtn');
+  if(role === 'stagemaster'){
+    if(smBtn){smBtn.style.background='#eaf7ee';smBtn.style.borderColor='#3db87a';smBtn.style.color='#1a7a40';}
+    if(vwBtn){vwBtn.style.background='white';vwBtn.style.borderColor='#e0e0e0';vwBtn.style.color='#888';}
+    if(passInput)passInput.placeholder='輸入總關主密碼';
+    if(loginBtn){loginBtn.textContent='🔑 總關主密碼登入';loginBtn.style.background='linear-gradient(90deg,#1a7a40,#3db87a)';}
+  } else {
+    if(vwBtn){vwBtn.style.background='#e8f4ff';vwBtn.style.borderColor='#1a6fa3';vwBtn.style.color='#1a6fa3';}
+    if(smBtn){smBtn.style.background='white';smBtn.style.borderColor='#e0e0e0';smBtn.style.color='#888';}
+    if(passInput)passInput.placeholder='輸入檢視者密碼';
+    if(loginBtn){loginBtn.textContent='👁️ 檢視者密碼登入';loginBtn.style.background='linear-gradient(90deg,#1a6fa3,#2a9fd6)';}
+  }
+}
+window.selectLoginRole = selectLoginRole;
 
 function smLogout(){
   smState = {stageKey:null,stageIdx:null,stageName:null,stagePass:null};
@@ -1578,10 +1603,10 @@ async function quickClearAll(){
     }catch(e){console.warn('照片清除:',e);}
     renderMonitor();
     loadSessions();
-    if(document.getElementById('tab-photos')?.classList.contains('active'))loadPhotos();
-    if(document.getElementById('tab-stats')?.classList.contains('active'))loadStats();
-    if(document.getElementById('tab-export')?.classList.contains('active'))loadExport();
-    if(document.getElementById('tab-broadcast')?.classList.contains('active'))loadBroadcastHistory();
+    if((document.getElementById('tab-photos')&&document.getElementById('tab-photos').classList.contains('active')))loadPhotos();
+    if((document.getElementById('tab-stats')&&document.getElementById('tab-stats').classList.contains('active')))loadStats();
+    if((document.getElementById('tab-export')&&document.getElementById('tab-export').classList.contains('active')))loadExport();
+    if((document.getElementById('tab-broadcast')&&document.getElementById('tab-broadcast').classList.contains('active')))loadBroadcastHistory();
     toast(`✅ 清除完成！（sessions、廣播、${photoCount} 張照片已刪除）`);
   }catch(e){
     toast('❌ 清除失敗：'+e.message);
@@ -1619,9 +1644,9 @@ function confirmClearAll(){
         renderMonitor();
         loadSessions();
         // 若目前在照片頁，也刷新
-        if(document.getElementById('tab-photos')?.classList.contains('active'))loadPhotos();
-        if(document.getElementById('tab-stats')?.classList.contains('active'))loadStats();
-        if(document.getElementById('tab-export')?.classList.contains('active'))loadExport();
+        if((document.getElementById('tab-photos')&&document.getElementById('tab-photos').classList.contains('active')))loadPhotos();
+        if((document.getElementById('tab-stats')&&document.getElementById('tab-stats').classList.contains('active')))loadStats();
+        if((document.getElementById('tab-export')&&document.getElementById('tab-export').classList.contains('active')))loadExport();
         toast(`✅ 清除完成！（${photoCount} 張照片已刪除）`);
       }catch(e){toast('❌ 清除失敗：'+e.message);console.error(e);}
     }
@@ -1847,8 +1872,8 @@ function showTab(name){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
-  document.getElementById('nav-'+name)?.classList.add('active');
-  document.getElementById('mnav-'+name)?.classList.add('active');
+  const navEl=document.getElementById('nav-'+name);if(navEl)navEl.classList.add('active');
+  const mnavEl=document.getElementById('mnav-'+name);if(mnavEl)mnavEl.classList.add('active');
   if(name==='stages')loadStages();
   if(name==='photos')loadPhotos();
   if(name==='export')loadExport();
@@ -1900,7 +1925,7 @@ async function initAdmin(){
     const mBadge=document.getElementById('mobileHelpBadge');
     if(mBadge){if(total>0){mBadge.textContent=total;mBadge.classList.remove('hidden');}else mBadge.classList.add('hidden');}
     // 如果在求救/確認頁面，即時刷新確認列表
-    if(document.getElementById('tab-help')?.classList.contains('active'))loadConfirmRequests();
+    if((document.getElementById('tab-help')&&document.getElementById('tab-help').classList.contains('active')))loadConfirmRequests();
   });
 }
 
@@ -1954,7 +1979,7 @@ async function monitorApproveStage(sessKey, stageIdx, teamName){
     await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
     await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmed`),true);
     await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedAt`),serverTimestamp());
-    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedBy`),currentUser?.email||'管理者');
+    await set(ref(db,`sessions/${sessKey}/stageLogs/${stageIdx}/confirmedBy`),(currentUser&&currentUser.email||'管理者'));
     toast(`✅「${teamName}」已確認通過！`);
     loadSessions();
   }catch(e){toast('❌ 操作失敗：'+e.message);}
@@ -2100,7 +2125,7 @@ function checkStuckTeams(){
   Object.entries(latestByTeam).forEach(([key,s])=>{
     if(s.status!=='playing')return;
     const log=(s.stageLogs||{})[s.currentStage||0];
-    if(log?.arrivedAt){
+    if((log&&log.arrivedAt)){
       const ms=typeof log.arrivedAt==='number'?log.arrivedAt:now-5*60*1000;
       if(now-ms>stuckMin){const cfg=teamsConfig[key]||{};stuckTeams.push(`${cfg.name||key}（第${(s.currentStage||0)+1}關，已卡${Math.round((now-ms)/60000)}分鐘）`);}
     }
@@ -2261,7 +2286,7 @@ async function loadHelpRequests(){
 
 async function replyHelp(sessKey,helpKey){
   const input=document.getElementById(`reply_${helpKey}`);
-  const reply=input?.value.trim();
+  const reply=(input&&input.value.trim()||'');
   if(!reply){toast('請輸入回覆訊息');return;}
   await set(ref(db,`sessions/${sessKey}/helpLogs/${helpKey}/answered`),true);
   await set(ref(db,`sessions/${sessKey}/helpLogs/${helpKey}/reply`),reply);
@@ -2400,7 +2425,7 @@ async function loadGPSLog(){
     const title=document.createElement('div');title.style.cssText='font-size:13px;font-weight:700;margin-bottom:7px;color:var(--primary)';title.textContent=cfg.name||key;section.appendChild(title);
     const tbl=document.createElement('table');tbl.innerHTML=`<thead><tr><th>時間</th><th>緯度</th><th>經度</th><th>距目標</th><th>結果</th></tr></thead><tbody></tbody>`;
     const tbody=tbl.querySelector('tbody');
-    sorted.forEach(log=>{const t=new Date(log.ts).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});const tr=document.createElement('tr');tr.innerHTML=`<td>${t}</td><td>${log.lat?.toFixed(5)||'-'}</td><td>${log.lng?.toFixed(5)||'-'}</td><td>${log.dist!=null?Math.round(log.dist)+'m':'-'}</td><td>${log.passed?'<span style="color:var(--green)">✅</span>':'<span style="color:var(--coral)">❌</span>'}</td>`;tbody.appendChild(tr);});
+    sorted.forEach(log=>{const t=new Date(log.ts).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});const tr=document.createElement('tr');tr.innerHTML=`<td>${t}</td><td>${(log.lat!=null?log.lat.toFixed(5):'-')}</td><td>${(log.lng!=null?log.lng.toFixed(5):'-')}</td><td>${log.dist!=null?Math.round(log.dist)+'m':'-'}</td><td>${log.passed?'<span style="color:var(--green)">✅</span>':'<span style="color:var(--coral)">❌</span>'}</td>`;tbody.appendChild(tr);});
     section.appendChild(tbl);container.appendChild(section);
   });
 }
@@ -2427,13 +2452,15 @@ function renderStageList(){
     const gpsTag=(s.lat&&s.lng)?'<span style="color:var(--green)">📍GPS</span>':'<span style="color:#ccc">📍無GPS</span>';
     const item=document.createElement('div');item.className='stage-item';
     item.style.borderLeftColor=ti.color;
+    const canEdit = currentRole==='super'||currentRole==='host';
     item.innerHTML=`<div class="stage-item-header">
       <div class="stage-num">${s.order||i+1}</div>
       <div style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${ti.color}22;color:${ti.color};flex-shrink:0;white-space:nowrap">${ti.icon} ${ti.label}</div>
       <div class="stage-name" style="flex:1"></div>
       <div style="display:flex;gap:5px;flex-shrink:0">
-        <button class="btn btn-ghost btn-sm" onclick="editStage('${key}')">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteStage('${key}')">🗑️</button>
+        ${canEdit?`<button class="btn btn-ghost btn-sm" onclick="editStage('${key}')">✏️</button>`:''}
+        ${canEdit?`<button class="btn btn-danger btn-sm" onclick="deleteStage('${key}')">🗑️</button>`:''}
+        ${!canEdit?'<span style="font-size:11px;color:var(--text-light)">唯讀</span>':''}
       </div></div>
       <div class="stage-meta">${gpsTag}
         ${type==='quiz'?`<span>📝 ${(s.options||[]).length}選項</span><span>✅ ${['A','B','C','D'][s.answerIndex]||'?'}</span>${s.requirePhoto?'<span style="color:var(--coral)">📌拍照</span>':''}`:''}
@@ -2448,12 +2475,13 @@ function renderStageList(){
 function selectStageType(type){
   document.getElementById('fStageType').value=type;
   ['quiz','truefalse','photo','password','confirm','qrcode','overlay'].forEach(t=>{
-    document.getElementById(`typeBtn-${t}`)?.classList.toggle('active',t===type);
-    document.getElementById(`section-${t}`)?.classList.toggle('hidden',t!==type);
+    const tb=document.getElementById(`typeBtn-${t}`);if(tb)tb.classList.toggle('active',t===type);
+    const sb=document.getElementById(`section-${t}`);if(sb)sb.classList.toggle('hidden',t!==type);
   });
 }
 
 function openStageModal(){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法新增關卡');return;}
   editingStageKey=null;modalImgFile=null;modalImgUrl=null;
   document.getElementById('modalTitle').textContent='新增關卡';
   document.getElementById('fOrder').value=Object.keys(stagesData).length+1;
@@ -2481,11 +2509,12 @@ function openStageModal(){
   document.getElementById('stageModal').classList.remove('hidden');
 }
 function editStage(key){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法編輯關卡');return;}
   const s=stagesData[key];editingStageKey=key;modalImgFile=null;modalImgUrl=s.imageUrl||null;
   document.getElementById('modalTitle').textContent='編輯關卡';
   document.getElementById('fOrder').value=s.order||1;document.getElementById('fTitle').value=s.title||'';document.getElementById('fDesc').value=s.description||'';
   document.getElementById('fLat').value=s.lat||'';document.getElementById('fLng').value=s.lng||'';document.getElementById('fRadius').value=s.radius||80;document.getElementById('fLocationHint').value=s.locationHint||'';
-  document.getElementById('fHint1').value=s.hints?.h1||'';document.getElementById('fHint2').value=s.hints?.h2||'';
+  document.getElementById('fHint1').value=(s.hints&&s.hints.h1)||'';document.getElementById('fHint2').value=(s.hints&&s.hints.h2)||'';
   // 故事欄位
   const fi=document.getElementById('fStoryIntro');if(fi)fi.value=s.storyIntro||'';
   const fo=document.getElementById('fStoryOutro');if(fo)fo.value=s.storyOutro||'';
@@ -2552,7 +2581,7 @@ function handleOverlayImg(){
 window.handleOverlayImg=handleOverlayImg;
 
 function toggleOverlayVerify(val){
-  const v=val||document.getElementById('fOverlayVerify')?.value||'ai';
+  const v=val||(document.getElementById('fOverlayVerify')?document.getElementById('fOverlayVerify').value:'')||'ai';
   const aiSec=document.getElementById('overlayAISection');
   const cfSec=document.getElementById('overlayConfirmSection');
   if(aiSec)aiSec.classList.toggle('hidden',v!=='ai');
@@ -2679,18 +2708,18 @@ async function saveStage(){
       radius:parseInt(document.getElementById('fRadius').value)||80,
       locationHint:document.getElementById('fLocationHint').value.trim(),
       hints:{h1:document.getElementById('fHint1').value.trim(),h2:document.getElementById('fHint2').value.trim()},
-      storyIntro:(document.getElementById('fStoryIntro')?.value||'').trim(),
-      storyOutro:(document.getElementById('fStoryOutro')?.value||'').trim(),
-      nextHint:(document.getElementById('fNextHint')?.value||'').trim(),
-      fixedFirst:document.getElementById('fFixedFirst')?.checked||false,
-      fixedLast:document.getElementById('fFixedLast')?.checked||false,
+      storyIntro:((document.getElementById('fStoryIntro')?document.getElementById('fStoryIntro').value:'')||'').trim(),
+      storyOutro:((document.getElementById('fStoryOutro')?document.getElementById('fStoryOutro').value:'')||'').trim(),
+      nextHint:((document.getElementById('fNextHint')?document.getElementById('fNextHint').value:'')||'').trim(),
+      fixedFirst:(document.getElementById('fFixedFirst')&&document.getElementById('fFixedFirst').checked),
+      fixedLast:(document.getElementById('fFixedLast')&&document.getElementById('fFixedLast').checked),
       updatedAt:serverTimestamp(),
     };
     // 類型專屬資料
     if(stageType==='truefalse'){
-      const tfAnswer=document.getElementById('tfAnswerTrue')?.checked!==false;
+      const tfAnswer=(document.getElementById('tfAnswerTrue')&&document.getElementById('tfAnswerTrue').checked)!==false;
       data.tfAnswer=tfAnswer;// true=對, false=錯
-      data.requirePhoto=document.getElementById('fTFRequirePhoto')?.checked||false;
+      data.requirePhoto=(document.getElementById('fTFRequirePhoto')&&document.getElementById('fTFRequirePhoto').checked);
       data.options=['○ 對（是）','✕ 錯（否）'];data.answerIndex=tfAnswer?0:1;
       // answerHash 用 true/false 字串產生
     } else if(stageType==='quiz'){
@@ -2705,30 +2734,30 @@ async function saveStage(){
       data.requirePhoto=true;data.options=[];data.answerIndex=0;data.passcode='';
     } else if(stageType==='password'){
       data.passcode=document.getElementById('fPasscode').value.trim().toLowerCase();
-      data.stageMasterPass=(document.getElementById('fPassStageMasterPass')?.value||'').trim();
-      data.requirePhoto=document.getElementById('fPassRequirePhoto')?.checked||false;
+      data.stageMasterPass=((document.getElementById('fPassStageMasterPass')?document.getElementById('fPassStageMasterPass').value:'')||'').trim();
+      data.requirePhoto=(document.getElementById('fPassRequirePhoto')&&document.getElementById('fPassRequirePhoto').checked);
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';
     } else if(stageType==='confirm'){
       data.confirmTask=document.getElementById('fConfirmTask').value.trim();
-      data.stageMasterPass=(document.getElementById('fStageMasterPass')?.value||'').trim();
-      data.requirePhoto=document.getElementById('fConfirmRequirePhoto')?.checked||false;
+      data.stageMasterPass=((document.getElementById('fStageMasterPass')?document.getElementById('fStageMasterPass').value:'')||'').trim();
+      data.requirePhoto=(document.getElementById('fConfirmRequirePhoto')&&document.getElementById('fConfirmRequirePhoto').checked);
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
       data.pendingConfirm=false;
     } else if(stageType==='qrcode'){
       data.qrTask=document.getElementById('fQRTask').value.trim();
-      data.qrMasterPass=(document.getElementById('fQRMasterPass')?.value||'').trim();
-      data.requirePhoto=document.getElementById('fQRRequirePhoto')?.checked||false;
+      data.qrMasterPass=((document.getElementById('fQRMasterPass')?document.getElementById('fQRMasterPass').value:'')||'').trim();
+      data.requirePhoto=(document.getElementById('fQRRequirePhoto')&&document.getElementById('fQRRequirePhoto').checked);
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
     } else if(stageType==='overlay'){
       data.overlayTask=document.getElementById('fOverlayTask').value.trim();
       data.overlayVerify=document.getElementById('fOverlayVerify').value||'ai';
       data.overlayAIDesc=document.getElementById('fOverlayAIDesc').value.trim();
       data.overlayStrictness=document.getElementById('fOverlayStrictness').value||'standard';
-      data.overlayMasterPass=(document.getElementById('fOverlayMasterPass')?.value||'').trim();
+      data.overlayMasterPass=((document.getElementById('fOverlayMasterPass')?document.getElementById('fOverlayMasterPass').value:'')||'').trim();
       data.requirePhoto=true;
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
       // 上傳套圖 PNG
-      let overlayImageUrl=editingStageKey&&stagesData[editingStageKey]?.overlayImageUrl||'';
+      let overlayImageUrl=editingStageKey&&(stagesData[editingStageKey]&&stagesData[editingStageKey].overlayImageUrl||'');
       if(window._overlayImgFile){
         try{
           const oPath=`overlay-images/${Date.now()}_overlay.png`;
@@ -2879,7 +2908,7 @@ async function saveSettings(){
   if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
   const count=parseInt(document.getElementById('settingTeamCount').value)||4;
   const teams={};
-  for(let i=0;i<count;i++){const key=`team${i+1}`;teams[key]={name:document.getElementById(`tName${key}`).value.trim()||`隊伍${i+1}`,password:document.getElementById(`tPass${key}`).value.trim()||'1234',color:document.getElementById(`tColor${key}`).value,customOrder:document.getElementById(`tOrder${key}`)?.value.trim()||''};}
+  for(let i=0;i<count;i++){const key=`team${i+1}`;teams[key]={name:document.getElementById(`tName${key}`).value.trim()||`隊伍${i+1}`,password:document.getElementById(`tPass${key}`).value.trim()||'1234',color:document.getElementById(`tColor${key}`).value,customOrder:(document.getElementById(`tOrder${key}`)&&document.getElementById(`tOrder${key}`).value.trim()||'')};}
   let finalLogoUrl=logoUrl||settingsData.logoUrl||'';
   if(logoFile){try{const path=`logos/logo_${Date.now()}.${logoFile.name.split('.').pop()}`;const snap=await uploadBytes(sRef(storage,path),logoFile);finalLogoUrl=await getDownloadURL(snap.ref);logoFile=null;logoUrl=finalLogoUrl;}catch(e){toast('⚠️ LOGO上傳失敗');}}
   let finalBannerUrl=bannerUrl||settingsData.bannerUrl||'';
@@ -2897,13 +2926,13 @@ async function saveSettings(){
     welcome:safeRead('settingWelcome'),
     finishMsg:safeRead('settingFinishMsg'),
     logoUrl:finalLogoUrl,bannerUrl:finalBannerUrl,teamCount:count,teams,
-    hintAfter:parseInt(document.getElementById('settingHintAfter')?.value)||2,
+    hintAfter:parseInt((document.getElementById('settingHintAfter')?document.getElementById('settingHintAfter').value:''))||2,
     routeMode:safeRead('settingRouteMode')||'random',
     gpsFail:safeRead('settingGpsFail')||'block',
     helperName:safeRead('settingHelperName')||'活動小幫手',
-    helpMaxTimes:parseInt(document.getElementById('settingHelpMaxTimes')?.value)||2,
-    helpCooldown:parseInt(document.getElementById('settingHelpCooldown')?.value)||5,
-    stuckMinutes:parseInt(document.getElementById('settingStuckMinutes')?.value)||10,
+    helpMaxTimes:parseInt((document.getElementById('settingHelpMaxTimes')?document.getElementById('settingHelpMaxTimes').value:''))||2,
+    helpCooldown:parseInt((document.getElementById('settingHelpCooldown')?document.getElementById('settingHelpCooldown').value:''))||5,
+    stuckMinutes:parseInt((document.getElementById('settingStuckMinutes')?document.getElementById('settingStuckMinutes').value:''))||10,
     // API Key：空白時保留舊值，不覆蓋
     geminiKey:newGeminiKey||settingsData.geminiKey||'',
     geminiKey2:newGeminiKey2||settingsData.geminiKey2||'',
@@ -2954,6 +2983,7 @@ async function loadStory(){
 }
 
 async function saveStory(){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
   let imgUrl=storyImgUrl||settingsData.storyImageUrl||'';
   if(storyImgFile){try{const path=`story/story_${Date.now()}.${storyImgFile.name.split('.').pop()}`;const snap=await uploadBytes(sRef(storage,path),storyImgFile);imgUrl=await getDownloadURL(snap.ref);storyImgFile=null;storyImgUrl=imgUrl;}catch(e){toast('⚠️ 圖片上傳失敗');}}
   const rulesRaw=document.getElementById('rulesText').value.trim();
@@ -3012,6 +3042,7 @@ async function loadRankingSettings(){
 }
 
 async function saveRankingSettings(){
+  if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
   const rk={
     showRanking:document.getElementById('rk_showRanking').checked,
     showRankingTeamName:document.getElementById('rk_showTeamName').checked,

@@ -584,7 +584,7 @@ window.showHelp=showHelp; window.closeHelp=closeHelp; window.sendHelp=sendHelp;
 window.closeBroadcast=closeBroadcast; window.useHint=useHint;
 window.skipPhotoVerify=skipPhotoVerify; window.retakePhoto=retakePhoto;
 
-function showLoading(msg='載入中...'){document.getElementById('loadingMsg').textContent=msg;document.getElementById('loadingOverlay').classList.remove('hidden')}
+function showLoading(msg){msg=msg||'載入中...';document.getElementById('loadingMsg').textContent=msg;document.getElementById('loadingOverlay').classList.remove('hidden')}
 function hideLoading(){document.getElementById('loadingOverlay').classList.add('hidden')}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 
@@ -1174,7 +1174,7 @@ function updateProgress(){
   const progEl=document.getElementById('displayProgress');
   if(progEl){
     progEl.textContent=showProgress?`${cur+1}/${total}`:'--';
-    progEl.closest('div')?.style?.setProperty('display', showProgress?'':'none');
+    if(progEl&&progEl.closest('div')&&progEl.closest('div').style)progEl.closest('div').style.setProperty('display',showProgress?'':'none');
   }
   document.getElementById('displayStageLabel').textContent=`第 ${cur+1} 關`;
   document.getElementById('currentScore').textContent=`${state.score} 分`;
@@ -1352,13 +1352,11 @@ function renderStage(){
       <div class="q-desc" id="stageDesc"></div>
       <div id="hintArea"></div>
       <div class="overlay-hint" id="overlayTaskDesc"></div>
-      ${"<!-- 相機區域 -->"}
-      <div class="overlay-camera-wrap" id="overlayCameraWrap">
+<div class="overlay-camera-wrap" id="overlayCameraWrap">
         <video class="overlay-video" id="overlayVideo" autoplay playsinline muted></video>
         <img id="overlayPNG" class="overlay-png hidden" alt="套圖"/>
       </div>
-      ${"<!-- 拍照結果 -->"}
-      <canvas id="overlayCanvas" style="display:none"></canvas>
+<canvas id="overlayCanvas" style="display:none"></canvas>
       <img id="overlayResult" class="overlay-result" alt="拍照結果"/>
       <div class="photo-verify-status" id="photoVerifyStatus"></div>
       <div class="skip-photo-area hidden" id="skipPhotoArea">
@@ -1368,8 +1366,7 @@ function renderStage(){
           <button class="btn-retake" onclick="overlayRetake()">重新拍照</button>
         </div>
       </div>
-      ${"<!-- 控制列 -->"}
-      <div id="overlayControls">
+<div id="overlayControls">
         <button class="overlay-shutter" id="overlayShutterBtn" onclick="overlayShoot()" title="拍照">📷</button>
         <div class="overlay-hint">對準後按下拍照鍵</div>
       </div>
@@ -1396,8 +1393,7 @@ function renderStage(){
       <img id="photoPreview" class="photo-preview" alt="照片預覽"/>
       <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto()"/>
       `:''}
-      ${"<!-- QR Code 顯示區 -->"}
-      <div style="text-align:center;margin-bottom:12px">
+<div style="text-align:center;margin-bottom:12px">
         <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">📱 出示此 QR Code 給關主掃描</div>
         <div id="qrCodeContainer" style="display:inline-block;padding:12px;background:white;border-radius:12px;border:2px solid #c0a0f0;box-shadow:0 2px 12px rgba(124,92,191,0.2)"></div>
         <div style="font-size:11px;color:var(--text-light);margin-top:8px">關主掃描後點擊確認，即可自動過關</div>
@@ -1439,7 +1435,7 @@ function renderStage(){
   const descEl=document.getElementById('stageDesc');if(descEl)descEl.textContent=stage.description||'';
   if(stageType==='quiz')(stage.options||[]).forEach((opt,i)=>{const el=document.getElementById('optText'+i);if(el)el.textContent=opt;});
   // 問題五：沒有提示時隱藏提示按鈕
-  const hasHints=!!(stage.hints?.h1||stage.hints?.h2);
+  const hasHints=!!(stage.hints&&(stage.hints.h1||stage.hints.h2));
   const hintBtns=document.querySelectorAll('#hintBtn,#gpsHintBtn');
   hintBtns.forEach(btn=>{
     if(!hasHints){
@@ -1483,7 +1479,7 @@ function renderStage(){
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/waitingConfirm`),true);
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/waitSince`),Date.now());
     set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/qrToken`),token);
-    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageName`),state.stages[state.currentIdx]?.title||'');
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/stageName`),(state.stages[state.currentIdx]&&state.stages[state.currentIdx].title||''));
     setTimeout(()=>generateQRCode(token),300);
   }
   // 關主確認：監聽Firebase確認狀態
@@ -1581,7 +1577,7 @@ function useHint(){
     }
     return;
   }
-  const hints=[stage.hints?.h1,stage.hints?.h2].filter(Boolean);
+  const hints=[(stage.hints&&stage.hints.h1)||(''),(stage.hints&&stage.hints.h2)||('')].filter(Boolean);
   const hint=hints[state.hintUsed];
   if(!hint){
     // 此關沒有設定提示，顯示在畫面上
@@ -1639,7 +1635,7 @@ function generateQRCode(token){
   // QR Code 內容 = 確認頁網址（含 token 防護，只有持有 token 的關主才能確認）
   const baseUrl=window.location.origin+window.location.pathname.replace('player.html','');
   const t=token||state.qrToken||'';
-  const stageKey=state.stages[state.currentIdx]?.key||'';
+  const stageKey=(state.stages[state.currentIdx]&&state.stages[state.currentIdx].key||'');
   const confirmUrl=`${baseUrl}confirm.html?sess=${state.sessionKey}&stage=${state.currentIdx}&team=${encodeURIComponent(state.teamName)}&token=${t}&stageKey=${stageKey}`;
   try{
     new QRCode(container,{
@@ -2297,7 +2293,7 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
       });
       if(res.status===429||res.status===403){lastError=res.status;continue;}// 超限，換KEY
       const data=await res.json();
-      const text=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      const text=(data&&data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text||'');
       const pass=text.includes('結果：符合');
       if(pass){
         statusEl.className='photo-verify-status pass';
@@ -2484,8 +2480,8 @@ function closeFeedback(){
     const isLast=(state.currentIdx+1>=state.stages.length);
     // 取得下一關的位置提示（nextHint 代表「本關位置提示」，在進此關前顯示）
     const nextStage=!isLast?state.stages[state.currentIdx+1]:null;
-    const nextStageHint=nextStage?.nextHint||'';
-    const nextStageImg=nextStage?.imageUrl||'';// 下一關照片
+    const nextStageHint=(nextStage&&nextStage.nextHint)||'';
+    const nextStageImg=(nextStage&&nextStage.imageUrl)||'';// 下一關照片
     state.currentIdx++;state.hintUsed=0;
     if(currentStage&&(currentStage.storyOutro||nextStageHint||isLast)){
       showStoryOutro(currentStage,isLast,nextStageHint,()=>{
@@ -2574,7 +2570,7 @@ async function sendHelp(){
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   const helpRef=push(ref(db,`sessions/${state.sessionKey}/helpLogs`));
-  await set(helpRef,{msg,stageIdx:state.currentIdx,stageName:state.stages[state.currentIdx]?.title||'',ts:Date.now(),answered:false,reply:'',teamName:state.teamName,teamKey:state.teamKey});
+  await set(helpRef,{msg,stageIdx:state.currentIdx,stageName:(state.stages[state.currentIdx]&&state.stages[state.currentIdx].title||''),ts:Date.now(),answered:false,reply:'',teamName:state.teamName,teamKey:state.teamKey});
   state._lastHelpTime=Date.now();// 記錄求救時間（冷卻用）
   closeHelp();
   const remain=Math.max(0,(state.settings.helpMaxTimes||2)-state.helpUsed);
