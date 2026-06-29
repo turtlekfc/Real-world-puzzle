@@ -1305,7 +1305,7 @@ import { getDatabase, ref, get, set, push, remove, onValue, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject, listAll }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously }
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig={apiKey:"AIzaSyA51pVs3QZJ3p6eIeVpMVOGqFlNXExEjKo",authDomain:"real-world-puzzle-d5efc.firebaseapp.com",databaseURL:"https://real-world-puzzle-d5efc-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"real-world-puzzle-d5efc",storageBucket:"real-world-puzzle-d5efc.firebasestorage.app",messagingSenderId:"25902212869",appId:"1:25902212869:web:8955631b9c9395233a796c"};
@@ -1732,21 +1732,6 @@ async function testGeminiKeys(){
 }
 
 // ── 登入 ──
-// 處理 redirect 登入的回傳（頁面重新載入後）
-getRedirectResult(auth).then(result=>{
-  if(result&&result.user){
-    // redirect 登入成功，onAuthStateChanged 會自動觸發
-    console.log('redirect 登入成功');
-  }
-}).catch(e=>{
-  if(e.code==='auth/unauthorized-domain'){
-    const errEl=document.getElementById('loginErr');
-    if(errEl)errEl.textContent='⚠️ 此網域未授權，請至 Firebase Console → Authentication → 授權網域 加入此網站';
-  } else if(e.code&&e.code!=='auth/no-auth-event'){
-    console.warn('redirect 結果錯誤:',e.code,e.message);
-  }
-});
-
 onAuthStateChanged(auth,async user=>{
   if(user){
     const role=await getUserRole(user);
@@ -1809,26 +1794,9 @@ async function getUserRole(user){
 }
 
 async function signInWithGoogle(){
-  const errEl=document.getElementById('loginErr');
-  errEl.textContent='';
-  try{
-    // 先嘗試 popup（桌機），失敗自動改用 redirect（手機/嚴格 popup 限制）
-    await signInWithPopup(auth,provider);
-  }catch(e){
-    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-cancelled'||e.code==='auth/cancelled-popup-request'){
-      // popup 被擋住，改用 redirect
-      try{
-        await signInWithRedirect(auth,provider);
-        // redirect 會離開頁面，onAuthStateChanged 會在回來後自動處理
-      }catch(re){
-        errEl.textContent='登入失敗：'+re.message;
-      }
-    } else if(e.code==='auth/unauthorized-domain'){
-      errEl.textContent='⚠️ 此網域未授權，請至 Firebase Console → Authentication → 授權網域 加入此網站';
-    } else if(e.code!=='auth/popup-closed-by-user'){
-      errEl.textContent='登入失敗：'+e.message;
-    }
-  }
+  document.getElementById('loginErr').textContent='';
+  try{await signInWithPopup(auth,provider);}
+  catch(e){if(e.code!=='auth/popup-closed-by-user')document.getElementById('loginErr').textContent='登入失敗：'+e.message;}
 }
 
 async function proceedToAdmin(){
