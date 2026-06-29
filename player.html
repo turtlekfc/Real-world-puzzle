@@ -499,11 +499,44 @@ const db = getDatabase(fbApp);
 const storage = getStorage(fbApp);
 const auth = getAuth(fbApp);
 
+// ── 偵測常見「App內建瀏覽器」(LINE / FB / IG / 微信) ──
+// 這類內建瀏覽器常會限制 IndexedDB／第三方資源，導致 Firebase 匿名登入卡住不動、永遠停在「載入中」
+function detectInAppBrowser(){
+  const ua=navigator.userAgent||'';
+  if(/Line\//i.test(ua))return 'LINE';
+  if(/FBAN|FBAV/i.test(ua))return 'Facebook';
+  if(/Instagram/i.test(ua))return 'Instagram';
+  if(/MicroMessenger/i.test(ua))return '微信';
+  return null;
+}
+const inAppBrowser=detectInAppBrowser();
+// 若偵測到內建瀏覽器，且載入超過 5 秒仍卡在初始畫面，主動提示玩家改用一般瀏覽器開啟
+if(inAppBrowser){
+  setTimeout(()=>{
+    const hintEl=document.getElementById('loadingHint');
+    if(hintEl&&hintEl.textContent.includes('載入活動資訊中')){
+      hintEl.style.color='var(--sand-dark)';
+      hintEl.textContent=`💡 偵測到您正在 ${inAppBrowser} 內開啟，若畫面卡住請改用右上角選單「在瀏覽器中開啟」（Safari／Chrome）`;
+    }
+  },5000);
+}
+
+// ── 為 Promise 加上逾時保護 ──
+// 避免 signInAnonymously() 或資料庫讀取在某些環境下卡住不動、既不成功也不報錯，
+// 導致畫面永遠停在「載入中」且按鈕/下拉選單無法使用
+function withTimeout(promise,ms,timeoutErr){
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(timeoutErr),ms);
+    promise.then(v=>{clearTimeout(timer);resolve(v);},e=>{clearTimeout(timer);reject(e);});
+  });
+}
+
 // ── 匿名登入（讓 Firebase Rules 允許讀取）──
 // 玩家不需要 Google 帳號，用匿名 auth 即可通過 Rules
 // 注意：無痕模式可能導致第三方 Cookie 被擋，建議使用一般視窗
 // 匿名登入成功後才載入設定（Rules 需要 auth != null）
-signInAnonymously(auth).then(async ()=>{
+// 15 秒逾時保護：不管是卡住還是真的失敗，都會走到下面的 .catch()，不會無限期停在「載入中」
+withTimeout(signInAnonymously(auth),15000,Object.assign(new Error('登入逾時'),{code:'auth/timeout'})).then(async ()=>{
   console.log('匿名登入成功，開始載入設定');
   // ── 嘗試從 sessionStorage 自動恢復登入 ──
   const saved=sessionStorage.getItem('playerLogin');
@@ -547,7 +580,11 @@ signInAnonymously(auth).then(async ()=>{
   const hintEl=document.getElementById('loadingHint');
   const loginBtn=document.getElementById('loginBtn');
   if(hintEl){hintEl.style.color='var(--coral)';}
-  if(e.code==='auth/network-request-failed'){
+  if(e.code==='auth/timeout'){
+    const tip=inAppBrowser?`偵測到您正在 ${inAppBrowser} 內建瀏覽器中開啟，部分手機上這會導致登入卡住不動。請改用右上角選單「在瀏覽器中開啟」（Safari／Chrome）後再試一次。`:'登入逾時，請確認網路連線後重新整理；若是用 LINE／FB／IG 內的連結開啟，建議改用 Safari 或 Chrome 開啟。';
+    if(hintEl)hintEl.textContent='⚠️ '+tip;
+    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='🔄 重新整理';loginBtn.onclick=()=>location.reload();}
+  } else if(e.code==='auth/network-request-failed'){
     if(hintEl)hintEl.textContent='⚠️ 網路連線失敗，請確認網路後重新整理';
     if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='🔄 重新整理';loginBtn.onclick=()=>location.reload();}
   } else if(e.code==='auth/too-many-requests'){
@@ -567,7 +604,7 @@ async function sha256(str) {
 let state = {
   teamKey:null, teamName:null, teamColor:null, stages:[],
   currentIdx:0, stageSeconds:0, totalSeconds:0,
-  gameStartTime:null, timerInterval:null, countdownInterval:null,
+  gameStartTime:null, loginTime:null, timerInterval:null, countdownInterval:null,
   selectedOption:null, tfAnswer:null, totalAttempts:0, stageAttempts:0,
   photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastStage:0, _staffSkipping:false, _lastSkipGPSTs:null,
   settings:{}, scoring:{}, gpsLogCount:0,
@@ -600,10 +637,10 @@ async function initLogin() {
   const loginBtn=document.getElementById('loginBtn');
   const teamSel=document.getElementById('teamSelect');
   try {
-    const [cfgSnap,themeSnap]=await Promise.all([
+    const [cfgSnap,themeSnap]=await withTimeout(Promise.all([
       get(ref(db,'config/settings')),
       get(ref(db,'config/settings/theme'))
-    ]);
+    ]),15000,Object.assign(new Error('讀取逾時'),{code:'rtdb/timeout'}));
     const cfg=cfgSnap.exists()?cfgSnap.val():{};
     state.settings=cfg;
     state.scoring=cfg.scoring||getDefaultScoring();
@@ -620,11 +657,18 @@ async function initLogin() {
       const opt=document.createElement('option');opt.value=key;opt.textContent=(t&&t.name)?t.name:`隊伍 ${i+1}`;teamSel.appendChild(opt);
     }
     teamSel.disabled=false;loginBtn.disabled=false;loginBtn.textContent='🐚 開始登入！';hintEl.textContent='';
+    state._initLoginRetryCount=0;
   } catch(e) {
     console.error('initLogin 失敗:', e);
     if(e&&(e.code==='PERMISSION_DENIED'||e.message&&e.message.includes('PERMISSION_DENIED'))){
       hintEl.style.color='var(--coral)';
       hintEl.textContent='⚠️ Firebase 權限不足，請確認 Database Rules 允許匿名讀取 config/settings';
+      loginBtn.disabled=false;
+      loginBtn.textContent='🔄 重試';
+      loginBtn.onclick=()=>{ loginBtn.onclick=null; loginBtn.disabled=true; hintEl.style.color=''; hintEl.textContent=''; initLogin(); };
+    } else if(e&&e.code==='rtdb/timeout'){
+      hintEl.style.color='var(--coral)';
+      hintEl.textContent='⚠️ 讀取活動資訊逾時，請確認網路後點此重試'+(inAppBrowser?`（偵測到您在 ${inAppBrowser} 中開啟，建議改用 Safari／Chrome）`:'');
       loginBtn.disabled=false;
       loginBtn.textContent='🔄 重試';
       loginBtn.onclick=()=>{ loginBtn.onclick=null; loginBtn.disabled=true; hintEl.style.color=''; hintEl.textContent=''; initLogin(); };
@@ -635,9 +679,20 @@ async function initLogin() {
       loginBtn.textContent='🔄 重新載入';
       loginBtn.onclick=()=>{ loginBtn.onclick=null; loginBtn.disabled=true; hintEl.style.color=''; hintEl.textContent=''; initLogin(); };
     } else {
+      // 修正：原本這裡只會無限期自動重試、卻從未重新啟用登入按鈕，
+      // 一旦持續失敗（例如未預期的錯誤格式），下拉選單與按鈕就會永遠停在「載入中」且無法操作。
+      // 現在改為最多自動重試 3 次，超過後改成可手動點擊的重試按鈕，確保畫面一定有路可走。
+      state._initLoginRetryCount=(state._initLoginRetryCount||0)+1;
       hintEl.style.color='var(--coral)';
-      hintEl.textContent='⚠️ 載入失敗：'+(e.message||e.code||'未知錯誤')+' — 3秒後自動重試';
-      setTimeout(()=>{ hintEl.style.color=''; hintEl.textContent=''; initLogin(); },3000);
+      if(state._initLoginRetryCount<=3){
+        hintEl.textContent=`⚠️ 載入失敗：${e.message||e.code||'未知錯誤'} — 3秒後自動重試 (${state._initLoginRetryCount}/3)`;
+        setTimeout(()=>{ hintEl.style.color=''; hintEl.textContent=''; initLogin(); },3000);
+      } else {
+        hintEl.textContent='⚠️ 載入失敗：'+(e.message||e.code||'未知錯誤')+' — 請檢查網路後點此重試';
+        loginBtn.disabled=false;
+        loginBtn.textContent='🔄 重試';
+        loginBtn.onclick=()=>{ loginBtn.onclick=null; loginBtn.disabled=true; hintEl.style.color=''; hintEl.textContent=''; state._initLoginRetryCount=0; initLogin(); };
+      }
     }
   }
 }
@@ -693,7 +748,10 @@ onValue(ref(db,'config/forceLogout'),snap=>{
   const fl=snap.val();
   if(!fl||!fl.ts)return;
   // 若旗標時間比登入時間新，代表是新的強制登出指令
-  const loginTime=state.gameStartTime||0;
+  // 注意：等待室階段 gameStartTime 尚未設定（為 0），單用它比較會讓任何歷史的
+  // forceLogout 時間戳都被誤判為「新指令」，把剛登入、還在等待室的隊伍立刻踢回登入頁。
+  // 改用登入當下就記錄的 state.loginTime 為主，gameStartTime 為備援。
+  const loginTime=state.loginTime||state.gameStartTime||0;
   if(fl.ts>loginTime){
     // 清除狀態，跳回登入頁
     clearInterval(state.timerInterval);
@@ -855,6 +913,7 @@ async function doLoginResume(teamKey, sessKey, sessData){
       Object.entries(snap.val()).map(([k,v])=>{const{answerIndex,...safe}=v;return[k,{key:k,answerHash:v.answerHash||'',...safe}];})
     );
     state.teamKey=teamKey;
+    state.loginTime=Date.now();// 同步記錄登入時間（強制登出比較用）
     state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;
     state.teamColor=teamCfg.color||'#6ee89a';
     state.scoring=cfg.scoring||getDefaultScoring();
@@ -926,6 +985,7 @@ async function doLogin() {
     arr.sort((a,b)=>(a.order||0)-(b.order||0));
 
     state.teamKey=teamKey;
+    state.loginTime=Date.now();// 記錄登入時間，供強制登出時間比較使用（等待室階段 gameStartTime 尚未設定）
     state.teamName=teamCfg.name||`隊伍${teamKey.replace('team','')}`;
     state.teamColor=teamCfg.color||'#6ee89a';
     state.scoring=cfg.scoring||getDefaultScoring();
