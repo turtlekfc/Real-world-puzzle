@@ -227,6 +227,13 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .finish-rank-section{background:#f8f4ff;border-radius:12px;padding:12px;margin-bottom:12px}
 .finish-rank-title{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px}
 .finish-msg{font-size:13px;color:var(--text-light);line-height:1.7}
+/* 音樂控制 */
+.music-btn{position:fixed;top:12px;right:12px;z-index:200;background:rgba(255,255,255,0.9);border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:none;align-items:center;justify-content:center;transition:all 0.2s}
+.music-btn:active{transform:scale(0.9)}
+.music-btn.visible{display:flex}
+.music-vol{position:fixed;top:54px;right:8px;z-index:200;background:white;border-radius:12px;padding:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);display:none;flex-direction:column;align-items:center;gap:4px}
+.music-vol.show{display:flex}
+.music-vol input[type=range]{writing-mode:vertical-lr;direction:rtl;width:24px;height:80px;cursor:pointer;accent-color:var(--primary)}
 /* 故事片段 */
 .story-popup{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:150;display:flex;align-items:flex-end;justify-content:center;padding:0}
 .story-popup-box{background:white;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.3);animation:slideUp 0.35s ease}
@@ -399,6 +406,14 @@ select:focus,input:focus{border-color:var(--primary-light)}
   </div>
 </div>
 
+<!-- 音樂控制按鈕 -->
+<button class="music-btn" id="musicBtn" onclick="toggleMusicMenu()" title="音樂控制">🎵</button>
+<div class="music-vol" id="musicVol">
+  <div style="font-size:9px;color:#888;font-weight:700">音量</div>
+  <input type="range" id="musicVolSlider" min="0" max="100" value="40" oninput="setMusicVolume(this.value)"/>
+  <div style="font-size:9px;color:#888" id="musicVolLabel">40%</div>
+</div>
+
 <!-- 故事彈窗 -->
 <div class="story-popup hidden" id="storyPopup">
   <div class="story-popup-box">
@@ -547,7 +562,7 @@ let state = {
   currentIdx:0, stageSeconds:0, totalSeconds:0,
   gameStartTime:null, timerInterval:null, countdownInterval:null,
   selectedOption:null, tfAnswer:null, totalAttempts:0, stageAttempts:0,
-  photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastStage:0, _staffSkipping:false,
+  photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastStage:0, _staffSkipping:false, _lastSkipGPSTs:null,
   settings:{}, scoring:{}, gpsLogCount:0,
   score:0, helpUsed:0, hintUsed:0,
   photoFailCount:0, lastBroadcastId:null,
@@ -737,6 +752,39 @@ function showStaffSkipOverlay(isFinished,newIdx,newScore){
 window.showStaffSkipOverlay=showStaffSkipOverlay;
 window.listenStaffSkip=listenStaffSkip;
 
+// 監聽管理者遠端跳過GPS
+function listenSkipGPS(){
+  if(!state.sessionKey)return;
+  onValue(ref(db,`sessions/${state.sessionKey}/skipGPS`),snap=>{
+    if(!snap.exists()||!snap.val())return;
+    const ts=snap.val();
+    if(state._lastSkipGPSTs===ts)return;// 防重複
+    state._lastSkipGPSTs=ts;
+    // 若目前在GPS驗證畫面，自動跳過
+    const gpsCard=document.getElementById('gpsCard');
+    if(gpsCard&&gpsCard.style.display!=='none'){
+      const t=document.createElement('div');
+      t.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1a6fa3;color:white;padding:10px 22px;border-radius:14px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);white-space:nowrap';
+      t.textContent='📡 管理者已協助跳過GPS驗證！';
+      document.body.appendChild(t);
+      setTimeout(()=>{t.remove();},2500);
+      // 記錄 arrivedAt（重整後不再要求GPS）
+      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/arrivedAt`),serverTimestamp());
+      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/gpsSkippedByAdmin`),true);
+      // 進入題目
+      gpsCard.style.display='none';
+      const qCard=document.getElementById('questionCard');
+      const stage=state.stages[state.currentIdx];
+      if(stage&&stage.storyIntro){
+        showStoryIntro(stage,()=>{if(qCard)qCard.style.display='';});
+      } else {
+        if(qCard)qCard.style.display='';
+      }
+    }
+  });
+}
+window.listenSkipGPS=listenSkipGPS;
+
 function listenSessionForceLogout(){
   if(!state.sessionKey)return;
   onValue(ref(db,`sessions/${state.sessionKey}/forceLogout`),snap=>{
@@ -808,6 +856,7 @@ async function doLoginResume(teamKey, sessKey, sessData){
     listenForHelpReplies();
     listenSessionForceLogout();
     listenStaffSkip();// 監聽工作人員協助過關
+    listenSkipGPS();// 監聽管理者跳過GPS
     const resumedStage=state.stages[state.currentIdx];
     if(resumedStage&&(resumedStage.stageType==='confirm'||resumedStage.stageType==='qrcode')){
       listenForStageConfirm(state.currentIdx);
@@ -905,6 +954,7 @@ async function doLogin() {
       listenForHelpReplies();
       listenSessionForceLogout();
       listenStaffSkip();
+      listenSkipGPS();
       renderStage();
       // 若此關已通過GPS（有 arrivedAt），直接顯示題目
       const curStageLog=(resumeSession.stageLogs||{})[resumeSession.currentStage||0];
@@ -956,6 +1006,8 @@ async function doLogin() {
 }
 
 function showWaitScreen(cfg,teamCfg){
+  initMusic();
+  playBGM('wait');
   // 填入等待頁面資料
   const actName=cfg.activityName||'實境解謎';
   document.getElementById('waitActivityName').textContent=actName;
@@ -1015,6 +1067,8 @@ async function startGame(){
     startCountdown(cfg.activityEndTime);
     listenForHelpReplies();
     listenSessionForceLogout();// 監聽此 session 的個別強制登出
+    // 開始闖關換BGM
+    playBGM('game');
     // 顯示第一關位置提示（若有設定）
     const firstStage=state.stages[0];
     if(firstStage&&firstStage.nextHint){
@@ -1436,8 +1490,7 @@ function renderStage(){
 // 跳過 GPS 驗證（扣分）
 async function skipGPSVerify(){
   const penalty=state.scoring.skipPhotoPenalty||20;
-  if(!confirm(`確定要跳過GPS驗證嗎？
-將扣除 ${penalty} 分`))return;
+  if(!confirm(`確定要跳過GPS驗證嗎？\n將扣除 ${penalty} 分`))return;
   state.score=Math.max(0,state.score-penalty);
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
@@ -1462,6 +1515,7 @@ function checkGPS(){
   const statusEl=document.getElementById('gpsStatus');
   const btn=document.getElementById('gpsBtn');
   btn.disabled=true;statusEl.textContent='📡 正在取得GPS位置...';
+  playBGM('gps');// GPS驗證中音效
   if(!navigator.geolocation){
     if((state.settings.gpsFail||'block')==='allow'){statusEl.textContent='⚠️ 不支援GPS，直接進入';setTimeout(arriveAtStage,800);}
     else{statusEl.textContent='⚠️ 不支援GPS，請聯絡工作人員';btn.disabled=false;}
@@ -1492,6 +1546,7 @@ function checkGPS(){
 }
 function calcDist(lat1,lng1,lat2,lng2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function arriveAtStage(){
+  playBGM('game');// 到達後回到闖關BGM（停止GPS音效）
   const g=document.getElementById('gpsCard'),q=document.getElementById('questionCard');
   if(g)g.style.display='none';
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/arrivedAt`),serverTimestamp());
@@ -1652,6 +1707,114 @@ function handleConfirmReject(stageIdx){
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${stageIdx}/waitingConfirm`),false);
 }
 
+// ── 音樂系統 ──
+const MUSIC_BASE='https://turtlekfc.github.io/Real-world-puzzle/music/';
+const musicFiles={
+  wait: MUSIC_BASE+'wait.mp3',
+  game: MUSIC_BASE+'game.mp3',
+  gps:  MUSIC_BASE+'gps.mp3',
+  correct: MUSIC_BASE+'correct.mp3',
+  wrong:   MUSIC_BASE+'wrong.mp3',
+  finish:  MUSIC_BASE+'finish.mp3',
+};
+
+let _bgm=null;       // 背景音樂（循環）
+let _sfxTimeout=null;// 音效計時器
+let _musicMuted=false;
+let _musicVolume=0.4;
+let _bgmPaused=false; // 彈窗期間暫停
+
+function initMusic(){
+  // 第一次用戶互動後才能播放（瀏覽器限制）
+  const btn=document.getElementById('musicBtn');
+  if(btn)btn.classList.add('visible');
+}
+
+function playBGM(track, fadeIn=true){
+  if(!musicFiles[track])return;
+  // 若已在播相同曲目，不重複
+  if(_bgm&&!_bgm.paused&&_bgm._track===track)return;
+  stopBGM(false);
+  _bgm=new Audio(musicFiles[track]);
+  _bgm._track=track;
+  _bgm.loop=true;
+  _bgm.volume=fadeIn?0:_musicMuted?0:_musicVolume;
+  _bgm.play().catch(()=>{});
+  if(fadeIn&&!_musicMuted){
+    let vol=0;
+    const fade=setInterval(()=>{
+      vol=Math.min(vol+0.05,_musicVolume);
+      if(_bgm)_bgm.volume=vol;
+      if(vol>=_musicVolume)clearInterval(fade);
+    },80);
+  }
+  const btn=document.getElementById('musicBtn');
+  if(btn)btn.textContent=_musicMuted?'🔇':'🎵';
+}
+
+function stopBGM(fade=true){
+  if(!_bgm)return;
+  if(fade){
+    const bg=_bgm;_bgm=null;
+    let vol=bg.volume;
+    const fadeOut=setInterval(()=>{
+      vol=Math.max(vol-0.08,0);
+      bg.volume=vol;
+      if(vol<=0){clearInterval(fadeOut);bg.pause();}
+    },60);
+  } else {
+    _bgm.pause();_bgm=null;
+  }
+}
+
+function pauseBGM(){
+  if(_bgm&&!_bgm.paused){_bgm.pause();_bgmPaused=true;}
+}
+
+function resumeBGM(){
+  if(_bgm&&_bgmPaused&&_bgm.paused){_bgm.play().catch(()=>{});_bgmPaused=false;}
+}
+
+function playSFX(type){
+  if(_musicMuted||!musicFiles[type])return;
+  const sfx=new Audio(musicFiles[type]);
+  sfx.volume=Math.min(_musicVolume*1.5,1);
+  sfx.play().catch(()=>{});
+}
+
+function setMusicVolume(val){
+  _musicVolume=val/100;
+  if(_bgm&&!_musicMuted)_bgm.volume=_musicVolume;
+  const label=document.getElementById('musicVolLabel');
+  if(label)label.textContent=val+'%';
+}
+window.setMusicVolume=setMusicVolume;
+
+function toggleMusicMenu(){
+  const vol=document.getElementById('musicVol');
+  if(!vol)return;
+  const showing=vol.classList.contains('show');
+  if(showing){
+    vol.classList.remove('show');
+  } else {
+    vol.classList.add('show');
+    // 點外面關閉
+    setTimeout(()=>{
+      const close=()=>{vol.classList.remove('show');document.removeEventListener('click',close);};
+      document.addEventListener('click',close);
+    },50);
+  }
+}
+window.toggleMusicMenu=toggleMusicMenu;
+
+function toggleMute(){
+  _musicMuted=!_musicMuted;
+  if(_bgm)_bgm.volume=_musicMuted?0:_musicVolume;
+  const btn=document.getElementById('musicBtn');
+  if(btn)btn.textContent=_musicMuted?'🔇':'🎵';
+}
+window.toggleMute=toggleMute;
+
 // ── 套圖相機系統 ──
 let _overlayStream = null;
 
@@ -1792,6 +1955,7 @@ window.showFirstStageHint=showFirstStageHint;
 
 // 顯示開場故事（到達後、答題前）
 function showStoryIntro(stage, onClose){
+  if(_bgm)_bgm.volume=_musicVolume*0.3;// 故事期間降低音量
   if(!stage.storyIntro){onClose();return;}
   const popup=document.getElementById('storyPopup');
   const tag=document.getElementById('storyPopupTag');
@@ -1816,6 +1980,7 @@ function showStoryIntro(stage, onClose){
 // 顯示過關故事 + 下一關位置提示（答對後）
 // nextStageHint = 下一關的 nextHint，nextStageImg = 下一關的圖片
 function showStoryOutro(stage, isLast, nextStageHint, onClose, nextStageImg){
+  if(_bgm)_bgm.volume=_musicVolume*0.3;// 故事期間降低音量
   const hasOutro=!!(stage.storyOutro);
   const hasNextHint=!!nextStageHint&&!isLast;
   if(!hasOutro&&!hasNextHint&&!isLast){onClose();return;}
@@ -1861,6 +2026,7 @@ function showStoryOutro(stage, isLast, nextStageHint, onClose, nextStageImg){
 function closeStoryPopup(){
   const popup=document.getElementById('storyPopup');
   popup.classList.add('hidden');
+  if(_bgm&&!_musicMuted)_bgm.volume=_musicVolume;// 恢復音量
   if(popup._onClose){const fn=popup._onClose;popup._onClose=null;fn();}
 }
 window.closeStoryPopup=closeStoryPopup;
@@ -1891,6 +2057,18 @@ function handlePhoto(){
     const p=document.getElementById('photoPreview');
     if(p){p.src=e.target.result;p.style.display='block';}
     const area=document.getElementById('photoArea');if(area)area.style.display='none';
+    // 方案C：警示提醒（非強制AI辨識）
+    const stage=state.stages[state.currentIdx];
+    if(stage&&stage.requirePhoto){
+      let warnEl=document.getElementById('photoWarnMsg');
+      if(!warnEl){
+        warnEl=document.createElement('div');
+        warnEl.id='photoWarnMsg';
+        warnEl.style.cssText='font-size:11px;color:#b06000;background:#fff8e0;border:1px solid #f5c842;border-radius:8px;padding:6px 10px;margin-bottom:8px;line-height:1.6';
+        warnEl.textContent='⚠️ 請確認照片清楚呈現任務主體，管理者審核後若拍攝不符可能扣分';
+        if(p&&p.parentNode)p.parentNode.insertBefore(warnEl,p);
+      }
+    }
     // 顯示重拍按鈕
     let retakeBtn=document.getElementById('photoRetakeBtn');
     if(!retakeBtn){
@@ -1905,17 +2083,25 @@ function handlePhoto(){
   reader.readAsDataURL(file);
 }
 
-// 照片關卡：上傳後立即進行 AI 辨識，辨識通過才能過關
+// 照片關卡：先預覽確認，再按「送出辨識」按鈕才進行AI辨識
 function handlePhotoOnly(){
   const file=document.getElementById('photoInput').files[0];
   if(!file)return;
-  if(!file.type.startsWith('image/')){alert('請上傳圖片');return;}
-  if(file.size>10*1024*1024){alert('圖片請在10MB以內');return;}
+  if(!file.type.startsWith('image/')){alert('請選擇圖片檔案（JPG、PNG等）');return;}
+  if(file.size>10*1024*1024){alert('圖片太大，請選擇10MB以內的圖片');return;}
   state.photoFile=file;
   const reader=new FileReader();
-  reader.onload=async e=>{
-    const p=document.getElementById('photoPreview');if(p){p.src=e.target.result;p.style.display='block';}
+  reader.onload=e=>{
+    // 顯示照片預覽
+    const p=document.getElementById('photoPreview');
+    if(p){p.src=e.target.result;p.style.display='block';}
     const area=document.getElementById('photoArea');if(area)area.style.display='none';
+    // 隱藏AI辨識狀態（上次的結果）
+    const statusEl=document.getElementById('photoVerifyStatus');
+    if(statusEl)statusEl.style.display='none';
+    // 隱藏跳過按鈕
+    const skipArea=document.getElementById('skipPhotoArea');
+    if(skipArea)skipArea.classList.add('hidden');
     // 顯示重拍按鈕
     let retakeBtn=document.getElementById('photoRetakeBtn');
     if(!retakeBtn){
@@ -1926,19 +2112,51 @@ function handlePhotoOnly(){
       retakeBtn.onclick=retakePhoto;
       if(p&&p.parentNode)p.parentNode.insertBefore(retakeBtn,p.nextSibling);
     } else {retakeBtn.style.display='block';}
-    const stage=state.stages[state.currentIdx];
-    if(state.settings.geminiKey&&stage.photoDescription){
-      const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
-      if(passed){
-        setTimeout(()=>passPhotoStage(),800);
-      }
-      // 驗證失敗：重拍按鈕已顯示，玩家可重拍
-    } else {
-      setTimeout(()=>passPhotoStage(),500);
-    }
+    // 顯示「送出辨識」按鈕
+    let submitPhotoBtn=document.getElementById('submitPhotoBtn');
+    if(!submitPhotoBtn){
+      submitPhotoBtn=document.createElement('button');
+      submitPhotoBtn.id='submitPhotoBtn';
+      submitPhotoBtn.style.cssText='width:100%;padding:12px;background:linear-gradient(90deg,var(--primary),#3a8fd8);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px';
+      submitPhotoBtn.textContent='📤 送出照片辨識';
+      submitPhotoBtn.onclick=submitPhotoForAI;
+      if(retakeBtn&&retakeBtn.parentNode)retakeBtn.parentNode.insertBefore(submitPhotoBtn,retakeBtn);
+    } else {submitPhotoBtn.style.display='block';}
   };
   reader.readAsDataURL(file);
 }
+
+// 玩家確認後才送出AI辨識
+async function submitPhotoForAI(){
+  const submitBtn=document.getElementById('submitPhotoBtn');
+  const retakeBtn=document.getElementById('photoRetakeBtn');
+  if(submitBtn){submitBtn.disabled=true;submitBtn.textContent='🔍 AI 辨識中...';}
+  if(retakeBtn)retakeBtn.style.display='none';
+  const stage=state.stages[state.currentIdx];
+  const p=document.getElementById('photoPreview');
+  if(!p||!state.photoFile){if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 送出照片辨識';}return;}
+  // 轉成 base64
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    if(state.settings.geminiKey&&stage.photoDescription){
+      const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
+      if(passed){
+        if(submitBtn)submitBtn.style.display='none';
+        setTimeout(()=>passPhotoStage(),800);
+      } else {
+        // 辨識失敗：顯示重拍按鈕，解鎖送出按鈕
+        if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
+        if(retakeBtn)retakeBtn.style.display='block';
+      }
+    } else {
+      // 無AI Key：直接過關
+      if(submitBtn)submitBtn.style.display='none';
+      setTimeout(()=>passPhotoStage(),500);
+    }
+  };
+  reader.readAsDataURL(state.photoFile);
+}
+window.submitPhotoForAI=submitPhotoForAI;
 
 // 照片關卡：辨識通過後過關
 async function passPhotoStage(){
@@ -1962,6 +2180,7 @@ async function passPhotoStage(){
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   // 顯示過關
   state.lastCorrect=true;
+  playSFX('correct');// 答對音效
   document.getElementById('feedbackIcon').textContent='🎉';
   document.getElementById('feedbackTitle').textContent='照片驗證通過！';
   document.getElementById('feedbackTitle').className='feedback-title correct';
@@ -2100,14 +2319,14 @@ function skipPhotoVerify(){
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
 }
 function retakePhoto(){
-  document.getElementById('skipPhotoArea').classList.add('hidden');
-  document.getElementById('photoVerifyStatus').style.display='none';
-  document.getElementById('photoPreview').style.display='none';
-  document.getElementById('photoArea').style.display='';
-  const retakeBtn=document.getElementById('photoRetakeBtn');
-  if(retakeBtn)retakeBtn.style.display='none';
+  const skipArea=document.getElementById('skipPhotoArea');if(skipArea)skipArea.classList.add('hidden');
+  const statusEl=document.getElementById('photoVerifyStatus');if(statusEl)statusEl.style.display='none';
+  const preview=document.getElementById('photoPreview');if(preview)preview.style.display='none';
+  const area=document.getElementById('photoArea');if(area)area.style.display='';
+  const retakeBtn=document.getElementById('photoRetakeBtn');if(retakeBtn)retakeBtn.style.display='none';
+  const submitBtn=document.getElementById('submitPhotoBtn');if(submitBtn)submitBtn.style.display='none';
   state.photoFile=null;state.photoFailCount=0;
-  document.getElementById('photoInput').value='';
+  const input=document.getElementById('photoInput');if(input)input.value='';
 }
 
 // ── 是非題 ──
@@ -2132,6 +2351,7 @@ async function submitTF(){
   const correct=(state.tfAnswer===true && stage.tfAnswer!==false) ||
                 (state.tfAnswer===false && stage.tfAnswer===false);
   state.lastCorrect=correct;
+  if(correct)playSFX('correct'); else playSFX('wrong');
   // 顯示對錯
   const trueBtn=document.getElementById('tfBtnTrue');
   const falseBtn=document.getElementById('tfBtnFalse');
@@ -2194,6 +2414,7 @@ async function submitAns(){
   const guessHash=await sha256(`${stage.key}_${state.selectedOption}`);
   const correct=(guessHash===stage.answerHash);
   state.lastCorrect=correct;
+  if(correct)playSFX('correct'); else playSFX('wrong');
 
   if(state.photoFile){
     const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
@@ -2299,6 +2520,7 @@ async function showRank(){
 function closeRank(){document.getElementById('rankOverlay').classList.add('hidden');}
 
 function showHelp(){
+  pauseBGM();// 求救彈窗暫停音樂
   const sc=state.scoring;const maxHelp=state.settings.helpMaxTimes??2;
   const remain=Math.max(0,maxHelp-state.helpUsed);
   if(remain<=0){alert('求救次數已用完！');return;}
@@ -2318,7 +2540,8 @@ function showHelp(){
   document.getElementById('helpMsg').value='';
   document.getElementById('helpOverlay').classList.remove('hidden');
 }
-function closeHelp(){document.getElementById('helpOverlay').classList.add('hidden');}
+function closeHelp(){
+  resumeBGM();// 關閉求救恢復音樂document.getElementById('helpOverlay').classList.add('hidden');}
 async function sendHelp(){
   const msg=document.getElementById('helpMsg').value.trim();
   if(!msg){alert('請說明你遇到的問題！');return;}
@@ -2363,10 +2586,14 @@ function listenForHelpReplies(){
   });
 }
 
-function closeBroadcast(){document.getElementById('broadcastOverlay').classList.add('hidden');}
+function closeBroadcast(){
+  resumeBGM();// 廣播關閉恢復音樂
+  document.getElementById('broadcastOverlay').classList.add('hidden');
+}
 
 async function showFinish(){
   clearInterval(state.timerInterval);clearInterval(state.countdownInterval);
+  playBGM('finish');// 完賽音樂
   // 完賽後清除 sessionStorage（含隨機順序），下次開啟回到登入頁
   try{
     sessionStorage.removeItem('playerLogin');

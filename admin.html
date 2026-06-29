@@ -395,7 +395,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <div style="flex:1;height:1px;background:#eee"></div>
     </div>
     <div id="stageMasterLoginArea">
-      <input type="password" id="stageMasterPassInput" placeholder="輸入關主密碼" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;font-family:'Noto Sans TC',sans-serif;outline:none;margin-bottom:10px"/>
+      <input type="password" id="stageMasterPassInput" placeholder="輸入關主密碼" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:12px;font-size:14px;outline:none;margin-bottom:10px" onkeydown="if(event.key==='Enter')signInWithStageMasterPass()"/>
       <button onclick="signInWithStageMasterPass()" style="width:100%;padding:12px;background:linear-gradient(90deg,#1a7a40,#3db87a);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer">
         🔑 總關主密碼登入
       </button>
@@ -1313,7 +1313,6 @@ const DEFAULT_SCORING={baseScore:100,timeBonus:50,completionBonus:200,rankBonus:
 
 // 全域函數
 window.signInWithGoogle=signInWithGoogle;window.doLogout=doLogout;window.showTab=showTab;
-window.signInWithStageMasterPass=signInWithStageMasterPass;
 window.smLogout=smLogout;window.smRefresh=smRefresh;
 window.smApprove=smApprove;window.smReject=smReject;
 window.openStageModal=openStageModal;window.closeStageModal=closeStageModal;window.selectStageType=selectStageType;
@@ -1395,6 +1394,8 @@ async function signInWithStageMasterPass(){
     console.error(e);
   }
 }
+
+window.signInWithStageMasterPass=signInWithStageMasterPass;
 
 function smLogout(){
   smState = {stageKey:null,stageIdx:null,stageName:null,stagePass:null};
@@ -1927,6 +1928,17 @@ window.forceLogoutTeam=forceLogoutTeam;
 window.showSkipStageDialog=showSkipStageDialog;
 window.monitorApproveStage=monitorApproveStage;
 window.monitorRejectStage=monitorRejectStage;
+window.monitorSkipGPS=monitorSkipGPS;
+
+// 管理者遠端跳過GPS驗證
+async function monitorSkipGPS(sessKey, teamName){
+  if(!confirm(`確定要幫「${teamName}」跳過 GPS 驗證嗎？
+（不扣分，直接進入題目）`))return;
+  try{
+    await set(ref(db,`sessions/${sessKey}/skipGPS`),Date.now());
+    toast(`✅ 已幫「${teamName}」跳過 GPS 驗證！`);
+  }catch(e){toast('❌ 操作失敗：'+e.message);}
+}
 
 // 監控頁直接確認過關（host/super/staff 都可用）
 async function monitorApproveStage(sessKey, stageIdx, teamName){
@@ -2323,12 +2335,18 @@ function renderMonitor(){
       helpBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px';
       helpBtn.textContent='⏭️ 協助過關';
       helpBtn.onclick=()=>showSkipStageDialog(sessKey,tName,sess);
+      const gpsBtn=document.createElement('button');
+      gpsBtn.className='btn btn-sm';
+      gpsBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px;background:#e8f4ff;color:#1a6fa3;border:1.5px solid #9ac4e8;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:700';
+      gpsBtn.textContent='📡 跳GPS';
+      gpsBtn.onclick=()=>monitorSkipGPS(sessKey,tName);
       const resetBtn=document.createElement('button');
       resetBtn.className='btn btn-danger btn-sm';
       resetBtn.style.cssText='flex:1;font-size:11px;padding:4px 6px';
       resetBtn.textContent='⏏️ 重置';
       resetBtn.onclick=()=>forceLogoutTeam(key,tName);
       btnWrap.appendChild(helpBtn);
+      btnWrap.appendChild(gpsBtn);
       btnWrap.appendChild(resetBtn);
       card.appendChild(btnWrap);
     } else if(sess){
