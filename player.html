@@ -513,29 +513,34 @@ signInAnonymously(auth).then(async ()=>{
       if(teamKey){
         // 先載入設定
         await initLogin();
-        // 只自動選好隊伍，密碼讓玩家自己輸入（安全性較高）
-        // 但若有進行中 session，直接嘗試恢復（不需要密碼）
-        const sessSnap=await get(ref(db,'sessions'));
-        if(sessSnap.exists()){
-          const allSess=Object.entries(sessSnap.val());
-          const activeSession=allSess.find(([k,s])=>s.teamKey===teamKey&&s.status==='playing');
-          if(activeSession){
-            // 有進行中 session → 直接恢復，不需要密碼
-            state.waitingToStart=false;// 防止 activityStatus 監聽器干擾
-            const sel=document.getElementById('teamSelect');
-            if(sel)sel.value=teamKey;
-            await doLoginResume(teamKey,activeSession[0],activeSession[1]);
-            return;
+        // 若有進行中 session，直接恢復（不需要密碼）
+        try{
+          const sessSnap=await get(ref(db,'sessions'));
+          if(sessSnap.exists()){
+            const allSess=Object.entries(sessSnap.val());
+            const activeSession=allSess.find(([k,s])=>s.teamKey===teamKey&&s.status==='playing');
+            if(activeSession){
+              state.waitingToStart=false;
+              const sel=document.getElementById('teamSelect');
+              if(sel)sel.value=teamKey;
+              await doLoginResume(teamKey,activeSession[0],activeSession[1]);
+              return;
+            }
           }
+        }catch(sessErr){
+          console.warn('sessions 讀取失敗（可能是 Rules 限制）:',sessErr);
+          // 忽略，繼續到登入頁
         }
-        // 沒有進行中 session → 只預填隊伍，讓玩家輸入密碼
+        // 沒有進行中 session → 預填隊伍，讓玩家輸入密碼
         const sel=document.getElementById('teamSelect');
         if(sel)sel.value=teamKey;
+        return;// ← 關鍵：不要再呼叫 initLogin()
       }
     }catch(e){
       sessionStorage.removeItem('playerLogin');
     }
   }
+  // 全新登入
   initLogin();
 }).catch(e=>{
   console.warn('匿名登入失敗:',e);
@@ -1820,15 +1825,25 @@ let _overlayStream = null;
 
 async function startOverlayCamera(){
   const video = document.getElementById('overlayVideo');
+  const shutterBtn = document.getElementById('overlayShutterBtn');
   if(!video)return;
+  // 相機啟動中，先暫時停用拍照按鈕
+  if(shutterBtn){shutterBtn.disabled=true;shutterBtn.title='相機啟動中...';}
   try{
     _overlayStream = await navigator.mediaDevices.getUserMedia({
       video:{facingMode:'environment', width:{ideal:1920}, height:{ideal:1080}},
       audio:false
     });
     video.srcObject = _overlayStream;
+    // 等相機有畫面後才啟用拍照按鈕
+    video.addEventListener('canplay',()=>{
+      if(shutterBtn){shutterBtn.disabled=false;shutterBtn.title='拍照';}
+    },{once:true});
+    // 備用：3秒後強制啟用（防止 canplay 未觸發）
+    setTimeout(()=>{if(shutterBtn)shutterBtn.disabled=false;},3000);
   }catch(e){
     console.warn('相機啟動失敗:',e);
+    if(shutterBtn)shutterBtn.disabled=false;
     const wrap=document.getElementById('overlayCameraWrap');
     if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">⚠️ 無法啟動相機<br>請確認已允許相機權限</div>';
   }
@@ -1845,9 +1860,18 @@ function overlayShoot(){
   const result=document.getElementById('overlayResult');
   const btn=document.getElementById('overlayShutterBtn');
   if(!video||!canvas)return;
-  // 確認相機已就緒
-  if(video.readyState<2||video.videoWidth===0){
-    alert('相機尚未就緒，請稍後再試');return;
+  // 確認相機已就緒（readyState>=1 且有畫面尺寸）
+  if(video.readyState<1){
+    alert('相機尚未啟動，請稍後再試');return;
+  }
+  // videoWidth 可能還是0，等一下再試
+  if(video.videoWidth===0){
+    // 等相機就緒後拍照
+    video.addEventListener('canplay',function onReady(){
+      video.removeEventListener('canplay',onReady);
+      overlayShoot();
+    },{once:true});
+    return;
   }
   // 合成：相機畫面 + 套圖 PNG
   canvas.width=video.videoWidth;
