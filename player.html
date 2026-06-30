@@ -953,6 +953,15 @@ async function doLoginResume(teamKey, sessKey, sessData){
       arr.sort((a,b)=>(a.order||0)-(b.order||0));
       state.stages=arr;
     }
+    // Bug 防呆：stageOrder key 失效時 stages 會是空陣列，直接進遊戲會觸發 showFinish
+    if(state.stages.length===0){
+      console.warn('[doLoginResume] stageOrder keys 全部失效，放棄恢復進度');
+      set(ref(db,`sessions/${sessKey}/status`),'abandoned').catch(()=>{});
+      hideLoading();
+      showScreen('loginScreen');
+      try{sessionStorage.removeItem('playerLogin');}catch(e){}
+      return;
+    }
     hideLoading();
     showScreen('gameScreen');
     document.getElementById('teamDot').style.background=state.teamColor;
@@ -1045,6 +1054,25 @@ async function doLogin() {
         state.stages=resumeSession.stageOrder.map(k=>stagesMap[k]).filter(Boolean);
       } else {
         state.stages=arr;
+      }
+      // ── Bug 防呆：stageOrder 的 key 若已過期（關卡被重建），filter(Boolean) 後會變空陣列
+      // 此時直接觸發 showFinish() 造成「一進入就全部破關」。
+      // 偵測到空陣列時放棄 resume，改走全新登入流程。
+      if(state.stages.length===0){
+        console.warn('[resume] stageOrder keys 全部失效，放棄恢復進度，改走全新登入流程');
+        // 把殘留的 playing session 標記為廢棄，避免下次再次誤 resume
+        set(ref(db,`sessions/${resumeKey}/status`),'abandoned').catch(()=>{});
+        state.waitingToStart=true;
+        state.sessionKey=null;
+        state.stages=arr;
+        // 重新洗牌（隨機模式）或依設定排序
+        const cfg2=state.settings;
+        if((cfg2.routeMode||'fixed')==='random'){
+          state.stages=shuffleForTeam(arr,teamKey);
+        }
+        hideLoading();
+        showWaitScreen(cfg2,teamCfg);
+        return;
       }
       state.sessionKey=resumeKey;
       state.currentIdx=resumeSession.currentStage||0;
