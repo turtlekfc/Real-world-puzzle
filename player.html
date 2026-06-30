@@ -479,6 +479,27 @@ select:focus,input:focus{border-color:var(--primary-light)}
 <!-- QR Code 產生套件 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
+// ── 手機除錯用：把錯誤顯示在畫面上 ──
+window.addEventListener('error', function(e){
+  showDebugError('JS錯誤: '+e.message+' (行'+e.lineno+')');
+});
+window.addEventListener('unhandledrejection', function(e){
+  showDebugError('Promise錯誤: '+(e.reason&&e.reason.message||e.reason));
+});
+function showDebugError(msg){
+  let box=document.getElementById('_debugErrorBox');
+  if(!box){
+    box=document.createElement('div');
+    box.id='_debugErrorBox';
+    box.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:white;font-size:12px;padding:8px 12px;max-height:40vh;overflow-y:auto;font-family:monospace;line-height:1.6;white-space:pre-wrap';
+    document.body.appendChild(box);
+  }
+  const line=document.createElement('div');
+  line.style.cssText='border-top:1px solid rgba(255,255,255,0.3);padding-top:4px;margin-top:4px';
+  line.textContent='⚠️ '+msg;
+  box.appendChild(line);
+}
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, get, set, push, onValue, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -1910,7 +1931,14 @@ let _overlayStream = null;
 async function startOverlayCamera(){
   const video = document.getElementById('overlayVideo');
   const shutterBtn = document.getElementById('overlayShutterBtn');
-  if(!video)return;
+  if(!video){showDebugError('startOverlayCamera: 找不到 overlayVideo 元素');return;}
+  // 檢查瀏覽器是否支援相機API（必須是 https 或 localhost）
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    showDebugError('此瀏覽器不支援相機功能，或網站非HTTPS連線');
+    const wrap=document.getElementById('overlayCameraWrap');
+    if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">⚠️ 此瀏覽器不支援相機功能<br>請確認網址是 https:// 開頭</div>';
+    return;
+  }
   // 相機啟動中，先暫時停用拍照按鈕
   if(shutterBtn){shutterBtn.disabled=true;shutterBtn.title='相機啟動中...';}
   try{
@@ -1927,9 +1955,14 @@ async function startOverlayCamera(){
     setTimeout(()=>{if(shutterBtn)shutterBtn.disabled=false;},3000);
   }catch(e){
     console.warn('相機啟動失敗:',e);
+    showDebugError('相機啟動失敗: '+e.name+' - '+e.message);
     if(shutterBtn)shutterBtn.disabled=false;
     const wrap=document.getElementById('overlayCameraWrap');
-    if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">⚠️ 無法啟動相機<br>請確認已允許相機權限</div>';
+    let msg='⚠️ 無法啟動相機<br>請確認已允許相機權限';
+    if(e.name==='NotAllowedError')msg='⚠️ 相機權限被拒絕<br>請到瀏覽器設定允許相機權限後重新整理';
+    else if(e.name==='NotFoundError')msg='⚠️ 找不到相機裝置';
+    else if(e.name==='NotReadableError')msg='⚠️ 相機正被其他App使用中';
+    if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">'+msg+'</div>';
   }
 }
 
@@ -1943,9 +1976,10 @@ function overlayShoot(){
   const png=document.getElementById('overlayPNG');
   const result=document.getElementById('overlayResult');
   const btn=document.getElementById('overlayShutterBtn');
-  if(!video||!canvas)return;
+  if(!video||!canvas){showDebugError('overlayShoot: video或canvas元素不存在');return;}
   // 確認相機已就緒（readyState>=1 且有畫面尺寸）
   if(video.readyState<1){
+    showDebugError('overlayShoot: video.readyState='+video.readyState+' (相機尚未就緒)');
     alert('相機尚未啟動，請稍後再試');return;
   }
   // videoWidth 可能還是0，等一下再試
