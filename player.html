@@ -1278,6 +1278,8 @@ function shuffleForTeam(arr,teamKey){
 
 function startCountdown(endTimeMs){
   if(!endTimeMs){document.getElementById('countdownTimer').textContent='無限制';return;}
+  // 防呆：若結束時間已是過去（例如上次活動留下的過期時間），視同未設定，不觸發倒數
+  if(endTimeMs<=Date.now()){document.getElementById('countdownTimer').textContent='無限制';console.warn('[startCountdown] activityEndTime 已過期，忽略倒數設定');return;}
   clearInterval(state.countdownInterval);
   state.countdownInterval=setInterval(()=>{
     const remain=endTimeMs-Date.now();
