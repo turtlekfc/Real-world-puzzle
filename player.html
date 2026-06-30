@@ -1564,7 +1564,7 @@ function renderStage(){
     if(oDesc)oDesc.textContent=stage.overlayTask||'對準目標後按下拍照';
     if(stage.overlayImageUrl){
       const png=document.getElementById('overlayPNG');
-      if(png){png.src=stage.overlayImageUrl;png.classList.remove('hidden');}
+      if(png){png.crossOrigin='anonymous';png.src=stage.overlayImageUrl;png.classList.remove('hidden');}
     }
     // 重要：若此關有GPS，questionCard 此時是 display:none，
     // 相機在隱藏容器內啟動會導致 videoWidth 取不到正確尺寸（拍照按鈕永遠卡住）
@@ -1999,12 +1999,25 @@ function overlayShoot(){
   if(png&&!png.classList.contains('hidden')&&png.complete){
     ctx.drawImage(png,0,0,canvas.width,canvas.height);
   }
-  // 顯示結果
-  canvas.toBlob(blob=>{
-    if(!blob){
-      alert('拍照失敗，請重試');
-      return;
+  // 嘗試輸出 canvas（若套圖PNG跨域汙染導致失敗，改用純相機畫面重新合成）
+  function doToBlob(){
+    try{
+      canvas.toBlob(handleBlob,'image/jpeg',0.88);
+    }catch(e){
+      showDebugError('canvas.toBlob 失敗(跨域汙染): '+e.message+'，改用純相機畫面');
+      // 備援：只用相機畫面重畫一次（不含套圖）
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      try{canvas.toBlob(handleBlob,'image/jpeg',0.88);}
+      catch(e2){showDebugError('純相機畫面也失敗: '+e2.message);alert('拍照失敗，請重新整理頁面後再試');}
     }
+  }
+  function handleBlob(blob){
+      if(!blob){
+        showDebugError('canvas.toBlob 回傳null');
+        alert('拍照失敗，請重試');
+        return;
+      }
     state.photoFile=new File([blob],'overlay_photo.jpg',{type:'image/jpeg'});
     const url=URL.createObjectURL(blob);
     if(result){result.src=url;result.style.display='block';}
@@ -2068,7 +2081,8 @@ function overlayShoot(){
         passPhotoStage();
       };
     }
-  },'image/jpeg',0.88);
+  }
+  doToBlob();
 }
 window.overlayShoot=overlayShoot;
 
