@@ -786,6 +786,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <div class="form-row">
           <div class="form-group"><label>每次求救扣分</label><input type="number" id="sc_helpPenalty" value="30" min="0" oninput="updateScorePreview()"/></div>
           <div class="form-group"><label>跳過照片驗證扣分</label><input type="number" id="sc_skipPhotoPenalty" value="20" min="0" oninput="updateScorePreview()"/></div>
+          <div class="form-group"><label>跳過GPS驗證扣分</label><input type="number" id="sc_skipGPSPenalty" value="20" min="0" oninput="updateScorePreview()"/></div>
         </div>
       </div>
       <div class="card">
@@ -1336,7 +1337,7 @@ const THEMES=[
 ];
 
 const DEFAULT_SETTINGS={activityName:'實境解謎',subtitle:'ADVENTURE',welcome:'',finishMsg:'恭喜完成所有挑戰！感謝參與！',stuckMinutes:10,helperName:'活動小幫手',helpMaxTimes:2,helpCooldown:5,hintAfter:2,routeMode:'random',gpsFail:'block'};
-const DEFAULT_SCORING={baseScore:100,timeBonus:50,completionBonus:200,rankBonus:[100,70,50,30],wrongPenalty:10,hintPenalty:5,helpPenalty:30,skipPhotoPenalty:20};
+const DEFAULT_SCORING={baseScore:100,timeBonus:50,completionBonus:200,rankBonus:[100,70,50,30],wrongPenalty:10,hintPenalty:5,helpPenalty:30,skipPhotoPenalty:20,skipGPSPenalty:20};
 
 // 全域函數
 window.signInWithGoogle=signInWithGoogle;window.doLogout=doLogout;window.showTab=showTab;
@@ -3038,7 +3039,7 @@ async function loadScoring(){
   document.getElementById('sc_rank1').value=(sc.rankBonus||[])[0]||100;document.getElementById('sc_rank2').value=(sc.rankBonus||[])[1]||70;
   document.getElementById('sc_rank3').value=(sc.rankBonus||[])[2]||50;document.getElementById('sc_rank4').value=(sc.rankBonus||[])[3]||30;
   document.getElementById('sc_wrongPenalty').value=sc.wrongPenalty;document.getElementById('sc_hintPenalty').value=sc.hintPenalty;
-  document.getElementById('sc_helpPenalty').value=sc.helpPenalty;document.getElementById('sc_skipPhotoPenalty').value=sc.skipPhotoPenalty;
+  document.getElementById('sc_helpPenalty').value=sc.helpPenalty;document.getElementById('sc_skipPhotoPenalty').value=sc.skipPhotoPenalty;document.getElementById('sc_skipGPSPenalty').value=sc.skipGPSPenalty!=null?sc.skipGPSPenalty:20;
   updateScorePreview();
 }
 
@@ -3050,14 +3051,16 @@ function updateScorePreview(){
   const wrong=parseInt(document.getElementById('sc_wrongPenalty').value)||10;
   const hint=parseInt(document.getElementById('sc_hintPenalty').value)||5;
   const help=parseInt(document.getElementById('sc_helpPenalty').value)||30;
+  const skipPhoto=parseInt(document.getElementById('sc_skipPhotoPenalty').value)||20;
+  const skipGPS=parseInt(document.getElementById('sc_skipGPSPenalty').value)||20;
   const exampleTimeBonus=Math.round(timeBonus*0.6);
-  const rows=[['每關基礎分',`+${base}`],['時間加分（2分鐘完成）',`+${exampleTimeBonus}`],['完成全部加分',`+${completionBonus}`],['第1名完成加分',`+${rank1}`],['─────','─────'],['最高單關得分',`${base+exampleTimeBonus}分`],['答錯一次扣',`-${wrong}`],['使用提示一次扣',`-${hint}`],['求救一次扣',`-${help}`]];
+  const rows=[['每關基礎分',`+${base}`],['時間加分（2分鐘完成）',`+${exampleTimeBonus}`],['完成全部加分',`+${completionBonus}`],['第1名完成加分',`+${rank1}`],['─────','─────'],['最高單關得分',`${base+exampleTimeBonus}分`],['答錯一次扣',`-${wrong}`],['使用提示一次扣',`-${hint}`],['求救一次扣',`-${help}`],['跳過照片驗證扣',`-${skipPhoto}`],['跳過GPS驗證扣',`-${skipGPS}`]];
   document.getElementById('scorePreviewRows').innerHTML=rows.map(([k,v])=>`<div class="score-row"><span>${k}</span><span style="font-weight:700">${v}</span></div>`).join('');
 }
 
 async function saveScoring(){
   if(currentRole==='viewer'){toast('⛔ 檢視者無法儲存');return;}
-  const sc={baseScore:parseInt(document.getElementById('sc_baseScore').value)||100,timeBonus:parseInt(document.getElementById('sc_timeBonus').value)||50,completionBonus:parseInt(document.getElementById('sc_completionBonus').value)||200,rankBonus:[parseInt(document.getElementById('sc_rank1').value)||100,parseInt(document.getElementById('sc_rank2').value)||70,parseInt(document.getElementById('sc_rank3').value)||50,parseInt(document.getElementById('sc_rank4').value)||30],wrongPenalty:parseInt(document.getElementById('sc_wrongPenalty').value)||10,hintPenalty:parseInt(document.getElementById('sc_hintPenalty').value)||5,helpPenalty:parseInt(document.getElementById('sc_helpPenalty').value)||30,skipPhotoPenalty:parseInt(document.getElementById('sc_skipPhotoPenalty').value)||20};
+  const sc={baseScore:parseInt(document.getElementById('sc_baseScore').value)||100,timeBonus:parseInt(document.getElementById('sc_timeBonus').value)||50,completionBonus:parseInt(document.getElementById('sc_completionBonus').value)||200,rankBonus:[parseInt(document.getElementById('sc_rank1').value)||100,parseInt(document.getElementById('sc_rank2').value)||70,parseInt(document.getElementById('sc_rank3').value)||50,parseInt(document.getElementById('sc_rank4').value)||30],wrongPenalty:parseInt(document.getElementById('sc_wrongPenalty').value)||10,hintPenalty:parseInt(document.getElementById('sc_hintPenalty').value)||5,helpPenalty:parseInt(document.getElementById('sc_helpPenalty').value)||30,skipPhotoPenalty:parseInt(document.getElementById('sc_skipPhotoPenalty').value)||20,skipGPSPenalty:parseInt(document.getElementById('sc_skipGPSPenalty').value)||20};
   await set(ref(db,'config/settings/scoring'),sc);if(settingsData)settingsData.scoring=sc;
   updateScorePreview();toast('✅ 分數設定已儲存！');
 }

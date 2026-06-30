@@ -630,7 +630,7 @@ function hideLoading(){document.getElementById('loadingOverlay').classList.add('
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 
 function getDefaultScoring(){
-  return{baseScore:100,timeBonus:50,wrongPenalty:10,hintPenalty:5,helpPenalty:30,skipPhotoPenalty:20,completionBonus:200,rankBonus:[100,70,50,30]};
+  return{baseScore:100,timeBonus:50,wrongPenalty:10,hintPenalty:5,helpPenalty:30,skipPhotoPenalty:20,skipGPSPenalty:20,completionBonus:200,rankBonus:[100,70,50,30]};
 }
 
 // ── 初始化登入頁 ──
@@ -955,6 +955,8 @@ async function doLoginResume(teamKey, sessKey, sessData){
         const qCard=document.getElementById('questionCard');
         if(gpsCard)gpsCard.style.display='none';
         if(qCard)qCard.style.display='';
+        // 套圖關卡：questionCard 顯示後才能啟動相機（否則videoWidth取不到正確尺寸）
+        if(resumedStage&&resumedStage.stageType==='overlay')startOverlayCamera();
       },100);
     }
     const t=document.createElement('div');t.className='reply-toast';
@@ -1500,7 +1502,7 @@ function renderStage(){
       <div class="gps-desc" id="gpsHint"></div>
       <button class="btn-gps" id="gpsBtn" onclick="checkGPS()">📡 驗證我的位置</button>
       <div class="gps-status" id="gpsStatus"></div>
-      <button onclick="skipGPSVerify()" style="margin-top:8px;width:100%;padding:9px;background:#f0f4ff;color:#1a6fa3;border:1.5px dashed #9ac4e8;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer">⏩ 跳過GPS驗證（扣 ${state.scoring.skipPhotoPenalty||20} 分）</button>
+      <button onclick="skipGPSVerify()" style="margin-top:8px;width:100%;padding:9px;background:#f0f4ff;color:#1a6fa3;border:1.5px dashed #9ac4e8;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer">⏩ 跳過GPS驗證（扣 ${state.scoring.skipGPSPenalty!=null?state.scoring.skipGPSPenalty:20} 分）</button>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
         <button class="action-btn btn-help" id="gpsHelpBtn" onclick="showHelp()" style="max-width:180px" ${helpRemain<=0?'disabled':''}>🆘 求救（${helpRemain}次）</button>
         <button class="action-btn btn-hint" id="gpsHintBtn" onclick="useHint()" style="max-width:180px" ${state.hintUsed>=maxHintPerStage?'disabled':''}>💡 提示（${maxHintPerStage-state.hintUsed}次）</button>
@@ -1535,7 +1537,7 @@ function renderStage(){
     },300);
   }
 
-  // 套圖拍照：填入任務說明 + 啟動相機 + 載入 PNG
+  // 套圖拍照：填入任務說明 + 載入 PNG（相機延後到 questionCard 顯示時才啟動）
   if(stageType==='overlay'){
     const oDesc=document.getElementById('overlayTaskDesc');
     if(oDesc)oDesc.textContent=stage.overlayTask||'對準目標後按下拍照';
@@ -1543,8 +1545,12 @@ function renderStage(){
       const png=document.getElementById('overlayPNG');
       if(png){png.src=stage.overlayImageUrl;png.classList.remove('hidden');}
     }
-    // stageImgWrap：overlay 不顯示另外的題目圖（套圖 PNG 就是圖）
-    startOverlayCamera();
+    // 重要：若此關有GPS，questionCard 此時是 display:none，
+    // 相機在隱藏容器內啟動會導致 videoWidth 取不到正確尺寸（拍照按鈕永遠卡住）
+    // 所以只有「沒有GPS」時才立即啟動；有GPS則等 arriveAtStage() 顯示後才啟動
+    if(!hasGPS){
+      startOverlayCamera();
+    }
   } else if(stage.imageUrl){
     // 其他類型：填入題目圖（避免重複，原本在最後面有處理，這裡不重複）
   }
@@ -1572,7 +1578,7 @@ function renderStage(){
 
 // 跳過 GPS 驗證（扣分）
 async function skipGPSVerify(){
-  const penalty=state.scoring.skipPhotoPenalty||20;
+  const penalty=state.scoring.skipGPSPenalty!=null?state.scoring.skipGPSPenalty:20;
   if(!confirm(`確定要跳過GPS驗證嗎？\n將扣除 ${penalty} 分`))return;
   state.score=Math.max(0,state.score-penalty);
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
@@ -1633,12 +1639,16 @@ function arriveAtStage(){
   const g=document.getElementById('gpsCard'),q=document.getElementById('questionCard');
   if(g)g.style.display='none';
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/arrivedAt`),serverTimestamp());
-  // 有開場故事 → 先顯示再展開題目
   const stage=state.stages[state.currentIdx];
+  const startCameraIfNeeded=()=>{
+    if(stage&&(stage.stageType||'quiz')==='overlay')startOverlayCamera();
+  };
+  // 有開場故事 → 先顯示再展開題目
   if(stage&&stage.storyIntro){
-    showStoryIntro(stage,()=>{if(q)q.style.display='';});
+    showStoryIntro(stage,()=>{if(q)q.style.display='';startCameraIfNeeded();});
   } else {
     if(q)q.style.display='';
+    startCameraIfNeeded();
   }
 }
 async function recordGPSLog(lat,lng,dist,passed,stageIdx){
