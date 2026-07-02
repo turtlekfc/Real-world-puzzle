@@ -2205,16 +2205,30 @@ async function startOverlayCamera(){
   if(shutterBtn){shutterBtn.disabled=true;shutterBtn.title='相機啟動中...';}
   try{
     _overlayStream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment', width:{ideal:1920}, height:{ideal:1080}},
+      video:{facingMode:'environment', width:{ideal:1280}, height:{ideal:720}},
       audio:false
     });
     video.srcObject = _overlayStream;
-    // 等相機有畫面後才啟用拍照按鈕
-    video.addEventListener('canplay',()=>{
+    // Android/iOS 需要明確呼叫 play()
+    video.play().catch(()=>{});
+    // 啟用按鈕的函式（去重複保護）
+    let _btnEnabled=false;
+    const enableShutter=()=>{
+      if(_btnEnabled)return;
+      _btnEnabled=true;
       if(shutterBtn){shutterBtn.disabled=false;shutterBtn.title='拍照';}
-    },{once:true});
-    // 備用：3秒後強制啟用（防止 canplay 未觸發）
-    setTimeout(()=>{if(shutterBtn)shutterBtn.disabled=false;},3000);
+      clearInterval(_readyPoll);
+    };
+    // 監聽多個事件：canplay / loadeddata / playing（跨瀏覽器相容）
+    ['canplay','loadeddata','playing'].forEach(evt=>{
+      video.addEventListener(evt,enableShutter,{once:true});
+    });
+    // Polling：每200ms確認 readyState>=2（Android Chrome 有時事件不觸發）
+    const _readyPoll=setInterval(()=>{
+      if(video.readyState>=2)enableShutter();
+    },200);
+    // 硬性保底：8秒後強制啟用，避免永遠卡住
+    setTimeout(()=>{clearInterval(_readyPoll);enableShutter();},8000);
   }catch(e){
     console.warn('相機啟動失敗:',e);
     showDebugError('相機啟動失敗: '+e.name+' - '+e.message);
@@ -2239,18 +2253,42 @@ function overlayShoot(){
   const result=document.getElementById('overlayResult');
   const btn=document.getElementById('overlayShutterBtn');
   if(!video||!canvas){showDebugError('overlayShoot: video或canvas元素不存在');return;}
-  // 確認相機已就緒（readyState>=1 且有畫面尺寸）
-  if(video.readyState<1){
-    showDebugError('overlayShoot: video.readyState='+video.readyState+' (相機尚未就緒)');
-    alert('相機尚未啟動，請稍後再試');return;
-  }
-  // videoWidth 可能還是0，等一下再試
-  if(video.videoWidth===0){
-    // 等相機就緒後拍照
-    video.addEventListener('canplay',function onReady(){
-      video.removeEventListener('canplay',onReady);
-      overlayShoot();
-    },{once:true});
+  // 相機尚未就緒：顯示友善提示，等畫面就緒後自動重試（不顯示紅色錯誤）
+  if(video.readyState<2||video.videoWidth===0){
+    // 顯示「啟動中」提示取代紅色錯誤條
+    const existingToast=document.getElementById('_camWaitToast');
+    if(!existingToast){
+      const t=document.createElement('div');
+      t.id='_camWaitToast';
+      t.className='reply-toast';
+      t.style.cssText='position:fixed;top:72px;left:50%;transform:translateX(-50%);background:#1a6fa3;color:white;padding:12px 20px;border-radius:14px;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;font-family:inherit';
+      t.textContent='📷 相機啟動中，請稍候...';
+      document.body.appendChild(t);
+    }
+    // 監聽多個事件，就緒後移除提示並自動拍照
+    const autoShoot=()=>{
+      const t=document.getElementById('_camWaitToast');
+      if(t)t.remove();
+      // 確保真的有畫面才拍
+      if(video.videoWidth>0)overlayShoot();
+      else setTimeout(overlayShoot,300);
+    };
+    ['canplay','loadeddata','playing'].forEach(evt=>video.addEventListener(evt,autoShoot,{once:true}));
+    // 保底：2秒後強制嘗試
+    setTimeout(()=>{
+      const t=document.getElementById('_camWaitToast');if(t)t.remove();
+      if(video.readyState>=1&&video.videoWidth>0)overlayShoot();
+      else{
+        const wrap=document.getElementById('overlayCameraWrap');
+        if(wrap&&!document.getElementById('_camErrMsg')){
+          const err=document.createElement('div');
+          err.id='_camErrMsg';
+          err.style.cssText='padding:12px;text-align:center;color:#c03020;font-size:13px;line-height:1.6';
+          err.innerHTML='⚠️ 相機啟動較慢<br>請重新整理頁面，或換用系統相機App後上傳';
+          wrap.parentNode.insertBefore(err,wrap.nextSibling);
+        }
+      }
+    },2000);
     return;
   }
   // 拍照：只拍相機畫面本身（套圖PNG只是輔助對準的視覺疊層，不燒進照片，避免Firebase Storage跨域問題）
