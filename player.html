@@ -2265,8 +2265,12 @@ function overlayShoot(){
       t.textContent='📷 相機啟動中，請稍候...';
       document.body.appendChild(t);
     }
-    // 監聽多個事件，就緒後移除提示並自動拍照
+    // 監聽多個事件，就緒後移除提示並自動拍照（防重複旗標，避免三個事件都觸發時重複拍照）
+    let _autoShootFired=false;
     const autoShoot=()=>{
+      if(_autoShootFired)return;
+      _autoShootFired=true;
+      ['canplay','loadeddata','playing'].forEach(evt=>video.removeEventListener(evt,autoShoot));
       const t=document.getElementById('_camWaitToast');
       if(t)t.remove();
       // 確保真的有畫面才拍
@@ -2276,6 +2280,9 @@ function overlayShoot(){
     ['canplay','loadeddata','playing'].forEach(evt=>video.addEventListener(evt,autoShoot,{once:true}));
     // 保底：2秒後強制嘗試
     setTimeout(()=>{
+      if(_autoShootFired)return;// 已自動拍過，跳過
+      _autoShootFired=true;
+      ['canplay','loadeddata','playing'].forEach(evt=>video.removeEventListener(evt,autoShoot));
       const t=document.getElementById('_camWaitToast');if(t)t.remove();
       if(video.readyState>=1&&video.videoWidth>0)overlayShoot();
       else{
