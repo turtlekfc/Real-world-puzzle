@@ -905,7 +905,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           </tr></thead>
           <tbody>
             <tr><td>帳號管理</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
-            <tr><td>活動設定/LOGO/Banner</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
+            <tr><td>活動設定/LOGO/Banner</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--green)">✅ 唯讀</td></tr>
             <tr><td>關卡管理（新增/編輯）</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
             <tr><td>匯出紀錄</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td><td style="color:var(--coral)">❌</td></tr>
             <tr><td>開始/暫停活動</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--green)">✅</td><td style="color:var(--coral)">❌</td></tr>
@@ -1306,7 +1306,7 @@ import { getDatabase, ref, get, set, push, remove, onValue, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject, listAll }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously }
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig={apiKey:"AIzaSyA51pVs3QZJ3p6eIeVpMVOGqFlNXExEjKo",authDomain:"real-world-puzzle-d5efc.firebaseapp.com",databaseURL:"https://real-world-puzzle-d5efc-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"real-world-puzzle-d5efc",storageBucket:"real-world-puzzle-d5efc.firebasestorage.app",messagingSenderId:"25902212869",appId:"1:25902212869:web:8955631b9c9395233a796c"};
@@ -1795,10 +1795,32 @@ async function getUserRole(user){
 }
 
 async function signInWithGoogle(){
-  document.getElementById('loginErr').textContent='';
-  try{await signInWithPopup(auth,provider);}
-  catch(e){if(e.code!=='auth/popup-closed-by-user')document.getElementById('loginErr').textContent='登入失敗：'+e.message;}
+  const errEl=document.getElementById('loginErr');
+  errEl.textContent='';
+  try{
+    await signInWithPopup(auth,provider);
+  }catch(e){
+    if(e.code==='auth/popup-closed-by-user')return; // 使用者自行關閉，不顯示錯誤
+    // 常見於手機瀏覽器（尤其 iOS Safari／內建瀏覽器）封鎖彈窗、或第三方 Cookie 被限制導致彈窗驗證失敗
+    // 這類情況改用整頁導轉（redirect）方式登入
+    const popupFailCodes=['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment','auth/web-storage-unsupported','auth/internal-error'];
+    if(popupFailCodes.includes(e.code)){
+      try{await signInWithRedirect(auth,provider);return;}catch(e2){errEl.textContent='登入失敗：'+e2.message;return;}
+    }
+    if(e.code==='auth/unauthorized-domain'){
+      errEl.textContent='⚠️ 此網域尚未加入 Firebase 授權網域清單，請聯絡管理者到 Firebase 主控台的 Authentication → Settings → Authorized domains 新增此網域。';
+      return;
+    }
+    errEl.textContent='登入失敗：'+e.message;
+  }
 }
+// 處理整頁導轉登入（signInWithRedirect）返回後的結果／錯誤
+getRedirectResult(auth).catch(e=>{
+  if(e && e.code && e.code!=='auth/no-auth-event'){
+    const errEl=document.getElementById('loginErr');
+    if(errEl)errEl.textContent='登入失敗：'+e.message;
+  }
+});
 
 async function proceedToAdmin(){
   loginTime=Date.now();
@@ -1847,24 +1869,26 @@ function applyRolePermissions(role){
     showEl([...mMonitor,...mManage,...mAdmin]);
     hideEl(['nav-export','mnav-export']);// 匯出只有 super
   } else if(role==='viewer'){
-    // 檢視者：只能看「關卡說明書」和「即時監控（唯讀）」
+    // 檢視者：可看「關卡說明書」「即時監控（唯讀）」「關卡管理（唯讀）」「活動設定（唯讀）」
     // 隱藏全部，再只顯示需要的
     hideEl([...monitorItems,...manageItems,...adminItems]);
     hideEl([...mMonitor,...mManage,...mAdmin]);
-    showEl(['nav-preview','nav-monitor']);
-    showEl(['mnav-preview','mnav-monitor']);
+    showEl(['nav-preview','nav-monitor','nav-stages','nav-settings']);
+    showEl(['mnav-preview','mnav-monitor','mnav-stages','mnav-settings']);
     document.querySelectorAll('.nav-group-label').forEach(el=>{
       el.style.display='none';
     });
-    // 500ms 後隱藏所有操作按鈕（確保 DOM 已渲染）
+    // 500ms 後隱藏所有操作按鈕、鎖定活動設定欄位（確保 DOM 已渲染）
     setTimeout(()=>{
-      document.querySelectorAll('.btn-primary,.btn-danger,.btn-warn,.btn-success').forEach(btn=>{
+      document.querySelectorAll('.btn-primary,.btn-danger,.btn-warn,.btn-success,.btn-ghost').forEach(btn=>{
         const txt=btn.textContent||'';
         if(txt.includes('儲存')||txt.includes('新增')||txt.includes('刪除')||
            txt.includes('清除')||txt.includes('重置')||txt.includes('廣播')||
-           txt.includes('開始')||txt.includes('結束')||txt.includes('暫停'))
+           txt.includes('開始')||txt.includes('結束')||txt.includes('暫停')||
+           txt.includes('恢復')||txt.includes('移除'))
           btn.style.display='none';
       });
+      applyViewerReadonlyLock();
     },500);
   } else {
     // staff（策劃人員） / stagemaster（總關主）：只顯示監控類
@@ -1888,11 +1912,43 @@ function applyRolePermissions(role){
   if(bar)bar.textContent=roleDesc[role]||role;
 }
 
+// 鎖定「活動設定」頁籤所有欄位為唯讀（供檢視者使用，資料仍會正常載入顯示）
+function applyViewerReadonlyLock(){
+  if(currentRole!=='viewer')return;
+  const tab=document.getElementById('tab-settings');
+  if(!tab)return;
+  tab.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=true;});
+  tab.querySelectorAll('.media-upload-area,.img-upload-area').forEach(el=>{
+    el.style.pointerEvents='none';el.style.opacity='0.6';
+  });
+  tab.querySelectorAll('.btn').forEach(btn=>{
+    const txt=btn.textContent||'';
+    if(txt.includes('儲存')||txt.includes('恢復')||txt.includes('移除')||txt.includes('上傳'))
+      btn.style.display='none';
+  });
+}
+window.applyViewerReadonlyLock=applyViewerReadonlyLock;
+
+// 將「關卡編輯」彈窗切換為唯讀模式（供檢視者查看關卡內容用）
+function setStageModalReadonly(readonly){
+  const modal=document.getElementById('stageModal');
+  if(!modal)return;
+  modal.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=readonly;});
+  modal.querySelectorAll('.stage-type-btn').forEach(el=>{
+    el.style.pointerEvents=readonly?'none':'';el.style.opacity=readonly?'0.7':'';
+  });
+  modal.querySelectorAll('.media-upload-area,.img-upload-area').forEach(el=>{
+    el.style.pointerEvents=readonly?'none':'';el.style.opacity=readonly?'0.6':'';
+  });
+  const saveBtn=document.getElementById('saveStageBtn');
+  if(saveBtn)saveBtn.style.display=readonly?'none':'';
+}
+
 async function doLogout(){clearInterval(timeoutTimer);await signOut(auth);currentUser=null;currentRole=null;document.getElementById('timeoutBar').style.display='none';}
 
 function showTab(name){
   const hostOnly=['stages','settings','story','scoring','ranking','theme','export','stats'];
-  const viewerOnly=['preview','monitor'];
+  const viewerOnly=['preview','monitor','stages','settings'];
   // viewer 只能看說明書和監控
   if(currentRole==='viewer'&&!viewerOnly.includes(name)){toast('⛔ 檢視者無法使用此功能');return;}
   // users：host 可以管理 staff/stagemaster，super 可以管理所有人
@@ -2485,6 +2541,7 @@ function renderStageList(){
     const item=document.createElement('div');item.className='stage-item';
     item.style.borderLeftColor=ti.color;
     const canEdit = currentRole==='super'||currentRole==='host';
+    const canView = currentRole==='viewer';
     item.innerHTML=`<div class="stage-item-header">
       <div class="stage-num">${s.order||i+1}</div>
       <div style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${ti.color}22;color:${ti.color};flex-shrink:0;white-space:nowrap">${ti.icon} ${ti.label}</div>
@@ -2492,7 +2549,8 @@ function renderStageList(){
       <div style="display:flex;gap:5px;flex-shrink:0">
         ${canEdit?`<button class="btn btn-ghost btn-sm" onclick="editStage('${key}')">✏️</button>`:''}
         ${canEdit?`<button class="btn btn-danger btn-sm" onclick="deleteStage('${key}')">🗑️</button>`:''}
-        ${!canEdit?'<span style="font-size:11px;color:var(--text-light)">唯讀</span>':''}
+        ${canView?`<button class="btn btn-ghost btn-sm" onclick="editStage('${key}')">👁️ 檢視</button>`:''}
+        ${(!canEdit&&!canView)?'<span style="font-size:11px;color:var(--text-light)">唯讀</span>':''}
       </div></div>
       <div class="stage-meta">${gpsTag}
         ${type==='quiz'?`<span>📝 ${(s.options||[]).length}選項</span><span>✅ ${['A','B','C','D'][s.answerIndex]||'?'}</span>${s.requirePhoto?'<span style="color:var(--coral)">📌拍照</span>':''}`:''}
@@ -2541,9 +2599,8 @@ function openStageModal(){
   document.getElementById('stageModal').classList.remove('hidden');
 }
 function editStage(key){
-  if(currentRole==='viewer'){toast('⛔ 檢視者無法編輯關卡');return;}
   const s=stagesData[key];editingStageKey=key;modalImgFile=null;modalImgUrl=s.imageUrl||null;
-  document.getElementById('modalTitle').textContent='編輯關卡';
+  document.getElementById('modalTitle').textContent=(currentRole==='viewer')?'👁️ 檢視關卡內容（唯讀）':'編輯關卡';
   document.getElementById('fOrder').value=s.order||1;document.getElementById('fTitle').value=s.title||'';document.getElementById('fDesc').value=s.description||'';
   document.getElementById('fLat').value=s.lat||'';document.getElementById('fLng').value=s.lng||'';document.getElementById('fRadius').value=s.radius||80;document.getElementById('fLocationHint').value=s.locationHint||'';
   document.getElementById('fHint1').value=(s.hints&&s.hints.h1)||'';document.getElementById('fHint2').value=(s.hints&&s.hints.h2)||'';
@@ -2592,8 +2649,9 @@ function editStage(key){
   if(s.imageUrl){const img=document.getElementById('imgPreviewModal');img.src=s.imageUrl;img.classList.remove('hidden');document.getElementById('imgPlaceholder').classList.add('hidden');}
   else{document.getElementById('imgPreviewModal').classList.add('hidden');document.getElementById('imgPlaceholder').classList.remove('hidden');}
   document.getElementById('stageModal').classList.remove('hidden');
+  setStageModalReadonly(currentRole==='viewer');
 }
-function closeStageModal(){document.getElementById('stageModal').classList.add('hidden');editingStageKey=null;}
+function closeStageModal(){document.getElementById('stageModal').classList.add('hidden');editingStageKey=null;setStageModalReadonly(false);}
 
 function handleOverlayImg(){
   const file=document.getElementById('fOverlayImgInput').files[0];
@@ -2913,6 +2971,7 @@ async function loadSettings(){
   if(s.geminiKey){document.getElementById('keyStatus1').textContent='✅ 已設定';document.getElementById('keyStatus1').className='key-status ok';}
   if(s.geminiKey2){document.getElementById('keyStatus2').textContent='⏳ 備用中（已設定）';document.getElementById('keyStatus2').className='key-status standby';}
   renderTeamSettings();
+  applyViewerReadonlyLock();
 }
 
 function renderTeamSettings(){
@@ -3387,6 +3446,25 @@ async function loadPreview(){
           html+=`<div style="font-size:12px;padding:4px 8px;margin-bottom:3px;border-radius:6px;background:#f0f4fa"><span style="font-weight:700;color:var(--primary)">${letters[j]}</span>. </div>`;
         });
         html+='</div>';
+      }
+      // 其他關卡類型的內容說明（原本只有選擇題會顯示內容，其餘類型會漏顯示，於此補上）
+      if(s.stageType==='truefalse'){
+        html+='<div style="font-size:12px;color:#5a8aaa;background:#f0f4fa;border-radius:8px;padding:6px 10px;margin-bottom:8px">⭕ 玩家選擇「對（是）」或「錯（否）」作答</div>';
+      }
+      if(s.stageType==='photo'){
+        html+='<div style="font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:8px 12px">📷 '+escHtml(s.photoDescription||'玩家需拍照，AI 自動辨識通過後過關')+'</div>';
+      }
+      if(s.stageType==='password'){
+        html+='<div style="font-size:12px;color:#b08000;background:#fff8e0;border-radius:8px;padding:6px 10px;margin-bottom:8px">🔑 玩家需輸入密碼過關（密碼由關主口頭告知，此處不顯示）</div>';
+      }
+      if(s.stageType==='confirm'){
+        html+='<div style="font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:8px 12px">👆 '+escHtml(s.confirmTask||'完成任務後通知關主確認')+'</div>';
+      }
+      if(s.stageType==='qrcode'){
+        html+='<div style="font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:8px 12px">📱 '+escHtml(s.qrTask||'完成任務後出示 QR Code')+'</div>';
+      }
+      if(s.stageType==='overlay'){
+        html+='<div style="font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:8px 12px">🖼️ '+escHtml(s.overlayTask||'對準後拍照')+'</div>';
       }
       // GPS
       if(s.lat&&s.lng)html+='<div style="font-size:12px;color:var(--green);background:#e8f8f0;border-radius:8px;padding:6px 10px;margin-bottom:6px">📍 GPS：'+s.lat.toFixed(5)+', '+s.lng.toFixed(5)+' （範圍 '+( s.radius||80)+'m）</div>';
