@@ -392,6 +392,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"/>
       使用 Google 帳號登入（策劃人員）
     </button>
+    <div id="inAppBrowserWarning" style="display:none;margin-top:10px;padding:10px 12px;background:#fff4e5;border:1.5px solid #f0b862;border-radius:10px;font-size:12px;color:#8a5a00;line-height:1.7;text-align:left"></div>
     <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
       <div style="flex:1;height:1px;background:#eee"></div>
       <span style="font-size:12px;color:#bbb">或</span>
@@ -1794,9 +1795,34 @@ async function getUserRole(user){
   return null;
 }
 
+// 偵測 App 內建瀏覽器（LINE / Facebook / Instagram / 微信等）
+// Google 自 2016 年起政策性封鎖這類 WebView 進行帳號登入，無法透過程式碼繞過，
+// 只能提醒使用者改用系統瀏覽器（Safari/Chrome）開啟本頁面
+function detectInAppBrowser(){
+  const ua=navigator.userAgent||'';
+  if(/\bLine\//i.test(ua))return 'LINE';
+  if(/FBAN|FBAV|FB_IAB/i.test(ua))return 'Facebook';
+  if(/Instagram/i.test(ua))return 'Instagram';
+  if(/MicroMessenger/i.test(ua))return '微信 WeChat';
+  return null;
+}
+(function checkInAppBrowser(){
+  const appName=detectInAppBrowser();
+  const warnEl=document.getElementById('inAppBrowserWarning');
+  if(appName && warnEl){
+    warnEl.style.display='block';
+    warnEl.innerHTML='⚠️ 偵測到您正在 <b>'+appName+' 內建瀏覽器</b>中開啟本頁面，Google 官方政策不允許在此環境登入（會出現「missing initial state」等錯誤，屬正常現象，並非系統故障）。<br>請點右上角「⋯」或分享選單，選擇「<b>在瀏覽器中開啟</b>」（用 Safari 或 Chrome 開啟）後再登入，或改用下方「總關主／檢視者密碼」登入。';
+  }
+})();
+
 async function signInWithGoogle(){
   const errEl=document.getElementById('loginErr');
   errEl.textContent='';
+  const appName=detectInAppBrowser();
+  if(appName){
+    errEl.textContent='⚠️ '+appName+' 內建瀏覽器不支援 Google 登入，請改用右上角「⋯」選單的「在瀏覽器中開啟」，或使用下方密碼登入。';
+    return;
+  }
   try{
     await signInWithPopup(auth,provider);
   }catch(e){
