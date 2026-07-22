@@ -1800,25 +1800,29 @@ async function signInWithGoogle(){
   try{
     await signInWithPopup(auth,provider);
   }catch(e){
+    console.error('[Google登入錯誤]',e.code,e.message,e);
     if(e.code==='auth/popup-closed-by-user')return; // 使用者自行關閉，不顯示錯誤
     // 常見於手機瀏覽器（尤其 iOS Safari／內建瀏覽器）封鎖彈窗、或第三方 Cookie 被限制導致彈窗驗證失敗
     // 這類情況改用整頁導轉（redirect）方式登入
     const popupFailCodes=['auth/popup-blocked','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment','auth/web-storage-unsupported','auth/internal-error'];
     if(popupFailCodes.includes(e.code)){
-      try{await signInWithRedirect(auth,provider);return;}catch(e2){errEl.textContent='登入失敗：'+e2.message;return;}
+      try{await signInWithRedirect(auth,provider);return;}
+      catch(e2){console.error('[Google登入錯誤-redirect]',e2.code,e2.message,e2);errEl.textContent='登入失敗（'+(e2.code||'unknown')+'）：'+e2.message;return;}
     }
     if(e.code==='auth/unauthorized-domain'){
-      errEl.textContent='⚠️ 此網域尚未加入 Firebase 授權網域清單，請聯絡管理者到 Firebase 主控台的 Authentication → Settings → Authorized domains 新增此網域。';
+      errEl.textContent='⚠️ 此網域尚未加入 Firebase 授權網域清單（auth/unauthorized-domain），請聯絡管理者到 Firebase 主控台的 Authentication → Settings → Authorized domains 新增此網域。';
       return;
     }
-    errEl.textContent='登入失敗：'+e.message;
+    // 一律把 error code 一起顯示出來，方便回報問題時直接截圖或複製
+    errEl.textContent='登入失敗（'+(e.code||'unknown')+'）：'+e.message;
   }
 }
 // 處理整頁導轉登入（signInWithRedirect）返回後的結果／錯誤
 getRedirectResult(auth).catch(e=>{
+  console.error('[Google登入錯誤-redirect結果]',e && e.code,e && e.message,e);
   if(e && e.code && e.code!=='auth/no-auth-event'){
     const errEl=document.getElementById('loginErr');
-    if(errEl)errEl.textContent='登入失敗：'+e.message;
+    if(errEl)errEl.textContent='登入失敗（'+e.code+'）：'+e.message;
   }
 });
 
