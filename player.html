@@ -861,7 +861,7 @@ let state = {
   currentIdx:0, stageSeconds:0, totalSeconds:0,
   gameStartTime:null, loginTime:null, timerInterval:null, countdownInterval:null,
   selectedOption:null, tfAnswer:null, totalAttempts:0, stageAttempts:0,
-  photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastStage:0, _staffSkipping:false, _lastSkipGPSTs:null,
+  photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastAssistTs:null, _staffSkipping:false, _lastSkipGPSTs:null,
   settings:{}, scoring:{}, gpsLogCount:0,
   score:0, helpUsed:0, hintUsed:0,
   photoFailCount:0, lastBroadcastId:null,
@@ -954,41 +954,47 @@ async function initLogin() {
 // initLogin() 已移到 signInAnonymously.then() 裡面執行
 
 // ── 監聽活動狀態 ──
+// 更新等待畫面的按鈕/文字狀態（抽成獨立函式，讓「進入等待畫面當下」也能主動呼叫一次，
+// 不用只靠 onValue 被動監聽——因為 onValue 在登入前就已經收到過一次初始值，
+// 如果之後活動狀態沒有再變化，等待畫面永遠不會被動更新到正確狀態）
+function updateWaitScreenStatusUI(status){
+  const btn=document.getElementById('btnStartGame');
+  const statusText=document.getElementById('waitStatusText');
+  const statusSub=document.getElementById('waitStatusSub');
+  const infoStatus=document.getElementById('infoStatus');
+  if(!btn||!statusText||!statusSub)return;
+  if(status==='open'){
+    btn.disabled=false;
+    btn.style.background='';
+    statusText.textContent='✅ 活動已開始！可以出發了！';
+    statusSub.textContent='點下方按鈕開始闖關';
+    if(infoStatus)infoStatus.textContent='✅ 進行中';
+  } else if(status==='paused'){
+    btn.disabled=true;
+    statusText.textContent='⏸ 活動暫停中...';
+    statusSub.textContent='請等待工作人員通知後繼續';
+    if(infoStatus)infoStatus.textContent='⏸ 暫停中';
+  } else if(status==='closed'){
+    btn.disabled=true;
+    btn.style.background='rgba(200,200,200,0.5)';
+    btn.textContent='活動已結束';
+    statusText.textContent='⏹ 活動已結束';
+    statusSub.textContent='感謝你的參與！';
+    if(infoStatus)infoStatus.textContent='⏹ 已結束';
+    const waitBar=document.getElementById('waitStatusBar');
+    if(waitBar)waitBar.style.background='rgba(240,112,80,0.2)';
+  } else {
+    btn.disabled=true;
+    statusText.textContent='⏳ 等待管理者開始活動...';
+    statusSub.textContent='管理者按下開始後，下方按鈕將自動解鎖';
+    if(infoStatus)infoStatus.textContent='⏳ 等待開始';
+  }
+}
 onValue(ref(db,'config/activityStatus'),snap=>{
   const status=snap.val()||'closed';
   // 只有在等待頁面且尚未開始才更新按鈕
   if(state.waitingToStart && !state.sessionKey){
-    const btn=document.getElementById('btnStartGame');
-    const statusText=document.getElementById('waitStatusText');
-    const statusSub=document.getElementById('waitStatusSub');
-    const infoStatus=document.getElementById('infoStatus');
-    if(status==='open'){
-      btn.disabled=false;
-      btn.style.background='';
-      statusText.textContent='✅ 活動已開始！可以出發了！';
-      statusSub.textContent='點下方按鈕開始闖關';
-      if(infoStatus)infoStatus.textContent='✅ 進行中';
-    } else if(status==='paused'){
-      btn.disabled=true;
-      statusText.textContent='⏸ 活動暫停中...';
-      statusSub.textContent='請等待工作人員通知後繼續';
-      if(infoStatus)infoStatus.textContent='⏸ 暫停中';
-    } else if(status==='closed'){
-      btn.disabled=true;
-      btn.style.background='rgba(200,200,200,0.5)';
-      btn.textContent='活動已結束';
-      statusText.textContent='⏹ 活動已結束';
-      statusSub.textContent='感謝你的參與！';
-      if(infoStatus)infoStatus.textContent='⏹ 已結束';
-      // 顯示結束訊息
-      const waitBar=document.getElementById('waitStatusBar');
-      if(waitBar)waitBar.style.background='rgba(240,112,80,0.2)';
-    } else {
-      btn.disabled=true;
-      statusText.textContent='⏳ 等待管理者開始活動...';
-      statusSub.textContent='管理者按下開始後，下方按鈕將自動解鎖';
-      if(infoStatus)infoStatus.textContent='⏳ 等待開始';
-    }
+    updateWaitScreenStatusUI(status);
   }
   // 遊戲中：暫停/繼續
   if(state.sessionKey&&!state.waitingToStart){
@@ -1028,33 +1034,25 @@ onValue(ref(db,'config/forceLogout'),snap=>{
 
 // 監聽個別 session 的強制登出
 // 監聽工作人員協助過關
+// 監聽工作人員協助過關 —— 改用明確訊號（staffAssistEvent），
+// 不再用「比較 currentStage 數字有沒有變大」去猜測，避免玩家自己同時操作造成的競速、
+// 導致偶爾不觸發通知的問題。管理者按下按鈕時會直接寫入一筆完整事件，
+// 內含 mode / 下一關索引 / 是否完賽 / 最新分數，玩家端只要偵測到「新的一筆」就一定顯示提示。
 function listenStaffSkip(){
   if(!state.sessionKey)return;
-  // 用 state._staffLastStage 記錄「已知的 Firebase currentStage 值」
-  // 玩家自己過關時也要同步更新這個值，避免誤判
-  state._staffLastStage=state.currentIdx;
+  state._staffLastAssistTs=null;// null代表尚未取得基準值
   state._staffSkipping=false;
-  onValue(ref(db,`sessions/${state.sessionKey}/currentStage`),snap=>{
+  onValue(ref(db,`sessions/${state.sessionKey}/staffAssistEvent`),snap=>{
     if(!snap.exists())return;
-    const newIdx=snap.val();
-    if(newIdx===null||newIdx===undefined)return;
-    // 若 Firebase 的值等於我們記錄的值，不觸發（初次載入或自己更新的）
-    if(newIdx===state._staffLastStage){return;}
-    // 若 Firebase 的值比 state.currentIdx 大，表示管理者跳關了
-    if(newIdx>state.currentIdx&&!state._staffSkipping){
-      state._staffSkipping=true;
-      state._staffLastStage=newIdx;
-      get(ref(db,`sessions/${state.sessionKey}/score`)).then(scoreSnap=>{
-        const newScore=scoreSnap.val()||state.score;
-        get(ref(db,`sessions/${state.sessionKey}/status`)).then(statusSnap=>{
-          const isFinished=statusSnap.val()==='finished';
-          showStaffSkipOverlay(isFinished,newIdx,newScore);
-        });
-      });
-    } else {
-      // 同步記錄（可能是其他合法更新）
-      state._staffLastStage=newIdx;
-    }
+    const evt=snap.val();
+    if(!evt||evt.ts==null)return;
+    // 第一次收到（頁面載入/恢復進度時）只記錄基準值，不觸發提示，避免舊事件被誤判為新事件
+    if(state._staffLastAssistTs===null){state._staffLastAssistTs=evt.ts;return;}
+    if(evt.ts===state._staffLastAssistTs)return;// 沒有新事件
+    if(state._staffSkipping)return;// 提示還顯示中，避免重複觸發
+    state._staffLastAssistTs=evt.ts;
+    state._staffSkipping=true;
+    showStaffSkipOverlay(!!evt.isLast,evt.toIdx,evt.score!=null?evt.score:state.score);
   });
 }
 
@@ -1077,7 +1075,6 @@ function showStaffSkipOverlay(isFinished,newIdx,newScore){
     if(isFinished){state.score=newScore;showFinish();}
     else{
       state.currentIdx=newIdx;
-      state._staffLastStage=newIdx;// 同步更新，防止二次觸發
       state.score=newScore;state.hintUsed=0;
       document.getElementById('currentScore').textContent=`${state.score} 分`;
       renderStage();
@@ -1157,6 +1154,23 @@ onValue(ref(db,'config/broadcast'),snap=>{
 
 // ── 登入 ──
 // 直接用已有的 session 恢復進度（不需要密碼驗證）
+// 依照 stageOrder 建立關卡陣列。若某一關的 key 已經對不到現有關卡資料
+// （例如活動進行中，工作人員刪除/重建了某一關），不會把它從清單中拿掉
+// （拿掉會導致後面所有關卡的索引往前移，跟玩家實際的過關進度、分數對不齊，
+// 進而可能誤判「已全部完成」或搞混玩家目前卡在第幾關）。
+// 改用佔位資料補在原本的位置，保持索引完全不變：
+// - 已經破過的關卡不受影響（不會再進去）
+// - 分數、目前第幾關、闖關紀錄全部維持原樣，不會重新開始
+// - 只有玩家「剛好卡在那一關」時，才會顯示提示請洽工作人員（見 renderStage 的 _missing 判斷）
+function buildStagesFromOrder(stageOrder,stagesMap){
+  return stageOrder.map(k=>{
+    const s=stagesMap[k];
+    if(s)return s;
+    console.warn(`[buildStagesFromOrder] 關卡 key=${k} 已對不到現有資料，使用佔位資料保留原索引`);
+    return {key:k,_missing:true,title:'關卡資料異動',description:'',stageType:'quiz',options:[]};
+  });
+}
+
 async function doLoginResume(teamKey, sessKey, sessData){
   showLoading('恢復進度中...');
   try{
@@ -1179,15 +1193,16 @@ async function doLoginResume(teamKey, sessKey, sessData){
     state.totalSeconds=sessData.totalSec||0;
     state.waitingToStart=false;
     if(sessData.stageOrder&&sessData.stageOrder.length){
-      state.stages=sessData.stageOrder.map(k=>stagesMap[k]).filter(Boolean);
+      state.stages=buildStagesFromOrder(sessData.stageOrder,stagesMap);
     } else {
       const arr=Object.values(snap.val()).map((v,i)=>({key:Object.keys(snap.val())[i],...v}));
       arr.sort((a,b)=>(a.order||0)-(b.order||0));
       state.stages=arr;
     }
-    // Bug 防呆：stageOrder key 失效時 stages 會是空陣列，直接進遊戲會觸發 showFinish
+    // 極端防呆：真的完全沒有任何關卡資料時才放棄（例如整個關卡表被清空），
+    // 一般情況下即使個別關卡對不到，也會用佔位資料補齊、保留原本進度，不會重來
     if(state.stages.length===0){
-      console.warn('[doLoginResume] stageOrder keys 全部失效，放棄恢復進度');
+      console.warn('[doLoginResume] 完全沒有關卡資料，放棄恢復進度');
       set(ref(db,`sessions/${sessKey}/status`),'abandoned').catch(()=>{});
       hideLoading();
       showScreen('loginScreen');
@@ -1283,15 +1298,14 @@ async function doLogin() {
         const stagesMap=Object.fromEntries(
           Object.entries(snap.val()).map(([k,v])=>{const{answerIndex,...safe}=v;return[k,{key:k,answerHash:v.answerHash||'',...safe}];})
         );
-        state.stages=resumeSession.stageOrder.map(k=>stagesMap[k]).filter(Boolean);
+        state.stages=buildStagesFromOrder(resumeSession.stageOrder,stagesMap);
       } else {
         state.stages=arr;
       }
-      // ── Bug 防呆：stageOrder 的 key 若已過期（關卡被重建），filter(Boolean) 後會變空陣列
-      // 此時直接觸發 showFinish() 造成「一進入就全部破關」。
-      // 偵測到空陣列時放棄 resume，改走全新登入流程。
+      // 極端防呆：真的完全沒有任何關卡資料時才放棄恢復（例如整個關卡表被清空）。
+      // 一般情況下即使個別關卡對不到，也會用佔位資料補齊、保留原本進度與分數，不會重新開始。
       if(state.stages.length===0){
-        console.warn('[resume] stageOrder keys 全部失效，放棄恢復進度，改走全新登入流程');
+        console.warn('[resume] 完全沒有關卡資料，放棄恢復進度，改走全新登入流程');
         // 把殘留的 playing session 標記為廢棄，避免下次再次誤 resume
         set(ref(db,`sessions/${resumeKey}/status`),'abandoned').catch(()=>{});
         state.waitingToStart=true;
@@ -1404,6 +1418,13 @@ function showWaitScreen(cfg,teamCfg){
     div.appendChild(span);rulesList.appendChild(div);
   });
   showScreen('waitScreen');
+  // 主動查一次目前活動狀態並更新按鈕，避免小隊重新登入時卡在「等待管理者開始」
+  // （被動監聽 onValue 在登入前就已收到過一次初始值，之後若狀態沒有再變化就不會再通知）
+  get(ref(db,'config/activityStatus')).then(snap=>{
+    if(state.waitingToStart && !state.sessionKey){
+      updateWaitScreenStatusUI(snap.val()||'closed');
+    }
+  }).catch(e=>console.warn('[showWaitScreen] 查詢活動狀態失敗',e));
 }
 
 // ── 開始闖關 ──
@@ -1547,16 +1568,78 @@ function updateProgress(){
   document.getElementById('currentScore').textContent=`${state.score} 分`;
 }
 
+// 防呆：renderStage 找不到 state.currentIdx 對應的關卡資料時呼叫。
+// 不直接判定完賽，先跟 Firebase 的 stageLogs 核對「實際完成了幾關」：
+// 若真的全部完成了才正常結算；若沒有，代表資料錯位，導回第一個尚未完成的關卡繼續玩，
+// 避免玩家還沒全破就看到「破關成功」畫面。
+// 顯示「此關卡資料異動」畫面（stage._missing 為 true 時使用）。
+// 發生時機：活動進行中工作人員編輯/重建了玩家「目前正卡在的那一關」，
+// 玩家的分數、其他已過關紀錄完全不受影響，只是這一關暫時需要工作人員手動協助過關。
+function renderMissingStageScreen(){
+  clearInterval(state.timerInterval);
+  const content=document.getElementById('gameContent');
+  if(!content)return;
+  content.innerHTML=`
+    <div class="state-card" style="text-align:center;padding:32px 20px">
+      <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#e65100">此關卡資料有異動</div>
+      <div style="font-size:13px;color:var(--text-light);line-height:1.7;margin-bottom:20px">
+        工作人員正在調整這一關的內容，你目前的分數與過關紀錄都不受影響。<br>
+        請在原地稍候，或按下方按鈕通知工作人員協助你繼續闖關。
+      </div>
+      <button class="action-btn btn-help" id="missingStageHelpBtn" style="width:100%">🆘 通知工作人員協助</button>
+    </div>`;
+  const btn=document.getElementById('missingStageHelpBtn');
+  if(btn)btn.onclick=()=>showHelp();
+}
+
+async function handleMissingStage(){
+  console.error(`[renderStage] 找不到 currentIdx=${state.currentIdx} 對應的關卡資料，觸發防呆檢查`);
+  const total=state.stages.length;
+  try{
+    const logsSnap=await get(ref(db,`sessions/${state.sessionKey}/stageLogs`));
+    const logs=logsSnap.val()||{};
+    const completedCount=Object.values(logs).filter(l=>l&&l.correct).length;
+    if(total>0&&completedCount>=total){
+      // 核對後確實全部完成，正常結算
+      showFinish();
+    } else {
+      // 資料異常：找出第一個尚未完成的關卡，導回去繼續玩，而不是誤判完賽
+      let recoverIdx=0;
+      for(let i=0;i<total;i++){
+        if(!(logs[i]&&logs[i].correct)){recoverIdx=i;break;}
+      }
+      console.warn(`[renderStage] 防呆：已完成 ${completedCount}/${total} 關，導回第 ${recoverIdx+1} 關繼續（原索引 ${state.currentIdx}）`);
+      state.currentIdx=recoverIdx;
+      set(ref(db,`sessions/${state.sessionKey}/currentStage`),state.currentIdx).catch(()=>{});
+      renderStage();
+    }
+  }catch(e){
+    console.error('[renderStage] 防呆檢查失敗，保底直接結算避免玩家卡死',e);
+    showFinish();
+  }
+}
+
+// 圖片預載：在背景先下載圖片並放進瀏覽器快取，之後真正顯示時就能秒開，不用再等下載
+const _preloadedImgUrls=new Set();
+function preloadImage(url){
+  if(!url||_preloadedImgUrls.has(url))return;
+  _preloadedImgUrls.add(url);
+  const img=new Image();
+  img.src=url;
+}
+
 function renderStage(){
   stopOverlayCamera();// 換關前先停止舊的相機串流
+  stopWatchGPS();// 換關前先停止舊的背景定位
   state.selectedOption=null;state.photoFile=null;state.stageAttempts=0;state.lastCorrect=false;state.photoFailCount=0;state.hintUsed=0;
   updateProgress();
   const stage=state.stages[state.currentIdx];
-  if(!stage){showFinish();return;}
+  if(!stage){handleMissingStage();return;}
+  if(stage._missing){renderMissingStageScreen();return;}
   clearInterval(state.timerInterval);state.stageSeconds=0;
   state.timerInterval=setInterval(tickTimer,1000);
   set(ref(db,`sessions/${state.sessionKey}/currentStage`),state.currentIdx);
-  state._staffLastStage=state.currentIdx;// 同步更新，防止listenStaffSkip誤判
 
   const stageType=stage.stageType||'quiz';
   const hasGPS=!!(stage.lat&&stage.lng);
@@ -1798,6 +1881,7 @@ function renderStage(){
   // 填入文字內容
   if(hasLocation)document.getElementById('locText').textContent=stage.locationHint;
   if(hasGPS)document.getElementById('gpsHint').textContent=stage.locationHint||'請前往指定地點，按下按鈕驗證位置。';
+  if(hasGPS)startWatchGPS();// 進入GPS關卡就開始背景持續定位，玩家按驗證鈕時可直接使用
   const titleEl=document.getElementById('stageTitle');if(titleEl)titleEl.textContent=stage.title||'';
   const descEl=document.getElementById('stageDesc');if(descEl)descEl.textContent=stage.description||'';
   if(stageType==='quiz')(stage.options||[]).forEach((opt,i)=>{const el=document.getElementById('optText'+i);if(el)el.textContent=opt;});
@@ -1857,12 +1941,45 @@ function renderStage(){
   if(stageType==='confirm'||stageType==='qrcode'){
     listenForStageConfirm(state.currentIdx);
   }
+  // 預載下一關的圖片（提早在背景下載，玩家過關看到過關故事/下一關提示時就能秒開）
+  const nextS=state.stages[state.currentIdx+1];
+  if(nextS){
+    if(nextS.imageUrl)preloadImage(nextS.imageUrl);
+    if(nextS.overlayImageUrl)preloadImage(nextS.overlayImageUrl);
+  }
+}
+
+// ── 背景持續定位（watchPosition）──
+// 原本每次按「驗證我的位置」都是冷啟動重新抓一次GPS（maximumAge:0），
+// 在 iOS（尤其Wi-Fi版iPad，沒有GPS晶片、靠Wi-Fi定位）特別慢。
+// 改成一進入需要GPS的關卡，就在背景持續定位；玩家按按鈕時直接讀取已經抓到的最新位置，
+// 不需要每次都重新等待，位置也會隨背景持續更新越來越準。
+let _gpsWatchId=null;
+let _gpsLastPos=null;
+function startWatchGPS(){
+  stopWatchGPS();
+  _gpsLastPos=null;
+  if(!navigator.geolocation)return;
+  try{
+    _gpsWatchId=navigator.geolocation.watchPosition(
+      pos=>{_gpsLastPos=pos;},
+      err=>{/* 背景定位失敗先不打擾玩家，等實際按下驗證鈕時再顯示錯誤訊息 */},
+      {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
+    );
+  }catch(e){console.warn('[GPS] watchPosition 啟動失敗',e);}
+}
+function stopWatchGPS(){
+  if(_gpsWatchId!=null&&navigator.geolocation){
+    try{navigator.geolocation.clearWatch(_gpsWatchId);}catch(e){}
+    _gpsWatchId=null;
+  }
 }
 
 // 跳過 GPS 驗證（扣分）
 async function skipGPSVerify(){
   const penalty=state.scoring.skipGPSPenalty!=null?state.scoring.skipGPSPenalty:20;
   if(!confirm(`確定要跳過GPS驗證嗎？\n將扣除 ${penalty} 分`))return;
+  stopWatchGPS();
   state.score=Math.max(0,state.score-penalty);
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
@@ -1893,19 +2010,14 @@ function checkGPS(){
     else{statusEl.textContent='⚠️ 不支援GPS，請聯絡工作人員';btn.disabled=false;}
     return;
   }
+  // 優先使用背景持續定位（watchPosition）已經抓到的最新位置，速度快很多；
+  // 若背景定位還沒有結果（例如剛進入這關沒幾秒），才退回單次定位
+  if(_gpsLastPos){
+    handleGPSPosition(_gpsLastPos,stage,statusEl,btn);
+    return;
+  }
   navigator.geolocation.getCurrentPosition(
-    pos=>{
-      const dist=calcDist(pos.coords.latitude,pos.coords.longitude,stage.lat,stage.lng);
-      const passed=dist<=(stage.radius||100);
-      recordGPSLog(pos.coords.latitude,pos.coords.longitude,dist,passed,state.currentIdx);
-      if(passed){
-        statusEl.textContent='✅ 位置驗證成功！';
-        setTimeout(arriveAtStage,800);
-      } else {
-        statusEl.innerHTML=`⚠️ 距離目標還有約 <b>${Math.round(dist)} 公尺</b>，請再靠近！<br><span style="font-size:11px;color:var(--text-light)">如果無法靠近，可使用下方「🆘 求救」按鈕</span>`;
-        btn.disabled=false;
-      }
-    },
+    pos=>handleGPSPosition(pos,stage,statusEl,btn),
     err=>{
       const msgs={1:'⚠️ 請允許位置權限後重試',2:'⚠️ GPS訊號不佳，請到空曠處',3:'⚠️ 定位逾時，請重試'};
       statusEl.textContent=msgs[err.code]||'⚠️ 定位失敗';
@@ -1913,11 +2025,25 @@ function checkGPS(){
       if((state.settings.gpsFail||'block')==='allow'){setTimeout(()=>{statusEl.textContent+=' (已自動跳過)';setTimeout(arriveAtStage,1000);},1500);}
       else btn.disabled=false;
     },
-    {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    {enableHighAccuracy:true,timeout:15000,maximumAge:5000}
   );
+}
+function handleGPSPosition(pos,stage,statusEl,btn){
+  const dist=calcDist(pos.coords.latitude,pos.coords.longitude,stage.lat,stage.lng);
+  const passed=dist<=(stage.radius||100);
+  recordGPSLog(pos.coords.latitude,pos.coords.longitude,dist,passed,state.currentIdx);
+  if(passed){
+    statusEl.textContent='✅ 位置驗證成功！';
+    stopWatchGPS();
+    setTimeout(arriveAtStage,800);
+  } else {
+    statusEl.innerHTML=`⚠️ 距離目標還有約 <b>${Math.round(dist)} 公尺</b>，請再靠近！<br><span style="font-size:11px;color:var(--text-light)">如果無法靠近，可使用下方「🆘 求救」按鈕</span>`;
+    btn.disabled=false;
+  }
 }
 function calcDist(lat1,lng1,lat2,lng2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function arriveAtStage(){
+  stopWatchGPS();
   playBGM('game');// 到達後回到闖關BGM（停止GPS音效）
   const g=document.getElementById('gpsCard'),q=document.getElementById('questionCard');
   if(g)g.style.display='none';
@@ -2965,6 +3091,7 @@ function closeFeedback(){
     const nextStage=!isLast?state.stages[state.currentIdx+1]:null;
     const nextStageHint=(nextStage&&nextStage.nextHint)||'';
     const nextStageImg=(nextStage&&nextStage.imageUrl)||'';// 下一關照片
+    if(nextStageImg)preloadImage(nextStageImg);// 提早在背景下載，等等彈窗打開時可直接秒開
     state.currentIdx++;state.hintUsed=0;
     if(currentStage&&(currentStage.storyOutro||nextStageHint||isLast)){
       showStoryOutro(currentStage,isLast,nextStageHint,()=>{
@@ -3098,6 +3225,7 @@ function closeBroadcast(){
 
 async function showFinish(){
   clearInterval(state.timerInterval);clearInterval(state.countdownInterval);
+  stopWatchGPS();
   playBGM('finish');// 完賽音樂
   // 完賽後清除 sessionStorage（含隨機順序），下次開啟回到登入頁
   try{

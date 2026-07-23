@@ -2168,13 +2168,23 @@ async function doSkipStageChoice(sessKey, teamName, sessData, curIdx, isLast, mo
       // 最後一關：標記完賽
       await set(ref(db,`sessions/${sessKey}/status`),'finished');
       await set(ref(db,`sessions/${sessKey}/finishedAt`),serverTimestamp());
-      await set(ref(db,`sessions/${sessKey}/currentStage`),curIdx+1);// 觸發玩家端監聽
+      await set(ref(db,`sessions/${sessKey}/currentStage`),curIdx+1);
       toast(`✅「${teamName}」已協助完賽！`);
     } else {
-      // 前往下一關（更新 currentStage 觸發 listenStaffSkip）
+      // 前往下一關
       await set(ref(db,`sessions/${sessKey}/currentStage`),curIdx+1);
       toast(`✅「${teamName}」已${mode==='pass'?'強制過關':'跳過此關'}，進入第${curIdx+2}關！`);
     }
+    // 寫入明確訊號通知玩家端（取代原本用 currentStage 數字變化去猜測的方式，
+    // 計分/不計分兩種模式都用同一套機制，避免偶爾偵測不到的問題）
+    await set(ref(db,`sessions/${sessKey}/staffAssistEvent`),{
+      ts:serverTimestamp(),
+      mode,
+      fromIdx:curIdx,
+      toIdx:curIdx+1,
+      isLast:!!isLast,
+      score:newScore
+    });
     loadSessions();
   }catch(e){toast('❌ 操作失敗：'+e.message);console.error(e);}
 }
