@@ -2395,13 +2395,14 @@ async function startOverlayCamera(){
     showDebugError('此瀏覽器不支援相機功能，或網站非HTTPS連線');
     const wrap=document.getElementById('overlayCameraWrap');
     if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">⚠️ 此瀏覽器不支援相機功能<br>請確認網址是 https:// 開頭</div>';
+    offerSystemCameraFallback();
     return;
   }
   // 相機啟動中，先暫時停用拍照按鈕
   if(shutterBtn){shutterBtn.disabled=true;shutterBtn.title='相機啟動中...';}
   try{
     _overlayStream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment', width:{ideal:1280}, height:{ideal:720}},
+      video:{facingMode:'environment', width:{ideal:960}, height:{ideal:540}},
       audio:false
     });
     video.srcObject = _overlayStream;
@@ -2435,6 +2436,7 @@ async function startOverlayCamera(){
     else if(e.name==='NotFoundError')msg='⚠️ 找不到相機裝置';
     else if(e.name==='NotReadableError')msg='⚠️ 相機正被其他App使用中';
     if(wrap)wrap.innerHTML='<div style="padding:20px;text-align:center;color:white;font-size:13px">'+msg+'</div>';
+    if(e.name!=='NotAllowedError')offerSystemCameraFallback();// 權限被拒絕的話系統相機也一樣會被拒，不用多此一舉
   }
 }
 
@@ -2482,14 +2484,7 @@ function overlayShoot(){
       const t=document.getElementById('_camWaitToast');if(t)t.remove();
       if(video.readyState>=1&&video.videoWidth>0)overlayShoot();
       else{
-        const wrap=document.getElementById('overlayCameraWrap');
-        if(wrap&&!document.getElementById('_camErrMsg')){
-          const err=document.createElement('div');
-          err.id='_camErrMsg';
-          err.style.cssText='padding:12px;text-align:center;color:#c03020;font-size:13px;line-height:1.6';
-          err.innerHTML='⚠️ 相機啟動較慢<br>請重新整理頁面，或換用系統相機App後上傳';
-          wrap.parentNode.insertBefore(err,wrap.nextSibling);
-        }
+        offerSystemCameraFallback();
       }
     },2000);
     return;
@@ -2501,95 +2496,127 @@ function overlayShoot(){
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
   function doToBlob(){
     try{
-      canvas.toBlob(handleBlob,'image/jpeg',0.88);
+      canvas.toBlob(blob=>{if(blob)finishOverlayCapture(new File([blob],'overlay_photo.jpg',{type:'image/jpeg'}));else{showDebugError('canvas.toBlob 回傳null');alert('拍照失敗，請重試');}},'image/jpeg',0.88);
     }catch(e){
       showDebugError('canvas.toBlob 失敗: '+e.message);
       alert('拍照失敗，請重新整理頁面後再試');
     }
   }
-  function handleBlob(blob){
-      if(!blob){
-        showDebugError('canvas.toBlob 回傳null');
-        alert('拍照失敗，請重試');
-        return;
-      }
-    state.photoFile=new File([blob],'overlay_photo.jpg',{type:'image/jpeg'});
-    const url=URL.createObjectURL(blob);
-    if(result){result.src=url;result.style.display='block';}
-    // 隱藏相機，顯示結果
-    const wrap=document.getElementById('overlayCameraWrap');
-    if(wrap)wrap.style.display='none';
-    if(btn)btn.style.display='none';
-    const retryBtn=document.getElementById('overlayRetryBtn');
-    if(retryBtn)retryBtn.classList.remove('hidden');
-    stopOverlayCamera();
-    // 拍照完成後：顯示預覽，並根據驗證方式顯示確認按鈕
-    const stage=state.stages[state.currentIdx];
-    const verifyType=stage.overlayVerify||'ai';
-    const statusEl=document.getElementById('photoVerifyStatus');
-    if(statusEl){statusEl.style.display='none';statusEl.textContent='';}
-    // 顯示「送出辨識」或「通知關主」按鈕
-    let submitOverlayBtn=document.getElementById('submitOverlayBtn');
-    if(!submitOverlayBtn){
-      submitOverlayBtn=document.createElement('button');
-      submitOverlayBtn.id='submitOverlayBtn';
-      submitOverlayBtn.style.cssText='width:100%;padding:12px;background:linear-gradient(90deg,var(--primary),#3a8fd8);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;display:block';
-      const resultEl=document.getElementById('overlayResult');
-      if(resultEl&&resultEl.parentNode)resultEl.parentNode.insertBefore(submitOverlayBtn,resultEl.nextSibling);
-    }
-    submitOverlayBtn.style.display='block';
-    if(verifyType==='ai'&&state.settings.geminiKey&&stage.overlayAIDesc){
-      submitOverlayBtn.textContent='📤 送出 AI 辨識';
-      submitOverlayBtn.onclick=async()=>{
-        submitOverlayBtn.disabled=true;
-        submitOverlayBtn.textContent='🔍 AI 辨識中...';
-        logPhotoAttempt(state.photoFile||blob);
-        const reader=new FileReader();
-        reader.onerror=()=>{
-          console.warn('[overlay AI] 照片讀取失敗',reader.error);
-          submitOverlayBtn.disabled=false;
-          submitOverlayBtn.textContent='📤 重新送出辨識';
-          if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ 照片讀取失敗，請重新拍照';}
-        };
-        reader.onload=async e=>{
-          try{
-            const status=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
-            const autoPassed=handleAIVerifyStatus(status);
-            if(status==='pass'){
-              submitOverlayBtn.style.display='none';
-              setTimeout(()=>passPhotoStage(),1200);
-            } else if(autoPassed){
-              submitOverlayBtn.style.display='none';
-            } else {
-              submitOverlayBtn.disabled=false;
-              submitOverlayBtn.textContent='📤 重新送出辨識';
-            }
-          }catch(err){
-            console.warn('AI驗證錯誤:',err);
-            submitOverlayBtn.disabled=false;
-            submitOverlayBtn.textContent='📤 重新送出辨識';
-            if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用';}
-          }
-        };
-        reader.readAsDataURL(state.photoFile||blob);
-      };
-    } else if(verifyType==='confirm'){
-      submitOverlayBtn.textContent='✋ 送出，通知關主確認';
-      submitOverlayBtn.onclick=()=>{
-        submitOverlayBtn.style.display='none';
-        overlayNotifyConfirm();
-      };
-    } else {
-      submitOverlayBtn.textContent='📤 確認送出';
-      submitOverlayBtn.onclick=()=>{
-        submitOverlayBtn.style.display='none';
-        passPhotoStage();
-      };
-    }
-  }
   doToBlob();
 }
 window.overlayShoot=overlayShoot;
+
+// 拍照完成後的共用收尾流程：不論照片是「即時相機拍的」還是「改用系統相機App拍的」都會走這裡，
+// 這樣就算相機啟動太慢、玩家改用系統相機上傳，後續AI辨識流程完全一樣，不會少功能。
+function finishOverlayCapture(file){
+  const result=document.getElementById('overlayResult');
+  const btn=document.getElementById('overlayShutterBtn');
+  state.photoFile=file;
+  const url=URL.createObjectURL(file);
+  if(result){result.src=url;result.style.display='block';}
+  // 隱藏相機，顯示結果
+  const wrap=document.getElementById('overlayCameraWrap');
+  if(wrap)wrap.style.display='none';
+  if(btn)btn.style.display='none';
+  const camFallbackBtn=document.getElementById('_camFallbackBtn');if(camFallbackBtn)camFallbackBtn.remove();
+  const camErrMsg=document.getElementById('_camErrMsg');if(camErrMsg)camErrMsg.remove();
+  const retryBtn=document.getElementById('overlayRetryBtn');
+  if(retryBtn)retryBtn.classList.remove('hidden');
+  stopOverlayCamera();
+  // 拍照完成後：顯示預覽，並根據驗證方式顯示確認按鈕
+  const stage=state.stages[state.currentIdx];
+  const verifyType=stage.overlayVerify||'ai';
+  const statusEl=document.getElementById('photoVerifyStatus');
+  if(statusEl){statusEl.style.display='none';statusEl.textContent='';}
+  // 顯示「送出辨識」或「通知關主」按鈕
+  let submitOverlayBtn=document.getElementById('submitOverlayBtn');
+  if(!submitOverlayBtn){
+    submitOverlayBtn=document.createElement('button');
+    submitOverlayBtn.id='submitOverlayBtn';
+    submitOverlayBtn.style.cssText='width:100%;padding:12px;background:linear-gradient(90deg,var(--primary),#3a8fd8);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;display:block';
+    const resultEl=document.getElementById('overlayResult');
+    if(resultEl&&resultEl.parentNode)resultEl.parentNode.insertBefore(submitOverlayBtn,resultEl.nextSibling);
+  }
+  submitOverlayBtn.style.display='block';
+  // 修正：即使沒填AI描述、AI驗證會被跳過，也要讓玩家知道「這關其實不用等AI，是直接算過關」，
+  // 不然玩家會一直以為卡在等AI辨識結果，其實根本沒有在跑AI
+  if(verifyType==='ai'&&(!state.settings.geminiKey||!stage.overlayAIDesc)){
+    console.warn('[overlay] 此關verifyType=ai但未設定geminiKey或overlayAIDesc，AI驗證會被跳過，直接視為過關');
+  }
+  if(verifyType==='ai'&&state.settings.geminiKey&&stage.overlayAIDesc){
+    submitOverlayBtn.textContent='📤 送出 AI 辨識';
+    submitOverlayBtn.onclick=async()=>{
+      submitOverlayBtn.disabled=true;
+      submitOverlayBtn.textContent='🔍 AI 辨識中...';
+      logPhotoAttempt(state.photoFile);
+      const reader=new FileReader();
+      reader.onerror=()=>{
+        console.warn('[overlay AI] 照片讀取失敗',reader.error);
+        submitOverlayBtn.disabled=false;
+        submitOverlayBtn.textContent='📤 重新送出辨識';
+        if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ 照片讀取失敗，請重新拍照';}
+      };
+      reader.onload=async e=>{
+        try{
+          const status=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
+          const autoPassed=handleAIVerifyStatus(status);
+          if(status==='pass'){
+            submitOverlayBtn.style.display='none';
+            setTimeout(()=>passPhotoStage(),1200);
+          } else if(autoPassed){
+            submitOverlayBtn.style.display='none';
+          } else {
+            submitOverlayBtn.disabled=false;
+            submitOverlayBtn.textContent='📤 重新送出辨識';
+          }
+        }catch(err){
+          console.warn('AI驗證錯誤:',err);
+          submitOverlayBtn.disabled=false;
+          submitOverlayBtn.textContent='📤 重新送出辨識';
+          if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用';}
+        }
+      };
+      reader.readAsDataURL(state.photoFile);
+    };
+  } else if(verifyType==='confirm'){
+    submitOverlayBtn.textContent='✋ 送出，通知關主確認';
+    submitOverlayBtn.onclick=()=>{
+      submitOverlayBtn.style.display='none';
+      overlayNotifyConfirm();
+    };
+  } else {
+    submitOverlayBtn.textContent='📤 確認送出';
+    submitOverlayBtn.onclick=()=>{
+      submitOverlayBtn.style.display='none';
+      passPhotoStage();
+    };
+  }
+}
+
+// 相機遲遲啟動不了時，提供真的能用的備援：改用手機系統相機App拍照後上傳，
+// 而不是只在畫面上寫一句「請換用系統相機App」卻沒有實際的按鈕可以按。
+function offerSystemCameraFallback(){
+  const wrap=document.getElementById('overlayCameraWrap');
+  if(!wrap||document.getElementById('_camFallbackBtn'))return;
+  const box=document.createElement('div');
+  box.id='_camFallbackBtn';
+  box.style.cssText='padding:14px;text-align:center;background:#fff8e6;border-radius:12px;margin-top:8px';
+  box.innerHTML=`<div style="color:#8a6d1a;font-size:13px;margin-bottom:8px;line-height:1.5">⚠️ 相機啟動較慢，可以改用手機的系統相機拍照上傳</div>`;
+  const btn=document.createElement('button');
+  btn.textContent='📷 開啟系統相機拍照';
+  btn.style.cssText='padding:10px 20px;background:var(--primary);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit';
+  const fileInput=document.createElement('input');
+  fileInput.type='file';fileInput.accept='image/*';fileInput.capture='environment';fileInput.style.display='none';
+  fileInput.onchange=()=>{
+    if(fileInput.files&&fileInput.files[0]){
+      stopOverlayCamera();
+      finishOverlayCapture(fileInput.files[0]);
+    }
+  };
+  btn.onclick=()=>fileInput.click();
+  box.appendChild(btn);box.appendChild(fileInput);
+  wrap.parentNode.insertBefore(box,wrap.nextSibling);
+}
 
 function overlayRetake(){
   // 重新拍照
@@ -3049,10 +3076,13 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
         body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType,data:imageData}},{text:prompt}]}]}),
         signal:controller.signal
       });
-      clearTimeout(timeoutId);
-      if(res.status===429||res.status===403){lastError=res.status;continue;}// 超限，換KEY
-      if(!res.ok){lastError=res.status;continue;}// 其他錯誤狀態，換KEY或略過
+      if(res.status===429||res.status===403){clearTimeout(timeoutId);lastError=res.status;continue;}// 超限，換KEY
+      if(!res.ok){clearTimeout(timeoutId);lastError=res.status;continue;}// 其他錯誤狀態，換KEY或略過
+      // 注意：計時器要撐到res.text()讀完才能清除。之前在這裡就先clearTimeout，
+      // 結果是「連上了但body一直傳不完」時完全沒有逾時保護，會卡住不動——這正是玩家反映
+      // 「一直顯示AI辨識中」的真正原因。
       const rawText=await res.text();
+      clearTimeout(timeoutId);
       if(!rawText||!rawText.trim()){continue;}// 空回應，略過
       let data;try{data=JSON.parse(rawText);}catch(jsonErr){continue;}// 非JSON回應，略過
       const text=(data&&data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text||'');
@@ -3086,12 +3116,13 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
         }),
         signal:controller.signal
       });
-      clearTimeout(timeoutId);
       if(res.ok){
         const data=await res.json();
+        clearTimeout(timeoutId);
         const text=(data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
         if(text.trim())return applyAIResult(text,'openai-backup');
       } else {
+        clearTimeout(timeoutId);
         console.warn('[verifyPhotoWithAI] 備援服務(OpenAI)回應失敗，狀態碼:',res.status);
       }
     }catch(e){
@@ -3112,8 +3143,8 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
 function handleAIVerifyStatus(status){
   if(status==='unavailable'){
     state.photoUnavailableCount++;
-    if(state.photoUnavailableCount>=2){
-      // 連續2次都是系統本身無法使用（非辨識失敗），判定AI服務當下不可用，直接放行不扣分
+    if(state.photoUnavailableCount>=3){
+      // 連續3次都是系統本身無法使用（非辨識失敗），判定AI服務當下不可用，直接放行不扣分
       const statusEl=document.getElementById('photoVerifyStatus');
       if(statusEl){statusEl.className='photo-verify-status pass';statusEl.textContent='⚠️ AI辨識系統暫時異常，已自動放行此關';statusEl.scrollIntoView({behavior:'smooth',block:'center'});}
       state.photoUnavailableCount=0;

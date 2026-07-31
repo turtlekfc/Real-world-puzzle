@@ -2635,6 +2635,9 @@ function renderMonitor(){
     tr.cells[1].textContent=(s.teamName||s.teamKey).substring(0,30);
     tr.cells[3].textContent=`${cur}/${tot}`;
     tr.cells[4].textContent=`${s.score||0}分`;
+    tr.cells[4].style.cssText='cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;color:var(--primary);font-weight:700';
+    tr.cells[4].title='點擊查看積分明細';
+    tr.cells[4].onclick=()=>showScoreBreakdown(s.teamName||s.teamKey,s.scoreLog,s.score||0);
     tr.cells[5].textContent=tstr;
     tbody.appendChild(tr);
   });
@@ -2996,6 +2999,13 @@ async function saveStage(){
       data.overlayMasterPass=((document.getElementById('fOverlayMasterPass')?document.getElementById('fOverlayMasterPass').value:'')||'').trim();
       data.requirePhoto=true;
       data.options=[];data.answerIndex=0;data.photoDescription='';data.photoStrictness='';data.passcode='';
+      // 提醒：驗證方式選了AI，卻沒填AI辨識描述的話，玩家端會直接跳過AI辨識、無聲無息地算過關，
+      // 之前有被誤會成「AI辨識結果沒有顯示」，這裡先擋一下讓管理者確認是否為刻意如此設定
+      if(data.overlayVerify==='ai'&&!data.overlayAIDesc){
+        if(!confirm('⚠️ 這關的驗證方式選了「AI辨識」，但「AI辨識描述」欄位是空的。\n\n這樣玩家拍照後系統會直接判定過關，完全不會跑AI辨識、也不會顯示任何辨識結果訊息。\n\n確定要維持這樣嗎？（按「取消」可以回去填寫描述）')){
+          return;
+        }
+      }
       // 上傳套圖 PNG
       let overlayImageUrl=editingStageKey&&(stagesData[editingStageKey]&&stagesData[editingStageKey].overlayImageUrl||'');
       if(window._overlayImgFile){
