@@ -628,6 +628,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           <div style="font-size:11px;color:var(--text-light);margin-top:4px">上傳關卡圖片時自動疊加在圖片上，防止玩家截圖作弊</div>
         </div>
         <div class="form-row">
+          <div class="form-group"><label>活動開始時間（到時自動開始）</label><input type="datetime-local" id="settingStartTime"/></div>
           <div class="form-group"><label>活動結束時間（到時自動結束）</label><input type="datetime-local" id="settingEndTime"/></div>
           <div class="form-group"><label>卡關警報（超過幾分鐘）</label><input type="number" id="settingStuckMinutes" value="10" min="1" max="60"/></div>
         </div>
@@ -681,6 +682,9 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           </div>
           <div class="form-group"><label>GPS失敗處理</label>
             <select id="settingGpsFail"><option value="block">阻擋</option><option value="allow">允許跳過</option></select>
+          </div>
+          <div class="form-group"><label>GPS定位模式</label>
+            <select id="settingGpsMode"><option value="continuous">持續背景定位（較快，建議）</option><option value="manual">按鈕手動定位（每次按才抓）</option></select>
           </div>
         </div>
       </div>
@@ -1325,6 +1329,7 @@ let editingStageKey=null,modalImgFile=null,modalImgUrl=null;
 let logoFile=null,logoUrl=null,bannerFile=null,bannerUrl=null;
 let storyImgFile=null,storyImgUrl=null;
 let sessions={},stagesData={},settingsData={};
+let _lastKnownActivityStatus='closed',_autoScheduleTimer=null;
 let loginTime=null,timeoutTimer=null;
 let confirmAction=null;
 
@@ -1337,7 +1342,7 @@ const THEMES=[
   {name:'深灰',c1:'#2c3e50',c2:'#1a252f',c3:'#34495e'},
 ];
 
-const DEFAULT_SETTINGS={activityName:'實境解謎',subtitle:'ADVENTURE',welcome:'',finishMsg:'恭喜完成所有挑戰！感謝參與！',stuckMinutes:10,helperName:'活動小幫手',helpMaxTimes:2,helpCooldown:5,hintAfter:2,routeMode:'random',gpsFail:'block'};
+const DEFAULT_SETTINGS={activityName:'實境解謎',subtitle:'ADVENTURE',welcome:'',finishMsg:'恭喜完成所有挑戰！感謝參與！',stuckMinutes:10,helperName:'活動小幫手',helpMaxTimes:2,helpCooldown:5,hintAfter:2,routeMode:'random',gpsFail:'block',gpsMode:'continuous'};
 const DEFAULT_SCORING={baseScore:100,timeBonus:50,completionBonus:200,rankBonus:[100,70,50,30],wrongPenalty:10,hintPenalty:5,helpPenalty:30,skipPhotoPenalty:20,skipGPSPenalty:20};
 
 // 全域函數
@@ -2019,7 +2024,17 @@ async function initAdmin(){
     }
   });
   onValue(ref(db,'sessions'),snap=>{sessions=snap.val()||{};renderMonitor();checkStuckTeams();});
-  onValue(ref(db,'config/activityStatus'),snap=>{updateActivityStatusUI(snap.val()||'closed');});
+  onValue(ref(db,'config/activityStatus'),snap=>{
+    _lastKnownActivityStatus=snap.val()||'closed';
+    updateActivityStatusUI(_lastKnownActivityStatus);
+  });
+  // 自動排程：依「活動開始/結束時間」自動切換活動狀態，不用每次都手動按開始/結束。
+  // 只要有一台後台裝置開著（例如監控用的電腦/平板）就會生效；
+  // 若需要「絕對準時、完全不依賴任何裝置開著」，建議另外設定 Firebase Cloud Functions 排程觸發，
+  // 這裡是不需要額外部署、輕量版的做法（玩家端 player.html 也有一份同樣的檢查，雙重保險）。
+  if(_autoScheduleTimer)clearInterval(_autoScheduleTimer);
+  checkAutoSchedule();
+  _autoScheduleTimer=setInterval(checkAutoSchedule,15000);
   onValue(ref(db,'sessions'),snap=>{
     if(!snap.exists())return;
     const sessData=snap.val();
@@ -2050,6 +2065,22 @@ async function initAdmin(){
 async function setActivityStatus(status){
   await set(ref(db,'config/activityStatus'),status);
   toast(status==='open'?'✅ 活動已開始！':status==='paused'?'⏸ 活動已暫停':'⏹ 活動已結束');
+}
+
+// 依「活動開始/結束時間」自動切換活動狀態（見 initAdmin 的 setInterval 呼叫）
+function checkAutoSchedule(){
+  const s=settingsData||{};
+  const now=Date.now();
+  if(s.activityStartTime&&_lastKnownActivityStatus==='closed'&&now>=s.activityStartTime&&(!s.activityEndTime||now<s.activityEndTime)){
+    console.log('[checkAutoSchedule] 到達開始時間，自動開始活動');
+    _lastKnownActivityStatus='open';// 先更新避免setInterval下一輪重複觸發
+    set(ref(db,'config/activityStatus'),'open').catch(()=>{});
+  }
+  if(s.activityEndTime&&now>=s.activityEndTime&&_lastKnownActivityStatus!=='closed'){
+    console.log('[checkAutoSchedule] 到達結束時間，自動結束活動');
+    _lastKnownActivityStatus='closed';
+    set(ref(db,'config/activityStatus'),'closed').catch(()=>{});
+  }
 }
 
 async function forceLogoutAll(){
@@ -2164,6 +2195,9 @@ async function doSkipStageChoice(sessKey, teamName, sessData, curIdx, isLast, mo
     await set(ref(db,`sessions/${sessKey}/stageLogs/${curIdx}/skippedMode`),mode);
     await set(ref(db,`sessions/${sessKey}/stageLogs/${curIdx}/answeredAt`),serverTimestamp());
     await set(ref(db,`sessions/${sessKey}/score`),newScore);
+    if(baseScore>0){
+      push(ref(db,`sessions/${sessKey}/scoreLog`),{delta:baseScore,reason:'關主協助過關',stageIdx:curIdx,scoreAfter:newScore,ts:serverTimestamp()}).catch(()=>{});
+    }
     if(isLast){
       // 最後一關：標記完賽
       await set(ref(db,`sessions/${sessKey}/status`),'finished');
@@ -2193,6 +2227,48 @@ async function doSkipStageChoice(sessKey, teamName, sessData, curIdx, isLast, mo
 function doSkipStage(sessKey,teamName,sessData,curIdx,isLast,mode){
   doSkipStageChoice(sessKey,teamName,sessData,curIdx,isLast,mode);
 }
+
+// 顯示某隊的積分明細（每一筆加分/扣分紀錄，來自 scoreLog）
+function showScoreBreakdown(teamName,scoreLog,finalScore){
+  const existing=document.getElementById('scoreBreakdownDialog');if(existing)existing.remove();
+  const entries=Object.values(scoreLog||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const dialog=document.createElement('div');
+  dialog.id='scoreBreakdownDialog';
+  dialog.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
+  dialog.innerHTML=`<div style="background:white;border-radius:18px;padding:24px;max-width:420px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px" id="sbTitle"></div>
+    <div style="font-size:13px;color:var(--text-light);margin-bottom:12px">目前總分：<b id="sbFinal" style="color:var(--primary)"></b></div>
+    <div id="sbList" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;border-top:1px solid #eee;padding-top:10px"></div>
+    <button id="sbCloseBtn" style="margin-top:14px;padding:10px;background:#f5f5f5;color:#888;border:none;border-radius:12px;font-size:13px;font-family:'Noto Sans TC',sans-serif;cursor:pointer">關閉</button>
+  </div>`;
+  dialog.querySelector('#sbTitle').textContent=`📊 ${teamName} 積分明細`;
+  dialog.querySelector('#sbFinal').textContent=`${finalScore||0} 分`;
+  const list=dialog.querySelector('#sbList');
+  if(!entries.length){
+    const empty=document.createElement('div');
+    empty.style.cssText='color:var(--text-light);font-size:13px;text-align:center;padding:20px 0';
+    empty.textContent='尚無明細紀錄（可能是修復前的舊資料，或此隊尚未開始）';
+    list.appendChild(empty);
+  } else {
+    entries.forEach(en=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#f8f8f8;border-radius:8px';
+      const left=document.createElement('div');
+      left.style.cssText='font-size:12.5px;color:#333';
+      left.textContent=en.reason||'（未標註原因）';
+      const right=document.createElement('div');
+      const positive=en.delta>0;
+      right.style.cssText=`font-size:13px;font-weight:800;color:${positive?'#1a7a40':'#c0392b'};white-space:nowrap;margin-left:10px`;
+      right.textContent=`${positive?'+':''}${en.delta} 分`;
+      row.appendChild(left);row.appendChild(right);
+      list.appendChild(row);
+    });
+  }
+  dialog.querySelector('#sbCloseBtn').onclick=()=>dialog.remove();
+  dialog.onclick=e=>{if(e.target===dialog)dialog.remove();};
+  document.body.appendChild(dialog);
+}
+window.showScoreBreakdown=showScoreBreakdown;
 async function forceLogoutTeam(teamKey,teamName){
   if(!confirm(`確定要重置「${teamName}」嗎？
 
@@ -2433,25 +2509,42 @@ function renderMonitor(){
   const grid=document.getElementById('teamGrid');grid.innerHTML='';
   for(let i=0;i<teamCount;i++){
     const key=`team${i+1}`;const cfg=teamsConfig[key]||{};const sess=latestByTeam[key];
-    let statusCls='',statusTxt='等待開始',prog=0,progTxt='0/? 關',timeTxt='--:--',scoreText='--分';
+    let statusCls='',statusTxt='等待開始',prog=0,progTxt='0/? 關',timeTxt='--:--',scoreText='--分',stageNameTxt='';
     if(sess){
       const cur=(sess.currentStage||0)+1,tot=sess.totalStages||1;
       prog=Math.min(100,Math.round((sess.currentStage||0)/tot*100));progTxt=`${cur}/${tot} 關`;
       const sec=sess.totalSec||0;timeTxt=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
       scoreText=`${sess.score||0}分`;
       if(sess.status==='finished'){statusCls='finished';statusTxt='✅ 完成';prog=100;}
-      else{statusCls='playing';statusTxt='🏃 闖關中';}
+      else{
+        statusCls='playing';statusTxt='🏃 闖關中';
+        // 目前所在關卡名稱：從stageOrder取出目前索引對應的關卡key，再查stagesData拿標題
+        const curStageKey=(sess.stageOrder||[])[sess.currentStage||0];
+        stageNameTxt=curStageKey&&stagesData[curStageKey]?(stagesData[curStageKey].title||''):'';
+      }
     }
     const card=document.createElement('div');card.className='team-card';card.style.borderTopColor=cfg.color||'var(--primary-light)';
     // XSS安全：statusCls/prog/cfg.color皆為系統產生的安全值
     card.innerHTML=`<div class="t-name"></div><div class="t-status ${statusCls}"></div>
+      <div class="t-stagename" style="font-size:11px;color:var(--text-muted,#888);margin:-2px 0 4px"></div>
       <div class="progress-track"><div class="progress-fill" style="width:${prog}%;background:${cfg.color||'var(--primary-light)'}"></div></div>
       <div class="t-detail"><span></span><span></span></div><div class="t-score"></div>`;
     // 使用者相關資料用 textContent
     card.querySelector('.t-name').textContent=cfg.name||`隊伍${i+1}`;
     card.querySelector('.t-status').textContent=statusTxt;
+    if(stageNameTxt)card.querySelector('.t-stagename').textContent=`📍 ${stageNameTxt}`;
     const spans=card.querySelectorAll('.t-detail span');spans[0].textContent=progTxt;spans[1].textContent=timeTxt;
     card.querySelector('.t-score').textContent=scoreText;
+    // 積分明細按鈕：只要有session（不論闖關中或已完成）都可查看
+    if(sess){
+      const anySessKey=Object.entries(sessions).find(([k,s])=>s===sess)?.[0];
+      const scoreBtn=document.createElement('button');
+      scoreBtn.className='btn btn-sm';
+      scoreBtn.style.cssText='width:100%;margin-top:6px;font-size:11px;padding:4px 6px;background:#fff8e6;color:#8a6d1a;border:1.5px solid #e8d69a;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:700';
+      scoreBtn.textContent='📊 積分明細';
+      scoreBtn.onclick=()=>showScoreBreakdown(cfg.name||`隊伍${i+1}`,sess.scoreLog,sess.score||0);
+      card.appendChild(scoreBtn);
+    }
     // 按鈕區（只在有session且正在闖關時顯示）
     if(sess&&sess.status==='playing'){
       const sessKey=Object.entries(sessions).find(([k,s])=>s.teamKey===key&&s.status==='playing')?.[0];
@@ -2559,7 +2652,16 @@ async function loadGPSLog(){
 }
 
 // ── 關卡 ──
-async function loadStages(){const snap=await get(ref(db,'stages'));stagesData=snap.val()||{};renderStageList();}
+async function loadStages(){
+  const snap=await get(ref(db,'stages'));
+  stagesData=snap.val()||{};
+  renderStageList();
+  // 修正競態問題：initAdmin() 同時呼叫 loadSessions()/loadStages()，
+  // 但 sessions 的即時監聽常常比 loadStages() 的一次性讀取更早回來，
+  // 導致監控頁第一次畫的時候 stagesData 還是空的，關卡名稱就顯示不出來，
+  // 而且要等下一次 sessions 有變化才會重畫。這裡資料到齊後主動補畫一次監控頁。
+  if(document.getElementById('teamGrid'))renderMonitor();
+}
 function renderStageList(){
   const list=document.getElementById('stageList');
   const entries=Object.entries(stagesData).sort(([,a],[,b])=>(a.order||0)-(b.order||0));
@@ -2931,15 +3033,22 @@ async function loadPhotos(){
   let photos=[];
   Object.entries(sess).forEach(([sessKey,s])=>{
     if(filterTeam&&s.teamKey!==filterTeam)return;
-    Object.entries(s.stageLogs||{}).forEach(([idx,log])=>{if(log.photoUrl)photos.push({url:log.photoUrl,team:s.teamName||s.teamKey,stage:parseInt(idx)+1,sessKey,stageIdx:idx});});
+    Object.entries(s.stageLogs||{}).forEach(([idx,log])=>{if(log.photoUrl)photos.push({url:log.photoUrl,team:s.teamName||s.teamKey,stage:parseInt(idx)+1,sessKey,stageIdx:idx,aiResult:log.aiResult||null});});
   });
   if(!photos.length){container.innerHTML='<div class="text-muted text-sm">尚無照片</div>';return;}
   const grid=document.createElement('div');grid.className='photo-grid';
+  const aiLabelMap={pass:{text:'✅ AI判定通過',color:'#1a7a40'},fail:{text:'❌ AI判定未通過',color:'#c0392b'},unavailable:{text:'⚠️ AI暫時無法使用',color:'#b08000'}};
   photos.forEach(p=>{
-    const div=document.createElement('div');div.className='photo-thumb';
+    const div=document.createElement('div');div.className='photo-thumb';div.style.position='relative';
     const img=document.createElement('img');img.alt='照片';img.src=p.url;img.onclick=()=>window.open(p.url,'_blank');
     const bar=document.createElement('div');bar.className='photo-info-bar';bar.textContent=`${p.team}·第${p.stage}關`;
     div.appendChild(img);div.appendChild(bar);
+    if(p.aiResult&&aiLabelMap[p.aiResult]){
+      const aiTag=document.createElement('div');
+      aiTag.style.cssText=`position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:white;color:${aiLabelMap[p.aiResult].color};box-shadow:0 1px 4px rgba(0,0,0,0.2)`;
+      aiTag.textContent=aiLabelMap[p.aiResult].text;
+      div.appendChild(aiTag);
+    }
     if(currentRole==='super'){
       const delBtn=document.createElement('button');delBtn.className='photo-delete-btn';delBtn.textContent='🗑️ 刪除';
       delBtn.onclick=()=>deletePhoto(p.sessKey,p.stageIdx,p.url,div);
@@ -2996,6 +3105,7 @@ async function loadSettings(){
   if(s.hintAfter!=null)document.getElementById('settingHintAfter').value=s.hintAfter;
   if(s.routeMode)document.getElementById('settingRouteMode').value=s.routeMode;
   if(s.gpsFail)document.getElementById('settingGpsFail').value=s.gpsFail;
+  document.getElementById('settingGpsMode').value=s.gpsMode||'continuous';
   if(s.helperName)document.getElementById('settingHelperName').value=s.helperName;
   if(s.helpMaxTimes!=null)document.getElementById('settingHelpMaxTimes').value=s.helpMaxTimes;
   if(s.helpCooldown!=null)document.getElementById('settingHelpCooldown').value=s.helpCooldown;
@@ -3004,6 +3114,7 @@ async function loadSettings(){
   if(s.geminiKey2)document.getElementById('settingGeminiKey2').value=s.geminiKey2;
   if(s.watermark!=null)document.getElementById('settingWatermark').value=s.watermark||'';
   const svp=document.getElementById('settingViewerPass');if(svp)svp.value=s.viewerPass||'';
+  if(s.activityStartTime){const dt=new Date(s.activityStartTime);const local=new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById('settingStartTime').value=local;}
   if(s.activityEndTime){const dt=new Date(s.activityEndTime);const local=new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById('settingEndTime').value=local;}
   if(s.logoUrl){logoUrl=s.logoUrl;const img=document.getElementById('logoPreviewImg');img.src=s.logoUrl;img.classList.remove('hidden');document.getElementById('logoPlaceholder').classList.add('hidden');document.getElementById('removeLogoBtn').style.display='';}
   if(s.bannerUrl){bannerUrl=s.bannerUrl;const img=document.getElementById('bannerPreviewImg');img.src=s.bannerUrl;img.classList.remove('hidden');document.getElementById('bannerPlaceholder').classList.add('hidden');document.getElementById('removeBannerBtn').style.display='';}
@@ -3044,6 +3155,8 @@ async function saveSettings(){
   if(logoFile){try{const path=`logos/logo_${Date.now()}.${logoFile.name.split('.').pop()}`;const snap=await uploadBytes(sRef(storage,path),logoFile);finalLogoUrl=await getDownloadURL(snap.ref);logoFile=null;logoUrl=finalLogoUrl;}catch(e){toast('⚠️ LOGO上傳失敗');}}
   let finalBannerUrl=bannerUrl||settingsData.bannerUrl||'';
   if(bannerFile){try{const path=`banners/banner_${Date.now()}.${bannerFile.name.split('.').pop()}`;const snap=await uploadBytes(sRef(storage,path),bannerFile);finalBannerUrl=await getDownloadURL(snap.ref);bannerFile=null;bannerUrl=finalBannerUrl;}catch(e){toast('⚠️ Banner上傳失敗');}}
+  const startTimeEl=document.getElementById('settingStartTime').value;
+  const startTimeMs=startTimeEl?new Date(startTimeEl).getTime():null;
   const endTimeEl=document.getElementById('settingEndTime').value;
   const endTimeMs=endTimeEl?new Date(endTimeEl).getTime():null;
   // 安全讀取欄位（若欄位不存在或空白，用 settingsData 備份）
@@ -3060,6 +3173,7 @@ async function saveSettings(){
     hintAfter:parseInt((document.getElementById('settingHintAfter')?document.getElementById('settingHintAfter').value:''))||2,
     routeMode:safeRead('settingRouteMode')||'random',
     gpsFail:safeRead('settingGpsFail')||'block',
+    gpsMode:safeRead('settingGpsMode')||'continuous',
     helperName:safeRead('settingHelperName')||'活動小幫手',
     helpMaxTimes:parseInt((document.getElementById('settingHelpMaxTimes')?document.getElementById('settingHelpMaxTimes').value:''))||2,
     helpCooldown:parseInt((document.getElementById('settingHelpCooldown')?document.getElementById('settingHelpCooldown').value:''))||5,
@@ -3082,7 +3196,7 @@ async function saveSettings(){
     showRankingTeamName:settingsData.showRankingTeamName,
     showFinishRank:settingsData.showFinishRank,
     showProgress:settingsData.showProgress,
-    activityStartTime:settingsData.activityStartTime,
+    activityStartTime:startTimeMs,
   };
   // 清除所有 undefined 值（Firebase 不接受 undefined）
   const cleanSettings=JSON.parse(JSON.stringify(settings, (k,v)=>v===undefined?null:v));

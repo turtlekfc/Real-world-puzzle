@@ -125,7 +125,7 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .photo-upload-area .icon{font-size:28px;margin-bottom:5px}
 .photo-upload-area .text{font-size:12px;color:var(--text-light)}
 .photo-preview{width:100%;border-radius:10px;margin-bottom:10px;max-height:180px;object-fit:cover;display:none}
-.photo-verify-status{border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:13px;line-height:1.5;display:none}
+.photo-verify-status{border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:13px;line-height:1.5;display:none;white-space:pre-line}
 .photo-verify-status.checking{background:#f0f8fd;border:1.5px solid #90c8e8;color:var(--primary)}
 .photo-verify-status.pass{background:var(--green-pale);border:1.5px solid var(--green);color:#1a7a40}
 .photo-verify-status.fail{background:#fff0ee;border:1.5px solid var(--coral);color:#c03020}
@@ -868,6 +868,18 @@ let state = {
   waitingToStart:false
 };
 
+// 記錄每一次分數變動（含原因），讓後台能還原「積分明細」
+// delta可正可負；reason為中文說明；stageIdx預設為目前關卡索引
+function logScoreChange(delta,reason,stageIdx){
+  if(!state.sessionKey||!delta)return;// delta=0不記錄，避免灌爆資料庫
+  try{
+    push(ref(db,`sessions/${state.sessionKey}/scoreLog`),{
+      delta,reason,stageIdx:(stageIdx!=null?stageIdx:state.currentIdx),
+      scoreAfter:state.score,ts:serverTimestamp()
+    }).catch(()=>{});
+  }catch(e){console.warn('[logScoreChange] 記錄失敗',e);}
+}
+
 window.doLogin=doLogin; window.startGame=startGame; window.notifyConfirm=notifyConfirm; window.listenSessionForceLogout=listenSessionForceLogout; window.playerLogout=playerLogout; window.overlayShoot=overlayShoot; window.overlayRetake=overlayRetake; window.doLoginResume=doLoginResume;
 window.checkGPS=checkGPS; window.selectOpt=selectOpt;
 window.submitAns=submitAns; window.closeFeedback=closeFeedback;
@@ -899,6 +911,13 @@ async function initLogin() {
     const cfg=cfgSnap.exists()?cfgSnap.val():{};
     state.settings=cfg;
     state.scoring=cfg.scoring||getDefaultScoring();
+    // 自動排程備援：admin後台不一定隨時有人開著，player.html這邊也順便檢查一次
+    // 「活動開始/結束時間」，只要有玩家裝置開著（活動期間通常會有）就能生效
+    if(!state._autoScheduleStarted){
+      state._autoScheduleStarted=true;
+      checkAutoSchedule();
+      setInterval(checkAutoSchedule,15000);
+    }
     if(themeSnap.exists()){const t=themeSnap.val();document.documentElement.style.setProperty('--primary',t.primary);document.documentElement.style.setProperty('--primary-dark',t.dark);document.documentElement.style.setProperty('--primary-light',t.light);}
     if(cfg.activityName){document.getElementById('loginTitle').textContent=cfg.activityName;document.title=cfg.activityName;}
     if(cfg.subtitle)document.getElementById('loginSubtitle').textContent=cfg.subtitle;
@@ -990,8 +1009,10 @@ function updateWaitScreenStatusUI(status){
     if(infoStatus)infoStatus.textContent='⏳ 等待開始';
   }
 }
+let _lastKnownActivityStatusP='closed';// player端已知的活動狀態（給自動排程比對用）
 onValue(ref(db,'config/activityStatus'),snap=>{
   const status=snap.val()||'closed';
+  _lastKnownActivityStatusP=status;
   // 只有在等待頁面且尚未開始才更新按鈕
   if(state.waitingToStart && !state.sessionKey){
     updateWaitScreenStatusUI(status);
@@ -1002,6 +1023,22 @@ onValue(ref(db,'config/activityStatus'),snap=>{
     else if(status==='open'&&!document.getElementById('gameScreen').classList.contains('active')){showScreen('gameScreen');state.timerInterval=setInterval(tickTimer,1000);}
   }
 });
+
+// 依「活動開始/結束時間」自動切換活動狀態（admin.html 也有一份同樣的檢查，雙重保險）
+function checkAutoSchedule(){
+  const s=state.settings||{};
+  const now=Date.now();
+  if(s.activityStartTime&&_lastKnownActivityStatusP==='closed'&&now>=s.activityStartTime&&(!s.activityEndTime||now<s.activityEndTime)){
+    console.log('[checkAutoSchedule] 到達開始時間，自動開始活動');
+    _lastKnownActivityStatusP='open';
+    set(ref(db,'config/activityStatus'),'open').catch(()=>{});
+  }
+  if(s.activityEndTime&&now>=s.activityEndTime&&_lastKnownActivityStatusP!=='closed'){
+    console.log('[checkAutoSchedule] 到達結束時間，自動結束活動');
+    _lastKnownActivityStatusP='closed';
+    set(ref(db,'config/activityStatus'),'closed').catch(()=>{});
+  }
+}
 
 // ── 監聽強制登出旗標 ──
 onValue(ref(db,'config/forceLogout'),snap=>{
@@ -1949,30 +1986,60 @@ function renderStage(){
   }
 }
 
-// ── 背景持續定位（watchPosition）──
-// 原本每次按「驗證我的位置」都是冷啟動重新抓一次GPS（maximumAge:0），
-// 在 iOS（尤其Wi-Fi版iPad，沒有GPS晶片、靠Wi-Fi定位）特別慢。
-// 改成一進入需要GPS的關卡，就在背景持續定位；玩家按按鈕時直接讀取已經抓到的最新位置，
-// 不需要每次都重新等待，位置也會隨背景持續更新越來越準。
+// ── GPS定位模式 ──
+// gpsMode='continuous'（預設，背景持續定位）或 'manual'（只有按按鈕時才定位一次，行為與改版前接近）
+// 由後台「活動設定」的 gpsMode 欄位控制，依你的需求開放選擇。
+// 不論哪種模式，都採用「先嘗試高精度，若一段時間沒有結果就自動降級為一般精度」的策略：
+// 在沒有GPS晶片的裝置（如Wi-Fi版iPad）上，一般精度定位（Wi-Fi/網路定位）通常反而比較快取得結果。
 let _gpsWatchId=null;
 let _gpsLastPos=null;
+let _gpsFallbackTimer=null;
 function startWatchGPS(){
   stopWatchGPS();
   _gpsLastPos=null;
   if(!navigator.geolocation)return;
+  if((state.settings.gpsMode||'continuous')==='manual')return;// 手動模式：不啟動背景定位，按按鈕才抓
   try{
     _gpsWatchId=navigator.geolocation.watchPosition(
       pos=>{_gpsLastPos=pos;},
       err=>{/* 背景定位失敗先不打擾玩家，等實際按下驗證鈕時再顯示錯誤訊息 */},
       {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
     );
+    // 8秒內高精度都還沒有任何結果，改用一般精度重新啟動背景定位（較快取得Wi-Fi/網路定位結果）
+    _gpsFallbackTimer=setTimeout(()=>{
+      if(!_gpsLastPos&&_gpsWatchId!=null&&navigator.geolocation){
+        console.warn('[GPS] 高精度背景定位8秒內無結果，改用一般精度重新啟動');
+        try{navigator.geolocation.clearWatch(_gpsWatchId);}catch(e){}
+        _gpsWatchId=navigator.geolocation.watchPosition(
+          pos=>{_gpsLastPos=pos;},
+          err=>{},
+          {enableHighAccuracy:false,maximumAge:5000,timeout:20000}
+        );
+      }
+    },8000);
   }catch(e){console.warn('[GPS] watchPosition 啟動失敗',e);}
 }
 function stopWatchGPS(){
+  if(_gpsFallbackTimer){clearTimeout(_gpsFallbackTimer);_gpsFallbackTimer=null;}
   if(_gpsWatchId!=null&&navigator.geolocation){
     try{navigator.geolocation.clearWatch(_gpsWatchId);}catch(e){}
     _gpsWatchId=null;
   }
+}
+// 單次定位＋高精度逾時自動降級一般精度重試一次（手動模式／背景定位還沒有結果時使用）
+function getPositionWithFallback(onSuccess,onError){
+  navigator.geolocation.getCurrentPosition(
+    onSuccess,
+    err=>{
+      if(err.code===3){// 高精度逾時：改用一般精度重試一次
+        console.warn('[GPS] 高精度定位逾時，改用一般精度重試');
+        navigator.geolocation.getCurrentPosition(onSuccess,onError,{enableHighAccuracy:false,timeout:15000,maximumAge:5000});
+      } else {
+        onError(err);
+      }
+    },
+    {enableHighAccuracy:true,timeout:8000,maximumAge:5000}
+  );
 }
 
 // 跳過 GPS 驗證（扣分）
@@ -1982,6 +2049,7 @@ async function skipGPSVerify(){
   stopWatchGPS();
   state.score=Math.max(0,state.score-penalty);
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  logScoreChange(-penalty,'跳過GPS驗證');
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   // 記錄跳過GPS
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/gpsSkipped`),true);
@@ -2010,13 +2078,13 @@ function checkGPS(){
     else{statusEl.textContent='⚠️ 不支援GPS，請聯絡工作人員';btn.disabled=false;}
     return;
   }
-  // 優先使用背景持續定位（watchPosition）已經抓到的最新位置，速度快很多；
+  // 持續定位模式：優先使用背景已經抓到的最新位置，速度快很多；
   // 若背景定位還沒有結果（例如剛進入這關沒幾秒），才退回單次定位
   if(_gpsLastPos){
     handleGPSPosition(_gpsLastPos,stage,statusEl,btn);
     return;
   }
-  navigator.geolocation.getCurrentPosition(
+  getPositionWithFallback(
     pos=>handleGPSPosition(pos,stage,statusEl,btn),
     err=>{
       const msgs={1:'⚠️ 請允許位置權限後重試',2:'⚠️ GPS訊號不佳，請到空曠處',3:'⚠️ 定位逾時，請重試'};
@@ -2024,8 +2092,7 @@ function checkGPS(){
       recordGPSLog(null,null,null,false,state.currentIdx);
       if((state.settings.gpsFail||'block')==='allow'){setTimeout(()=>{statusEl.textContent+=' (已自動跳過)';setTimeout(arriveAtStage,1000);},1500);}
       else btn.disabled=false;
-    },
-    {enableHighAccuracy:true,timeout:15000,maximumAge:5000}
+    }
   );
 }
 function handleGPSPosition(pos,stage,statusEl,btn){
@@ -2095,6 +2162,7 @@ function useHint(){
   const penalty=state.scoring.hintPenalty||5;
   state.score=Math.max(0,state.score-penalty);
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  logScoreChange(-penalty,`使用提示 ${state.hintUsed}`);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   const hintArea=document.getElementById('hintArea');
   const box=document.createElement('div');box.className='hint-box';
@@ -2178,6 +2246,7 @@ async function handleConfirmPass(stageIdx){
   const scoreChange=Math.max(0,base+timeBonus);
   state.score+=scoreChange;
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  logScoreChange(scoreChange,'關主確認通過');
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   state.lastCorrect=true;
   document.getElementById('feedbackIcon').textContent='✅';
@@ -2473,13 +2542,20 @@ function overlayShoot(){
       submitOverlayBtn.onclick=async()=>{
         submitOverlayBtn.disabled=true;
         submitOverlayBtn.textContent='🔍 AI 辨識中...';
+        logPhotoAttempt(state.photoFile||blob);
         const reader=new FileReader();
+        reader.onerror=()=>{
+          console.warn('[overlay AI] 照片讀取失敗',reader.error);
+          submitOverlayBtn.disabled=false;
+          submitOverlayBtn.textContent='📤 重新送出辨識';
+          if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ 照片讀取失敗，請重新拍照';}
+        };
         reader.onload=async e=>{
           try{
             const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
             if(passed){
               submitOverlayBtn.style.display='none';
-              setTimeout(()=>passPhotoStage(),800);
+              setTimeout(()=>passPhotoStage(),1200);
             } else {
               submitOverlayBtn.disabled=false;
               submitOverlayBtn.textContent='📤 重新送出辨識';
@@ -2671,6 +2747,7 @@ function handlePhoto(){
   }
   state.photoFile=file;
   const reader=new FileReader();
+  reader.onerror=()=>{console.warn('[photo preview] 讀取失敗',reader.error);alert('照片讀取失敗，請重新選擇');state.photoFile=null;};
   reader.onload=e=>{
     const p=document.getElementById('photoPreview');
     if(p){p.src=e.target.result;p.style.display='block';}
@@ -2709,6 +2786,7 @@ function handlePhotoOnly(){
   if(file.size>10*1024*1024){alert('圖片太大，請選擇10MB以內的圖片');return;}
   state.photoFile=file;
   const reader=new FileReader();
+  reader.onerror=()=>{console.warn('[handlePhotoOnly] 讀取失敗',reader.error);alert('照片讀取失敗，請重新選擇');state.photoFile=null;};
   reader.onload=e=>{
     // 顯示照片預覽
     const p=document.getElementById('photoPreview');
@@ -2753,15 +2831,23 @@ async function submitPhotoForAI(){
   const stage=state.stages[state.currentIdx];
   const p=document.getElementById('photoPreview');
   if(!p||!state.photoFile){if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 送出照片辨識';}return;}
+  // 不論AI最後判斷結果，先把這次的照片上傳留存，後台照片審核區才看得到（含失敗的嘗試）
+  logPhotoAttempt(state.photoFile);
   // 轉成 base64
   const reader=new FileReader();
+  reader.onerror=()=>{
+    console.warn('[submitPhotoForAI] 照片讀取失敗',reader.error);
+    if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
+    const statusEl=document.getElementById('photoVerifyStatus');
+    if(statusEl){statusEl.style.display='';statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ 照片讀取失敗，請重新拍照';}
+  };
   reader.onload=async e=>{
     try{
       if(state.settings.geminiKey&&stage.photoDescription){
         const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
         if(passed){
           if(submitBtn)submitBtn.style.display='none';
-          setTimeout(()=>passPhotoStage(),800);
+          setTimeout(()=>passPhotoStage(),1200);
         } else {
           // 辨識失敗：顯示重拍按鈕，解鎖送出按鈕
           if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
@@ -2802,6 +2888,7 @@ async function passPhotoStage(){
   const scoreChange=Math.max(0,base+timeBonus);
   state.score+=scoreChange;
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  logScoreChange(scoreChange,'照片關卡過關');
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   // 顯示過關
   state.lastCorrect=true;
@@ -2830,6 +2917,7 @@ async function submitPasscode(){
   if(!correct){
     state.score=Math.max(0,state.score-(state.scoring.wrongPenalty||10));
     set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+    logScoreChange(-(state.scoring.wrongPenalty||10),'密碼錯誤');
     document.getElementById('currentScore').textContent=`${state.score} 分`;
     errorEl.textContent=`❌ 密碼錯誤！已扣 ${state.scoring.wrongPenalty||10} 分，請再試一次`;
     input.value='';input.focus();
@@ -2850,6 +2938,7 @@ async function submitPasscode(){
   const scoreChange=Math.max(0,base+timeBonus-wrongPenalty);
   state.score+=scoreChange;
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  logScoreChange(scoreChange,'密碼正確過關');
   document.getElementById('currentScore').textContent=`${state.score} 分`;
   state.lastCorrect=true;
   document.getElementById('feedbackIcon').textContent='🔓';
@@ -2863,6 +2952,19 @@ async function submitPasscode(){
 }
 
 // ── AI 照片辨識（含嚴謹度 + 雙KEY自動切換）──
+// 每次玩家送出照片辨識，不論AI最後判斷通過或失敗，都先把這張照片上傳留存，
+// 讓後台「照片審核區」能看到所有嘗試（原本只有AI判斷通過才會上傳，失敗的完全看不到）
+async function logPhotoAttempt(file){
+  if(!file||!state.sessionKey)return;
+  try{
+    const path=`photos/${state.sessionKey}/${state.currentIdx}_${Date.now()}`;
+    const snap=await uploadBytes(sRef(storage,path),file);
+    const url=await getDownloadURL(snap.ref);
+    await set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoUrl`),url);
+    await set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/photoAttemptAt`),serverTimestamp());
+  }catch(e){console.warn('[logPhotoAttempt] 上傳失敗',e);}
+}
+
 async function verifyPhotoWithAI(base64Data,description,strictness){
   const statusEl=document.getElementById('photoVerifyStatus');
   if(statusEl){statusEl.className='photo-verify-status checking';statusEl.style.display='';statusEl.textContent='🔍 AI 正在分析照片...';}
@@ -2889,13 +2991,21 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
   const keys=[state.settings.geminiKey,state.settings.geminiKey2].filter(Boolean);
   let lastError=null;
   for(const key of keys){
+    let timeoutId=null;
     try{
       const imageData=base64Data.split(',')[1];
       const mimeType=base64Data.split(';')[0].split(':')[1]||'image/jpeg';
+      // 加上逾時控制：現場多隊同時使用AI辨識、Wi-Fi壅塞時，fetch可能長時間沒有回應也沒有錯誤，
+      // 導致畫面永遠卡在「辨識中」。用 AbortController 設定15秒逾時，逾時就換下一組Key或判定失敗，
+      // 不會讓玩家卡住等不到結果。
+      const controller=new AbortController();
+      timeoutId=setTimeout(()=>controller.abort(),15000);
       const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType,data:imageData}},{text:prompt}]}]})
+        body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType,data:imageData}},{text:prompt}]}]}),
+        signal:controller.signal
       });
+      clearTimeout(timeoutId);
       if(res.status===429||res.status===403){lastError=res.status;continue;}// 超限，換KEY
       if(!res.ok){lastError=res.status;continue;}// 其他錯誤狀態，換KEY或略過
       const rawText=await res.text();
@@ -2903,6 +3013,9 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
       let data;try{data=JSON.parse(rawText);}catch(jsonErr){continue;}// 非JSON回應，略過
       const text=(data&&data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text||'');
       const pass=text.includes('結果：符合');
+      // 不論通過與否，都把這次AI判斷結果寫回後台，方便工作人員在照片審核區查看每一次嘗試
+      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiResult`),pass?'pass':'fail').catch(()=>{});
+      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiCheckedAt`),serverTimestamp()).catch(()=>{});
       if(pass){
         statusEl.className='photo-verify-status pass';
         const reasonMatch=text.match(/原因：(.+)/);
@@ -2928,9 +3041,14 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
         if(state.photoFailCount>=3)document.getElementById('skipPhotoArea').classList.remove('hidden');
       }
       return pass;// 回傳結果
-    }catch(e){continue;}
+    }catch(e){
+      if(timeoutId)clearTimeout(timeoutId);
+      if(e.name==='AbortError')console.warn('[verifyPhotoWithAI] 請求逾時（15秒），換下一組Key或判定失敗');
+      continue;
+    }
   }
   // 所有KEY都失敗
+  set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiResult`),'unavailable').catch(()=>{});
   if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用，請繼續作答';setTimeout(()=>{statusEl.style.display='none';},3000);}
   return false;
 }
@@ -2945,6 +3063,7 @@ function skipPhotoVerify(){
   statusEl.className='photo-verify-status pass';
   statusEl.textContent=`⚡ 已跳過照片驗證（扣${penalty}分）`;
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
+  logScoreChange(-penalty,'跳過照片驗證');
 }
 function retakePhoto(){
   const skipArea=document.getElementById('skipPhotoArea');if(skipArea)skipArea.classList.add('hidden');
@@ -3009,9 +3128,12 @@ async function submitTF(){
     const scoreChange=Math.max(0,base+timeBonus-wrongPenalty);
     state.score+=scoreChange;
     scoreMsg=`+${scoreChange}分`;
+    logScoreChange(scoreChange,'是非題答對');
   } else {
-    state.score=Math.max(0,state.score-(sc.wrongPenalty||10));
-    scoreMsg=`答錯扣${sc.wrongPenalty||10}分`;
+    const penalty=sc.wrongPenalty||10;
+    state.score=Math.max(0,state.score-penalty);
+    scoreMsg=`答錯扣${penalty}分`;
+    logScoreChange(-penalty,'是非題答錯');
   }
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
@@ -3064,8 +3186,13 @@ async function submitAns(){
     scoreChange=Math.max(0,base+timeBonus-wrongPenalty);
     state.score+=scoreChange;
     scoreMsg=`+${scoreChange}分（基礎${base}+時間${timeBonus}-答錯${(state.stageAttempts-1)*(sc.wrongPenalty||10)}）`;
+    logScoreChange(scoreChange,'選擇題答對');
   } else {
-    scoreMsg=`答錯扣${sc.wrongPenalty||10}分（已答錯${state.stageAttempts}次）`;
+    // 修正：之前這裡只顯示「答錯扣X分」的訊息，卻沒有真的扣分（與是非題邏輯不一致），現在補上實際扣分
+    const penalty=sc.wrongPenalty||10;
+    state.score=Math.max(0,state.score-penalty);
+    scoreMsg=`答錯扣${penalty}分（已答錯${state.stageAttempts}次）`;
+    logScoreChange(-penalty,'選擇題答錯');
   }
   set(ref(db,`sessions/${state.sessionKey}/score`),state.score);
   document.getElementById('currentScore').textContent=`${state.score} 分`;
