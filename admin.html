@@ -704,6 +704,17 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         </div>
         <div class="gps-hint">申請免費 API Key：<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary)">https://aistudio.google.com/apikey</a><br>兩組 Key 超過免費額度時自動切換，每天各有 1500 次免費用量</div>
         <button class="btn btn-ghost btn-sm mt-8" onclick="testGeminiKeys()">🔍 測試 API Key</button>
+        <div class="form-row" style="margin-top:14px;border-top:1px dashed #e0dcd0;padding-top:14px">
+          <div class="form-group">
+            <label>備援AI服務商（兩組Gemini Key都失敗時才會使用）</label>
+            <select id="settingBackupProvider"><option value="none">不使用備援服務（維持原本行為）</option><option value="openai">OpenAI（GPT-4o mini）</option></select>
+          </div>
+          <div class="form-group">
+            <label>備援服務 API Key</label>
+            <input type="password" id="settingBackupKey" placeholder="sk-...（選用OpenAI時才需要）" autocomplete="new-password" style="font-family:monospace;font-size:12px"/>
+          </div>
+        </div>
+        <div class="gps-hint">⚠️ 這是完全不同家的AI服務，用來防止「Google Gemini服務本身整個掛掉」這種情況（跟上面兩組Key不同，那兩組還是Gemini、Google掛了會一起掛）。需要另外到 <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--primary)">https://platform.openai.com/api-keys</a> 申請、費用另計（依OpenAI官方計價，非Anthropic或本平台收費）。不設定的話，兩組Gemini Key都失敗時維持原本「系統暫時無法使用」的處理方式。</div>
       </div>
 
       <!-- 危險區域 -->
@@ -1691,7 +1702,7 @@ function confirmResetAll(){
     async()=>{
       try{
         // 保留某些設定（teams, geminiKey等）
-        const kept={teams:settingsData.teams||{},teamCount:settingsData.teamCount||4,logoUrl:settingsData.logoUrl||'',bannerUrl:settingsData.bannerUrl||'',geminiKey:settingsData.geminiKey||'',geminiKey2:settingsData.geminiKey2||''};
+        const kept={teams:settingsData.teams||{},teamCount:settingsData.teamCount||4,logoUrl:settingsData.logoUrl||'',bannerUrl:settingsData.bannerUrl||'',geminiKey:settingsData.geminiKey||'',geminiKey2:settingsData.geminiKey2||'',backupProvider:settingsData.backupProvider||'none',backupKey:settingsData.backupKey||''};
         await set(ref(db,'config/settings'),{...DEFAULT_SETTINGS,...kept});
         await set(ref(db,'config/settings/scoring'),DEFAULT_SCORING);
         settingsData={...DEFAULT_SETTINGS,...kept,scoring:DEFAULT_SCORING};
@@ -1705,7 +1716,7 @@ function confirmResetAll(){
 
 function resetSettingsToDefault(){
   showConfirm('↺ 恢復設定預設值','確定要將活動設定恢復為預設值嗎？（隊伍、LOGO、API Key 不受影響）',false,'',async()=>{
-    const kept={teams:settingsData.teams||{},teamCount:settingsData.teamCount||4,logoUrl:settingsData.logoUrl||'',bannerUrl:settingsData.bannerUrl||'',geminiKey:settingsData.geminiKey||'',geminiKey2:settingsData.geminiKey2||''};
+    const kept={teams:settingsData.teams||{},teamCount:settingsData.teamCount||4,logoUrl:settingsData.logoUrl||'',bannerUrl:settingsData.bannerUrl||'',geminiKey:settingsData.geminiKey||'',geminiKey2:settingsData.geminiKey2||'',backupProvider:settingsData.backupProvider||'none',backupKey:settingsData.backupKey||''};
     await set(ref(db,'config/settings'),{...DEFAULT_SETTINGS,...kept});
     settingsData={...DEFAULT_SETTINGS,...kept};
     loadSettings();toast('✅ 設定已恢復預設值');
@@ -2535,15 +2546,12 @@ function renderMonitor(){
     if(stageNameTxt)card.querySelector('.t-stagename').textContent=`📍 ${stageNameTxt}`;
     const spans=card.querySelectorAll('.t-detail span');spans[0].textContent=progTxt;spans[1].textContent=timeTxt;
     card.querySelector('.t-score').textContent=scoreText;
-    // 積分明細按鈕：只要有session（不論闖關中或已完成）都可查看
+    // 積分明細：直接點分數即可查看，不用額外按鈕（只要有session，不論闖關中或已完成都可查看）
     if(sess){
-      const anySessKey=Object.entries(sessions).find(([k,s])=>s===sess)?.[0];
-      const scoreBtn=document.createElement('button');
-      scoreBtn.className='btn btn-sm';
-      scoreBtn.style.cssText='width:100%;margin-top:6px;font-size:11px;padding:4px 6px;background:#fff8e6;color:#8a6d1a;border:1.5px solid #e8d69a;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:700';
-      scoreBtn.textContent='📊 積分明細';
-      scoreBtn.onclick=()=>showScoreBreakdown(cfg.name||`隊伍${i+1}`,sess.scoreLog,sess.score||0);
-      card.appendChild(scoreBtn);
+      const scoreEl=card.querySelector('.t-score');
+      scoreEl.style.cssText+=';cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px';
+      scoreEl.title='點擊查看積分明細';
+      scoreEl.onclick=()=>showScoreBreakdown(cfg.name||`隊伍${i+1}`,sess.scoreLog,sess.score||0);
     }
     // 按鈕區（只在有session且正在闖關時顯示）
     if(sess&&sess.status==='playing'){
@@ -3033,7 +3041,7 @@ async function loadPhotos(){
   let photos=[];
   Object.entries(sess).forEach(([sessKey,s])=>{
     if(filterTeam&&s.teamKey!==filterTeam)return;
-    Object.entries(s.stageLogs||{}).forEach(([idx,log])=>{if(log.photoUrl)photos.push({url:log.photoUrl,team:s.teamName||s.teamKey,stage:parseInt(idx)+1,sessKey,stageIdx:idx,aiResult:log.aiResult||null});});
+    Object.entries(s.stageLogs||{}).forEach(([idx,log])=>{if(log.photoUrl)photos.push({url:log.photoUrl,team:s.teamName||s.teamKey,stage:parseInt(idx)+1,sessKey,stageIdx:idx,aiResult:log.aiResult||null,aiSource:log.aiSource||null});});
   });
   if(!photos.length){container.innerHTML='<div class="text-muted text-sm">尚無照片</div>';return;}
   const grid=document.createElement('div');grid.className='photo-grid';
@@ -3046,7 +3054,7 @@ async function loadPhotos(){
     if(p.aiResult&&aiLabelMap[p.aiResult]){
       const aiTag=document.createElement('div');
       aiTag.style.cssText=`position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:white;color:${aiLabelMap[p.aiResult].color};box-shadow:0 1px 4px rgba(0,0,0,0.2)`;
-      aiTag.textContent=aiLabelMap[p.aiResult].text;
+      aiTag.textContent=aiLabelMap[p.aiResult].text+(p.aiSource==='openai-backup'?'（備援）':'');
       div.appendChild(aiTag);
     }
     if(currentRole==='super'){
@@ -3112,6 +3120,8 @@ async function loadSettings(){
   if(s.stuckMinutes!=null)document.getElementById('settingStuckMinutes').value=s.stuckMinutes;
   if(s.geminiKey)document.getElementById('settingGeminiKey').value=s.geminiKey;
   if(s.geminiKey2)document.getElementById('settingGeminiKey2').value=s.geminiKey2;
+  document.getElementById('settingBackupProvider').value=s.backupProvider||'none';
+  if(s.backupKey)document.getElementById('settingBackupKey').value=s.backupKey;
   if(s.watermark!=null)document.getElementById('settingWatermark').value=s.watermark||'';
   const svp=document.getElementById('settingViewerPass');if(svp)svp.value=s.viewerPass||'';
   if(s.activityStartTime){const dt=new Date(s.activityStartTime);const local=new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById('settingStartTime').value=local;}
@@ -3164,6 +3174,7 @@ async function saveSettings(){
   // API Key 特別處理：若欄位空白，保留 Firebase 裡的舊值
   const newGeminiKey=safeRead('settingGeminiKey');
   const newGeminiKey2=safeRead('settingGeminiKey2');
+  const newBackupKey=safeRead('settingBackupKey');
   const settings={
     activityName:safeRead('settingActivityName')||'實境解謎',
     subtitle:safeRead('settingSubtitle'),
@@ -3181,6 +3192,8 @@ async function saveSettings(){
     // API Key：空白時保留舊值，不覆蓋
     geminiKey:newGeminiKey||settingsData.geminiKey||'',
     geminiKey2:newGeminiKey2||settingsData.geminiKey2||'',
+    backupProvider:safeRead('settingBackupProvider')||'none',
+    backupKey:newBackupKey||settingsData.backupKey||'',
     watermark:safeRead('settingWatermark'),
     viewerPass:safeRead('settingViewerPass'),
     activityEndTime:endTimeMs,

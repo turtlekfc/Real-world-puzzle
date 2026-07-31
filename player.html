@@ -127,8 +127,9 @@ select:focus,input:focus{border-color:var(--primary-light)}
 .photo-preview{width:100%;border-radius:10px;margin-bottom:10px;max-height:180px;object-fit:cover;display:none}
 .photo-verify-status{border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:13px;line-height:1.5;display:none;white-space:pre-line}
 .photo-verify-status.checking{background:#f0f8fd;border:1.5px solid #90c8e8;color:var(--primary)}
-.photo-verify-status.pass{background:var(--green-pale);border:1.5px solid var(--green);color:#1a7a40}
-.photo-verify-status.fail{background:#fff0ee;border:1.5px solid var(--coral);color:#c03020}
+.photo-verify-status.pass{background:var(--green-pale);border:2px solid var(--green);color:#1a7a40;font-size:15px;font-weight:800;animation:statusPop .35s ease}
+.photo-verify-status.fail{background:#fff0ee;border:2px solid var(--coral);color:#c03020;font-size:14px;font-weight:700;animation:statusPop .35s ease}
+@keyframes statusPop{0%{transform:scale(0.92);opacity:0}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
 #photoInput{display:none}
 /* OPTIONS */
 .options-list{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
@@ -864,7 +865,7 @@ let state = {
   photoFile:null, sessionKey:null, lastCorrect:false, _lastHelpTime:null, _staffLastAssistTs:null, _staffSkipping:false, _lastSkipGPSTs:null,
   settings:{}, scoring:{}, gpsLogCount:0,
   score:0, helpUsed:0, hintUsed:0,
-  photoFailCount:0, lastBroadcastId:null,
+  photoFailCount:0, photoUnavailableCount:0, lastBroadcastId:null,
   waitingToStart:false
 };
 
@@ -2552,10 +2553,13 @@ function overlayShoot(){
         };
         reader.onload=async e=>{
           try{
-            const passed=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
-            if(passed){
+            const status=await verifyPhotoWithAI(e.target.result,stage.overlayAIDesc,stage.overlayStrictness||'standard');
+            const autoPassed=handleAIVerifyStatus(status);
+            if(status==='pass'){
               submitOverlayBtn.style.display='none';
               setTimeout(()=>passPhotoStage(),1200);
+            } else if(autoPassed){
+              submitOverlayBtn.style.display='none';
             } else {
               submitOverlayBtn.disabled=false;
               submitOverlayBtn.textContent='📤 重新送出辨識';
@@ -2844,12 +2848,16 @@ async function submitPhotoForAI(){
   reader.onload=async e=>{
     try{
       if(state.settings.geminiKey&&stage.photoDescription){
-        const passed=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
-        if(passed){
+        const status=await verifyPhotoWithAI(e.target.result,stage.photoDescription,stage.photoStrictness||'standard');
+        const autoPassed=handleAIVerifyStatus(status);
+        if(status==='pass'){
           if(submitBtn)submitBtn.style.display='none';
           setTimeout(()=>passPhotoStage(),1200);
+        } else if(autoPassed){
+          // 系統性問題已連續發生達門檻，已自動放行，按鈕不用再解鎖
+          if(submitBtn)submitBtn.style.display='none';
         } else {
-          // 辨識失敗：顯示重拍按鈕，解鎖送出按鈕
+          // 辨識失敗（或系統問題但還沒到自動放行門檻）：顯示重拍按鈕，解鎖送出按鈕
           if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='📤 重新送出辨識';}
           if(retakeBtn)retakeBtn.style.display='block';
         }
@@ -2987,14 +2995,50 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
 原因：（一句話說明為什麼）
 建議：（如果不符合，給一個具體改善建議；如果符合，寫「很好！」）`;
 
-  // 嘗試雙KEY
+  // 共用的結果處理：不論是Gemini還是備援服務算出來的結果，畫面顯示、扣分邏輯、寫回後台都一樣
+  function applyAIResult(text,sourceLabel){
+    const pass=text.includes('結果：符合');
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiResult`),pass?'pass':'fail').catch(()=>{});
+    set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiCheckedAt`),serverTimestamp()).catch(()=>{});
+    if(sourceLabel)set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiSource`),sourceLabel).catch(()=>{});
+    if(pass){
+      statusEl.className='photo-verify-status pass';
+      const reasonMatch=text.match(/原因：(.+)/);
+      // XSS安全：AI回傳文字不確定，用textContent
+      statusEl.textContent='✅ 照片驗證通過！';
+      if(reasonMatch&&reasonMatch[1]){
+        const small=document.createElement('div');
+        small.style.cssText='font-size:11px;opacity:0.8;margin-top:3px';
+        small.textContent=reasonMatch[1].trim().substring(0,100);
+        statusEl.appendChild(small);
+      }
+      statusEl.scrollIntoView({behavior:'smooth',block:'center'});
+      state.photoFailCount=0;
+      document.getElementById('skipPhotoArea').classList.add('hidden');
+    } else {
+      state.photoFailCount++;
+      statusEl.className='photo-verify-status fail';
+      const reasonMatch=text.match(/原因：(.+)/);
+      const suggestMatch=text.match(/建議：(.+)/);
+      let msg='❌ 照片驗證未通過\n';
+      if(reasonMatch)msg+=`• ${reasonMatch[1].trim()}\n`;
+      if(suggestMatch)msg+=`💡 建議：${suggestMatch[1].trim()}`;
+      statusEl.textContent=msg;
+      statusEl.scrollIntoView({behavior:'smooth',block:'center'});
+      if(state.photoFailCount>=3)document.getElementById('skipPhotoArea').classList.remove('hidden');
+    }
+    return pass?'pass':'fail';
+  }
+
+  const imageData=base64Data.split(',')[1];
+  const mimeType=base64Data.split(';')[0].split(':')[1]||'image/jpeg';
+
+  // 嘗試雙KEY（Gemini）
   const keys=[state.settings.geminiKey,state.settings.geminiKey2].filter(Boolean);
   let lastError=null;
   for(const key of keys){
     let timeoutId=null;
     try{
-      const imageData=base64Data.split(',')[1];
-      const mimeType=base64Data.split(';')[0].split(':')[1]||'image/jpeg';
       // 加上逾時控制：現場多隊同時使用AI辨識、Wi-Fi壅塞時，fetch可能長時間沒有回應也沒有錯誤，
       // 導致畫面永遠卡在「辨識中」。用 AbortController 設定15秒逾時，逾時就換下一組Key或判定失敗，
       // 不會讓玩家卡住等不到結果。
@@ -3012,44 +3056,73 @@ async function verifyPhotoWithAI(base64Data,description,strictness){
       if(!rawText||!rawText.trim()){continue;}// 空回應，略過
       let data;try{data=JSON.parse(rawText);}catch(jsonErr){continue;}// 非JSON回應，略過
       const text=(data&&data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text||'');
-      const pass=text.includes('結果：符合');
-      // 不論通過與否，都把這次AI判斷結果寫回後台，方便工作人員在照片審核區查看每一次嘗試
-      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiResult`),pass?'pass':'fail').catch(()=>{});
-      set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiCheckedAt`),serverTimestamp()).catch(()=>{});
-      if(pass){
-        statusEl.className='photo-verify-status pass';
-        const reasonMatch=text.match(/原因：(.+)/);
-        // XSS安全：AI回傳文字不確定，用textContent
-        statusEl.textContent='✅ 照片驗證通過！';
-        if(reasonMatch&&reasonMatch[1]){
-          const small=document.createElement('div');
-          small.style.cssText='font-size:11px;opacity:0.8;margin-top:3px';
-          small.textContent=reasonMatch[1].trim().substring(0,100);
-          statusEl.appendChild(small);
-        }
-        state.photoFailCount=0;
-        document.getElementById('skipPhotoArea').classList.add('hidden');
-      } else {
-        state.photoFailCount++;
-        statusEl.className='photo-verify-status fail';
-        const reasonMatch=text.match(/原因：(.+)/);
-        const suggestMatch=text.match(/建議：(.+)/);
-        let msg='❌ 照片驗證未通過\n';
-        if(reasonMatch)msg+=`• ${reasonMatch[1].trim()}\n`;
-        if(suggestMatch)msg+=`💡 建議：${suggestMatch[1].trim()}`;
-        statusEl.textContent=msg;
-        if(state.photoFailCount>=3)document.getElementById('skipPhotoArea').classList.remove('hidden');
-      }
-      return pass;// 回傳結果
+      if(!text.trim())continue;// Gemini有時會回空內容（例如安全過濾），視為這組Key失敗，換下一組
+      return applyAIResult(text,'gemini');
     }catch(e){
       if(timeoutId)clearTimeout(timeoutId);
       if(e.name==='AbortError')console.warn('[verifyPhotoWithAI] 請求逾時（15秒），換下一組Key或判定失敗');
       continue;
     }
   }
-  // 所有KEY都失敗
+
+  // Gemini雙Key都失敗才會走到這裡。若管理者有設定完全不同家的備援AI服務，最後試一次，
+  // 這樣即使Google Gemini服務本身整個掛掉，只要備援服務正常，玩家還是能拿到辨識結果。
+  if(state.settings.backupProvider==='openai'&&state.settings.backupKey){
+    if(statusEl){statusEl.className='photo-verify-status checking';statusEl.textContent='🔍 主要AI無回應，改用備援AI分析中...';}
+    let timeoutId=null;
+    try{
+      const controller=new AbortController();
+      timeoutId=setTimeout(()=>controller.abort(),15000);
+      const res=await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.settings.backupKey}`},
+        body:JSON.stringify({
+          model:'gpt-4o-mini',
+          messages:[{role:'user',content:[
+            {type:'text',text:prompt},
+            {type:'image_url',image_url:{url:base64Data}}
+          ]}],
+          max_tokens:300
+        }),
+        signal:controller.signal
+      });
+      clearTimeout(timeoutId);
+      if(res.ok){
+        const data=await res.json();
+        const text=(data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+        if(text.trim())return applyAIResult(text,'openai-backup');
+      } else {
+        console.warn('[verifyPhotoWithAI] 備援服務(OpenAI)回應失敗，狀態碼:',res.status);
+      }
+    }catch(e){
+      if(timeoutId)clearTimeout(timeoutId);
+      console.warn('[verifyPhotoWithAI] 備援服務(OpenAI)呼叫失敗:',e.name==='AbortError'?'逾時（15秒）':e);
+    }
+  }
+
+  // 主要服務與備援服務（若有設定）都失敗（非辨識不通過，是系統本身連不上/逾時/回應異常，屬於系統問題而非玩家照片問題）
   set(ref(db,`sessions/${state.sessionKey}/stageLogs/${state.currentIdx}/aiResult`),'unavailable').catch(()=>{});
-  if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識暫時無法使用，請繼續作答';setTimeout(()=>{statusEl.style.display='none';},3000);}
+  if(statusEl){statusEl.className='photo-verify-status fail';statusEl.textContent='⚠️ AI辨識系統暫時無法使用，正在重試...';statusEl.scrollIntoView({behavior:'smooth',block:'center'});}
+  return 'unavailable';
+}
+
+// 統一處理AI辨識結果：分辨「真的辨識不通過」跟「系統本身連不上/逾時」兩種情況。
+// 系統性問題連續發生太多次（不是玩家照片的問題）時，直接自動放行，避免玩家卡關。
+// 回傳true代表已經自動處理過關（呼叫端不需要再做任何事）
+function handleAIVerifyStatus(status){
+  if(status==='unavailable'){
+    state.photoUnavailableCount++;
+    if(state.photoUnavailableCount>=2){
+      // 連續2次都是系統本身無法使用（非辨識失敗），判定AI服務當下不可用，直接放行不扣分
+      const statusEl=document.getElementById('photoVerifyStatus');
+      if(statusEl){statusEl.className='photo-verify-status pass';statusEl.textContent='⚠️ AI辨識系統暫時異常，已自動放行此關';statusEl.scrollIntoView({behavior:'smooth',block:'center'});}
+      state.photoUnavailableCount=0;
+      setTimeout(()=>passPhotoStage(),1200);
+      return true;
+    }
+    return false;
+  }
+  state.photoUnavailableCount=0;// 只要有一次是明確的辨識結果（通過或不通過），系統性問題計數就歸零
   return false;
 }
 
